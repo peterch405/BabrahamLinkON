@@ -84,6 +84,10 @@ class fastqHolder:
                         if self.misprimed: #empty dict evals to False
                             try:
                                 seq = self.misprimed[gene][qname.split(' ')[0][1:]] #overwrite seq
+                                if len(qual)>=len(seq):
+                                    qual = qual[len(qual)-len(seq):] #trim qual if it is longer than corrected seq
+                                else:
+                                    qual = 'I'*(len(seq)-len(qual)) + qual #if corrected seq longer, append 'I' at the beginning
                             except KeyError:
                                 pass
                         out_file.write(qname + '\n' + seq + '\n' + thrd + '\n' + qual + '\n')
@@ -103,6 +107,11 @@ class fastqHolder:
                         if self.misprimed: #empty dict evals to False
                             try:
                                 seq = self.misprimed[gene][qname.split(' ')[0][1:]] #overwrite seq
+                                if len(qual)>=len(seq):
+                                    qual = qual[len(qual)-len(seq):] #trim qual if it is longer than corrected seq
+                                else:
+                                    qual = 'I'*(len(seq)-len(qual)) + qual #if corrected seq longer, append 'I' at the beginning
+                                assert len(seq) == len(qual) 'Sequence and quality length do not match!'
                             except KeyError:
                                 pass
                         out_file.write(qname + '\n' + seq + '\n' + thrd + '\n' + qual + '\n')
@@ -228,7 +237,7 @@ class species:
         elif self.name == 'hsa' or self.name == 'human' or self.name == 'homo sapien':
             return {'J1':{'start':105865407, 'end':105865458},
                     'J2':{'start':105865199, 'end':105865250},
-                    'J2P':{'start':105864793, 'end':105864852}, #psedogene, but still need to get rid of germline
+                    'J2P':{'start':105864793, 'end':105864852}, #pseudogene, but still need to get rid of germline
                     'J3':{'start':105864587, 'end':105864635},
                     'J4':{'start':105864215, 'end':105864260},
                     'J5':{'start':105863814, 'end':105863862},
@@ -318,7 +327,7 @@ class SSW_align:
         self.ref_overlap = defaultdict(list) #created by reference function
         self.align_coord = defaultdict(int) #created by reference function
 
-    def align(self, target, qry, score=0, misprim_cor=True, mismatch_allow=1, spe='mmu'):
+    def align(self, target, qry, score=0, misprim_cor=True, mismatch_allow=1, spe='mmu', quick_align=False):
         '''Align against reference and return which J sequence aligns to
         :param target: reference
         :param qry: sequence to align against reference
@@ -326,28 +335,20 @@ class SSW_align:
         :param misprim_cor: perform mispriming correction
         :param mismatch_allow: number of mismatches to allow in sequence beyond J primer
         :param spe: which organism
+        :param quick_align: skip SSW and mispriming and return initial identification using only levenshtein distance on first 5bps
         :return: read identity (store alignment in alignments)
         '''
         #Query needs to be a single string
         assert isinstance(qry, str), 'Align query should not be a list'
 
-        #for mm take only first 21 nts (smallest J)
-        # j_size_ord = sorted(species(spe).J_seq().values(), key=len)
-        # shortest_J = len(j_size_ord[0])
-        #
-        # off_size_ord = [list(item.values()) for item in species(spe).offset().values()]
-        # values = [item for sublist in off_size_ord for item in sublist]
-        # shortest_offset = min(values)
-
-         #use few bp to do initial identification
-
+        #use 5 bp to do initial identification
         ini_len = 5
         restart = True
         while restart:
             restart = False
             J_identities = defaultdict(int)
-            for J in species(spe).replace().keys():
-                dist = Levenshtein.distance(qry[:ini_len], species(spe).J_seq()[J][:ini_len])
+            for J in general.species(spe).replace().keys():
+                dist = Levenshtein.distance(qry[:ini_len], general.species(spe).J_seq()[J][:ini_len])
                 J_identities[J] = dist #if incorrect will catch later
             #chose J with lowest score
             if J_identities and ini_len < 10: #if dict not empty and iteration is less then 10bp
@@ -361,6 +362,9 @@ class SSW_align:
             else:
                 return 'other' #no hits
 
+        if quick_align: #in case only interested in V genes skipp SSW and mispriming
+            return [initial_identity]
+
         #while loop in case initial identity is wrong
         redo = True
         add = 0
@@ -369,8 +373,8 @@ class SSW_align:
         while redo:
             redo = False
 
-             #Use initial identity to align x bp
-            align_size = len(species(spe).J_for_mispriming()[initial_identity]) + add
+            #Use initial identity to align x bp
+            align_size = len(general.species(spe).J_for_mispriming()[initial_identity]) + add
 
             #allows 1 error per 5 bases
             qry_err = align_size-round(align_size/5)
@@ -401,6 +405,7 @@ class SSW_align:
                         not_switched = False
                         continue
 
+                    #If mispriming include original read identity in header; output: (before, after, correct_seq)
                     elif misprim_cor:
                         self.alignments.append(alignment)
 
@@ -433,32 +438,37 @@ class SSW_align:
                             elif cig['type'] == 'I':
                                 poscounter += cig['length']  #skip over insertion
 
-                        print_seq = print_seq + '-'*(len(alignment['target_sequence'])-end)
+                        #get sequence beyond reference/alignment
+                        #know where reference ends so can go 5bp back even if the end did not align
+                        print_seq_full = print_seq + qry[poscounter:] #+ '-'*(len(alignment['target_sequence'])-end-len(qry[poscounter:]))
+                        # CCCTGTGCCCCAGACATCNNNNNNAGTGGTGCCTTGGCCCCAGTAGTCAAANNNNNNACCAGAGTCCCTTGGCCCCAGTAAGCAAANNNNNNTGAGGTTCCTTGACCCCAGTAGTCCAT
+                        # CCCCTGTGCCCCAGACATCGAAGTACCAGTA raw read
+                        # CCTTGTGCCCCAGACATCGAAGTACCAGTA-----------------------------------------------------------------------------------------
+                        # print_seq = print_seq + '-'*(len(alignment['target_sequence'])-end)
+                        # CCTTGTGCCCCAGACAT------------------------------------------------------------------------------------------------------
 
 
-                        # alignment['query_sequence'][q_end:q_end+dist_from_end]
-
-                        target_end = alignment['target_end_optimal']+1
-                        ref_end = self.align_coord[read_identity]['end']
-
-                        #if last characters don't align get from query
-                        dist_from_end = self.align_coord[read_identity]['end']-end
-                        last_let = alignment['query_sequence'][q_end:q_end+dist_from_end]
+                        ref_end = self.align_coord[read_identity]['end'] #End of J in the reference
 
 
                         differences = defaultdict(int)
-                        for key in species(spe).mispriming().keys():
+                        primer_end = defaultdict(int)
+                        for key in general.species(spe).mispriming().keys():
 
                             try: #if in offset dict do ... else do ...
-                                off = species(spe).offset()[read_identity][key]
-                                seq_chk = qry[q_end-off:q_end-off+5]
-                            except KeyError:
-                                off = 0
-                                seq_chk = print_seq[ref_end-5+off:ref_end-dist_from_end+off]+last_let
+                                #Special case for J1 (rare)
+                                off = general.species(spe).offset()[read_identity][key]
+                                seq_chk = print_seq_full[ref_end-off:ref_end-off+5]
+                                primer_end[key] = ref_end-off
+                            except KeyError: #if don't need to offset using offset dict then just use last 5bp
+                                #reference end - 5 : reference end - distance from actual end of reference + last letters that have been cut off
+                                seq_chk = print_seq_full[ref_end-5:ref_end]
+                                primer_end[key] = ref_end-5
 
                             if len(seq_chk) >= 4:
-                                differences[key] = (Levenshtein.distance(seq_chk, species(spe).mispriming()[key][:len(seq_chk)]))
-                            elif not_added:
+                                # print('seq_chk', seq_chk)
+                                differences[key] = (Levenshtein.distance(seq_chk, general.species(spe).mispriming()[key][:len(seq_chk)]))
+                            elif not_added: #if sequence beyond primer is shorter than 4bp redo adding x bp to initial alignment
                                 add = 5-len(seq_chk)
                                 redo=True
                                 not_added = False
@@ -467,8 +477,6 @@ class SSW_align:
 
                         if redo: #redo with a longer read if too many insertions present
                             continue
-
-
 
                         min_val = min(differences.values())
 
@@ -479,75 +487,23 @@ class SSW_align:
                             if len(min_val_key) > 1: #if there are multiple values with same score (should not happen)
                                 return 'unclear'
                             else:
-                                return (min_val_key[0], differences.values(), species(spe).replace()[min_val_key[0]] + qry[start:]) #identity of J and corrected sequence
+                                replace_seq = general.species(spe).replace()[min_val_key[0]]
+
+                                corrected_seq = replace_seq + print_seq_full[primer_end[min_val_key[0]]:]
+
+                                #Will correct qual when writing out fastq (fastqHolder), just trim start or add 'I'
+                                # print(read_identity, min_val_key[0], corrected_seq)
+                                return [read_identity, min_val_key[0], corrected_seq] #identity of J and corrected sequence
 
                         else: #if more than allowed mismatches
                             return 'unclear'
 
                     else: #if not misprime correcting return identity of primer seq
-                        return read_identity
+                        return [read_identity]
                 else:
                     return 'unclear'
-        else: #doesn't match primer seq
+        else: #doesn't match primer seq within acceptable paramenters
             return 'other'
-
-
-
-
-        #     if misprim_cor:
-        #         try:
-        #             corrections = species(spe).mispriming()[read_identity]
-        #             align_end = alignment['target_end_optimal']
-        #             repl = species(spe).replace()[read_identity]
-        #             offset_vals = species(spe).offset()[read_identity]
-        #
-        #             #check for deletions and insertions
-        #             matches = re.findall(r'(\d+)([A-Z]{1})', alignment['cigar'])
-        #             cigar_dict = ([{'type':m[1], 'length':int(m[0])} for m in matches])
-        #
-        #             #Adjust start position depending on deletions and insertions
-        #             add = 0
-        #             subtract = 0
-        #             for cig in cigar_dict:
-        #                 if cig['type'] == 'D':
-        #                     subtract = cig['length']
-        #                 elif cig['type'] == 'I':
-        #                     add = cig['length']
-        #
-        #
-        #             #Differences between ref and qry 5bp beyond J
-        #             differences = defaultdict(int)
-        #
-        #             for correct_key in corrections.keys():
-        #                 len_of_misprim_seg = len(mispriming[read_identity][correct_key])
-        #
-        #                 start =  offset_vals[correct_key] + add - subtract
-        #                 end = start + len_of_misprim_seg  #number of nucleotides after J primer
-        #
-        #                 differences[correct_key] = Levenshtein.distance(qry[start:end], corrections[correct_key])
-        #
-        #
-        #             #which correct key has lowest difference
-        #             min_val = min(differences.values())
-        #
-        #             if min_val <= mismatch_allow: #allow only 0 mismatches by default in beyond J seq
-        #                 #retrieve key of min val (J)
-        #                 min_val_key = [k for k, v in differences.items() if v == min_val]
-        #
-        #                 if len(min_val_key) > 1: #if there are multiple values with same score (should not happen)
-        #                     return 'unclear'
-        #                 else:
-        #                     return (min_val_key[0], repl[min_val_key[0]] + qry[start:]) #identity of J and corrected sequence
-        #             else: #if more than allowed mismatches
-        #                 return 'unclear'
-        #
-        #         except KeyError:
-        #             print('Identified J not in mispriming dictionary')
-        #
-        #
-        #     return read_identity #if not misprime correcting return identity of primer seq
-        # else:
-        #     return 'other' #doesn't match primer seq
 
 
     def print_align(self, num=100, print_out=True):
@@ -646,64 +602,3 @@ def trim_fastq(J_region, out_file, trim_size=100):
                     seq = seq[:trim_size]
                     qual = qual[:trim_size]
                     out.write(title + '\n' + seq + '\n' + thrd + '\n' + qual + '\n')
-
-
-# def plot_pileup(pysam_pileup, pysam_fetch, plot_name, out_dir, spe='mm'):
-#     '''Create a read pileup plot
-#     :param pysam_pileup: pysam pileup object
-#     :param plot_name: Name of saved image
-#     :param spe: which organism
-#     :return: .png
-#     '''
-#     read_dist = []
-#     read_pos = []
-#     j_pos = []
-#
-#     keys = species(spe).J_location().keys()
-#     location_j = species(spe).J_location()
-#
-#
-#     for x in pysam_pileup:
-#         read_dist.append(x.nsegments)
-#         read_pos.append(x.pos)
-#
-#     for pos in read_pos:
-#         found_j = ''
-#         for key in keys:
-#             if pos >=(location_j[key]['start']) and pos <=(location_j[key]['end']):
-#                     found_j = key
-#         if not found_j: #is found_j empty?
-#             j_pos.append(0)
-#         else:
-#             j_pos.append(int(re.sub(r"\D", "", found_j))) #only digit in string
-#
-#
-#     d = np.asarray(read_dist)
-#     df = pd.DataFrame({'Read pileup':read_dist, 'Position':read_pos, 'J genes':j_pos})
-#
-#     fig, (ax1, ax2, ax3) = plt.subplots(nrows=3, ncols=1)
-#
-#     df.plot.line(x="Position", y="Read pileup", ax=ax1)
-#     df.plot.line(x="Position", y="J genes", yticks=(1,2,3,4), ax=ax2) #plot as gantt chart?
-#
-#     J_count = OrderedDict()
-#     for key in sorted(keys, reverse=True):
-#         J_count[key] = 0
-#
-#     count = 0
-#
-#     for y in pysam_fetch:
-#         for key in keys:
-#             if y.pos >=(location_j[key]['start']-50) and y.pos <=(location_j[key]['end']+100):
-#                 J_count[key] += 1
-#         count += 1
-#
-#     J_count['other'] = count - (sum(J_count.values()))
-#
-#
-#     dict_df=pd.DataFrame.from_dict(J_count, orient='index')
-#     dict_df.columns = ['Reads over Js']
-#     dict_df.plot.bar(ax=ax3)
-#     plt.tight_layout(rect=[0.5, 0, 2, 2])
-#
-#     fig.savefig(out_dir + '/' + plot_name + '.png', bbox_inches='tight')
