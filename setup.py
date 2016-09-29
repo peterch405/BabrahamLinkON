@@ -4,6 +4,13 @@
 import sys
 from setuptools import setup, find_packages
 
+try:
+    import Cython
+except ImportError:
+    raise ImportError(
+        "BabrahamLinkON requires cython to be installed before running setup.py (pip install cython)")
+
+from Cython.Build import cythonize
 
 if sys.version_info.major != 3:
     raise RuntimeError('BabrahamLinkON requires Python 3')
@@ -27,4 +34,5 @@ setup(name='BabrahamLinkON',
                'src/babrahamlinkon/preclean.py',
                'src/babrahamlinkon/run_mixcr.py',
                'src/babrahamlinkon/germline_mispriming.py'],
+      ext_modules=cythonize('src/babrahamlinkon/_dedup_umi.pyx')
 )

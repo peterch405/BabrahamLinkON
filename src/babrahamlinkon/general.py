@@ -6,6 +6,12 @@ import pandas as pd
 import os
 import Levenshtein
 
+import subprocess
+import pysam
+import tempfile
+import shutil
+import shlex
+
 try:
     from skbio.alignment import StripedSmithWaterman #put into setup.py install
 except:
@@ -42,6 +48,7 @@ class fastqHolder:
         self.demultiplex = defaultdict(set)
         # self.germline = defaultdict(set)
         self.misprimed = defaultdict(lambda: dict())
+        self.original_id = defaultdict(set)
         self.fastq_split = defaultdict(list)
 
     # def add_to_gene(self, gene, qname):
@@ -51,36 +58,86 @@ class fastqHolder:
     #     '''
     #     self.gene_split[gene].add(qname)
 
-    def add_to_misprimed(self, gene, qname, cor_seq):
+    def add_to_misprimed(self, orig_gene, gene, cor_seq, qname):
         '''Add to gene_split dictionary
         :param gene: name of key
+        :param orig_gene: initial identity of J before mispriming correction
         :param qname: fastq qname to be stored under key
         :param cor_seq: corrected misprimed sequence to be stored under key
         '''
         self.misprimed[gene][qname] = cor_seq
+        self.original_id[qname] = orig_gene
 
     def add_to_fastq(self, gene, qname, seq, third, qual):
         self.fastq_split[gene].append([qname, seq, third, qual])
 
-    def write_to_file(self, gene, path):
-        '''Write fastq_split to file
-        '''
-        with open(path, 'w') as out_file:
-            for qname, seq, thrd, qual in self.fastq_split[gene]:
-                out_file.write(qname + '\n' + seq + '\n' + thrd + '\n' + qual + '\n')
+    # def write_to_file(self, gene, path):
+    #     '''Write fastq_split to file
+    #     '''
+    #     with open(path, 'w') as out_file:
+    #         for qname, seq, thrd, qual in self.fastq_split[gene]:
+    #             out_file.write(qname + '\n' + seq + '\n' + thrd + '\n' + qual + '\n')
 
-    def demultiplex_fastq(self, fastq, gene, path):
-        '''
-        :param fastq: fastq to subset
+    def write_demultiplex(self, fastq_path, gene, out_path, j_end=False):
+        '''Write to a fastq
+        :param fastq_path: fastq to subset
         :param gene: what to subset by (J gene in split_gene)
-        :param path: write path
-        :param misprimed: write out misprime corrected sequence
+        :param out_path: write path
+        :param j_end: are these J reads? of yes will correct misprimed sequences
         '''
 
-        with file_open(fastq) as fq:
-            with open(path, 'w') as out_file:
+        with file_open(fastq_path) as fq:
+            with open(out_path, 'w') as out_file:
                 for qname, seq, thrd, qual in fastq_parse(fq):
                     if qname.split(' ')[0][1:] in self.demultiplex[gene]:
+                        if j_end and self.misprimed: #empty dict evals to False; only run for J reads
+                            try:
+                                seq = self.misprimed[gene][qname.split(' ')[0][1:]] #overwrite seq
+                                if len(qual)>=len(seq):
+                                    qual = qual[len(qual)-len(seq):] #trim qual if it is longer than corrected seq
+                                else:
+                                    qual = 'I'*(len(seq)-len(qual)) + qual #if corrected seq longer, append 'I' at the beginning
+
+                                gene = self.original_id[qname.split(' ')[0][1:]]
+
+                                assert len(seq) == len(qual), 'Sequence and quality length do not match!'
+                            except KeyError:
+                                pass
+                        #Add J gene identity into qname
+                        out_file.write(qname + '_' + gene + '\n' + seq + '\n' + thrd + '\n' + qual + '\n')
+
+
+    def write_demultiplex_umi_extract(self, V_fastq, J_fastq, gene_list, V_out_path, J_out_path, br1, br2):
+        '''Write everything into single fastq file and extract umi
+        :param fastq: fastq to subset
+        :param gene_list: what to subset by (J gene in split_gene)
+        :param V_out_path: V out write path
+        :param J_out_path: J out write path
+        :param br_1: barcode 1 GACTCGT
+        :param br_2: barcode 2 CTGCTCCT
+        '''
+        #process V reads extracting umi
+        # qname_set = {self.demultiplex[x] for x in gene_list} #get all the qnames
+        umi_dict = defaultdict()
+
+        with file_open(V_fastq) as v_fq, open(V_out_path + '_' + br1, 'w') as br1_out_file, open(V_out_path + '_' + br2, 'w') as br2_out_file:
+            for qname, seq, thrd, qual in fastq_parse(v_fq):
+                for gene in gene_list: #loop through list of genes (Jx_barcode)
+                    if qname.split(' ')[0][1:] in self.demultiplex[gene]:
+                        umi = seq[:6] #first 6 bases NNNNNN
+                        umi_dict[qname.split(' ')[0][1:]] = umi #add to dict so can add to J qname too
+                        #Add J gene identity into qname
+                        if br1 in gene:
+                            br1_out_file.write(qname.split(' ')[0] + '_' + gene + '_' + umi + ' ' + qname.split(' ')[1] + '\n' + seq + '\n' + thrd + '\n' + qual + '\n')
+                        else:
+                            br2_out_file.write(qname.split(' ')[0] + '_' + gene + '_' + umi + ' ' + qname.split(' ')[1] + '\n' + seq + '\n' + thrd + '\n' + qual + '\n')
+
+
+        with file_open(J_fastq) as j_fq, open(J_out_path + '_' + br1, 'w') as br1_out_file, open(J_out_path + '_' + br2, 'w') as br2_out_file:
+            for qname, seq, thrd, qual in fastq_parse(j_fq):
+                for gene in gene_list:
+                    if qname.split(' ')[0][1:] in self.demultiplex[gene]:
+                        #only do for J reads!
                         if self.misprimed: #empty dict evals to False
                             try:
                                 seq = self.misprimed[gene][qname.split(' ')[0][1:]] #overwrite seq
@@ -88,33 +145,32 @@ class fastqHolder:
                                     qual = qual[len(qual)-len(seq):] #trim qual if it is longer than corrected seq
                                 else:
                                     qual = 'I'*(len(seq)-len(qual)) + qual #if corrected seq longer, append 'I' at the beginning
+
+                                gene = self.original_id[qname.split(' ')[0][1:]]
+
+                                assert len(seq) == len(qual), 'Sequence and quality length do not match!'
                             except KeyError:
                                 pass
-                        out_file.write(qname + '\n' + seq + '\n' + thrd + '\n' + qual + '\n')
 
-    def preclean_fastq(self, fastq, gene, path):
-        '''
+                        if br1 in gene:
+                            br1_out_file.write(qname.split(' ')[0] + '_' + gene + '_' + umi_dict[qname.split(' ')[0][1:]] + ' ' + qname.split(' ')[1] + '\n' + seq + '\n' + thrd + '\n' + qual + '\n')
+                        else:
+                            br2_out_file.write(qname.split(' ')[0] + '_' + gene + '_' + umi_dict[qname.split(' ')[0][1:]] + ' ' + qname.split(' ')[1] + '\n' + seq + '\n' + thrd + '\n' + qual + '\n')
+
+
+
+    def write_preclean(self, fastq_path, gene, out_path):
+        '''Write fastq file
         :param fastq: fastq to subset
         :param gene: what to subset by (J gene in split_gene)
         :param path: write path
-        :param misprimed: write out misprime corrected sequence
         '''
 
-        with file_open(fastq) as fq:
-            with open(path, 'w') as out_file:
+        with file_open(fastq_path) as fq:
+            with open(out_path, 'w') as out_file:
                 for qname, seq, thrd, qual in fastq_parse(fq):
                     if qname.split(' ')[0][1:] in self.gene_split[gene]:
-                        if self.misprimed: #empty dict evals to False
-                            try:
-                                seq = self.misprimed[gene][qname.split(' ')[0][1:]] #overwrite seq
-                                if len(qual)>=len(seq):
-                                    qual = qual[len(qual)-len(seq):] #trim qual if it is longer than corrected seq
-                                else:
-                                    qual = 'I'*(len(seq)-len(qual)) + qual #if corrected seq longer, append 'I' at the beginning
-                                assert len(seq) == len(qual) 'Sequence and quality length do not match!'
-                            except KeyError:
-                                pass
-                        out_file.write(qname + '\n' + seq + '\n' + thrd + '\n' + qual + '\n')
+                        out_file.write(qname + '_' + gene + '\n' + seq + '\n' + thrd + '\n' + qual + '\n')
 
 
 
@@ -347,8 +403,8 @@ class SSW_align:
         while restart:
             restart = False
             J_identities = defaultdict(int)
-            for J in general.species(spe).replace().keys():
-                dist = Levenshtein.distance(qry[:ini_len], general.species(spe).J_seq()[J][:ini_len])
+            for J in species(spe).replace().keys():
+                dist = Levenshtein.distance(qry[:ini_len], species(spe).J_seq()[J][:ini_len])
                 J_identities[J] = dist #if incorrect will catch later
             #chose J with lowest score
             if J_identities and ini_len < 10: #if dict not empty and iteration is less then 10bp
@@ -374,7 +430,7 @@ class SSW_align:
             redo = False
 
             #Use initial identity to align x bp
-            align_size = len(general.species(spe).J_for_mispriming()[initial_identity]) + add
+            align_size = len(species(spe).J_for_mispriming()[initial_identity]) + add
 
             #allows 1 error per 5 bases
             qry_err = align_size-round(align_size/5)
@@ -453,11 +509,11 @@ class SSW_align:
 
                         differences = defaultdict(int)
                         primer_end = defaultdict(int)
-                        for key in general.species(spe).mispriming().keys():
+                        for key in species(spe).mispriming().keys():
 
                             try: #if in offset dict do ... else do ...
                                 #Special case for J1 (rare)
-                                off = general.species(spe).offset()[read_identity][key]
+                                off = species(spe).offset()[read_identity][key]
                                 seq_chk = print_seq_full[ref_end-off:ref_end-off+5]
                                 primer_end[key] = ref_end-off
                             except KeyError: #if don't need to offset using offset dict then just use last 5bp
@@ -467,13 +523,13 @@ class SSW_align:
 
                             if len(seq_chk) >= 4:
                                 # print('seq_chk', seq_chk)
-                                differences[key] = (Levenshtein.distance(seq_chk, general.species(spe).mispriming()[key][:len(seq_chk)]))
+                                differences[key] = (Levenshtein.distance(seq_chk, species(spe).mispriming()[key][:len(seq_chk)]))
                             elif not_added: #if sequence beyond primer is shorter than 4bp redo adding x bp to initial alignment
                                 add = 5-len(seq_chk)
                                 redo=True
                                 not_added = False
                             else:
-                                return 'unclear'
+                                return 'unclear-' + read_identity
 
                         if redo: #redo with a longer read if too many insertions present
                             continue
@@ -485,9 +541,9 @@ class SSW_align:
                             min_val_key = [k for k, v in differences.items() if v == min_val]
 
                             if len(min_val_key) > 1: #if there are multiple values with same score (should not happen)
-                                return 'unclear'
+                                return 'unclear-' + read_identity
                             else:
-                                replace_seq = general.species(spe).replace()[min_val_key[0]]
+                                replace_seq = species(spe).replace()[min_val_key[0]]
 
                                 corrected_seq = replace_seq + print_seq_full[primer_end[min_val_key[0]]:]
 
@@ -496,14 +552,14 @@ class SSW_align:
                                 return [read_identity, min_val_key[0], corrected_seq] #identity of J and corrected sequence
 
                         else: #if more than allowed mismatches
-                            return 'unclear'
+                            return 'unclear-' + read_identity
 
                     else: #if not misprime correcting return identity of primer seq
                         return [read_identity]
                 else:
-                    return 'unclear'
-        else: #doesn't match primer seq within acceptable paramenters
-            return 'other'
+                    return 'unclear-' + read_identity
+            else: #doesn't match primer seq within acceptable paramenters
+                return 'other'
 
 
     def print_align(self, num=100, print_out=True):
@@ -587,8 +643,7 @@ def trim_fastq(J_region, out_file, trim_size=100):
     :param trim_size: what size to trim all the reads down to (default: 100)
     :return: fastq with trimmed sequences
     '''
-    with open(out_file, 'w') as out:
-        with file_open(J_region) as Jr:
+    with open(out_file, 'w') as out, file_open(J_region) as Jr:
             lines = Jr.read().splitlines()
             for item in fastq_parse(lines):
                 title = item[0]
@@ -602,3 +657,155 @@ def trim_fastq(J_region, out_file, trim_size=100):
                     seq = seq[:trim_size]
                     qual = qual[:trim_size]
                     out.write(title + '\n' + seq + '\n' + thrd + '\n' + qual + '\n')
+
+
+
+class bowtie2:
+    """Call bowtie2-align on single read data
+
+    """
+
+    def __init__(self):
+        # check bowtie2 and samtools is accessible
+        try:
+            subprocess.check_output(['bowtie2', '-h'])
+            subprocess.check_output(['samtools', '--help'])
+        except OSError:
+            raise RuntimeError('bowtie2/samtools not found; put directory in $PATH\n')
+
+        # Create tmp files
+        self.tmp_dir = tempfile.mkdtemp()
+        self.tmp_prefix = os.path.join(self.tmp_dir, "bowtiepipe")
+
+        self.dir_nam = ''
+        self.prefix = ''
+        self.sam_algn = ''
+
+
+    def align_single(self, fastq, nthreads, trim5='0', score='L,0,-1', flags=('--very-sensitive', '--no-unal', '--quiet'),
+                     spe='mmu', samtools_mapq=0, verbose=True, out_dir=None):
+        '''Use bowtie2 to perform single end alignment
+        :param fastq: full path to fastq to aligned
+        :param nthreads: number of cores to Use
+        :param trim: trim the barcode from 5' end
+        :param score: score min to be used  by bowtie2
+        :param flags: additional bowtie2 flags, remove reads that failed to align, prints only serious errors (won't get alignment rate :( )
+        :param spe: species
+        :param samtools_mapq: set MAPQ score on which to filter
+        :param verbose: Output some stats
+        :param out_dir: custom output directory
+        '''
+
+        ref_index = species(spe).bowtie_index()
+
+        #Set up variables for write functions
+        if out_dir == None:
+            self.dir_nam = os.path.dirname(fastq)
+        else:
+            self.dir_nam = out_dir
+
+        self.prefix = os.path.basename(fastq).split('.')[0]
+
+
+        # stream output from bowtie2
+        bowtie2_args = ['bowtie2', \
+        '-x', ref_index, \
+        '-U', fastq, \
+        '-p', str(nthreads), \
+        '--trim5', str(trim5), \
+        '--score-min', str(score)] + \
+        list(flags)
+
+
+        samtools_bam = shlex.split('samtools view -bS -q ' + str(samtools_mapq) + ' -') #default = 0
+
+        bowtie2_out = subprocess.Popen(bowtie2_args, stdout=subprocess.PIPE)
+        samtools_out = subprocess.Popen(samtools_bam, stdin=bowtie2_out.stdout, stdout=open(self.tmp_prefix + '.bam', 'wb')).communicate() #avoid communicate
+
+        #If bowtie returns error, throw exception
+        # out, err = bowtie2_out.communicate()
+        # if b'(ERR)' in err:
+        #     raise Exception(err.decode("utf-8"))
+
+        bowtie2_out.stdout.close()
+
+        #Sort and index bam file
+        samtools_sort = ['samtools', 'sort', '-O', 'bam', '-o', self.tmp_prefix + '_sorted.bam', '-T tmp', self.tmp_prefix + '.bam']
+        samtools_index = ['samtools', 'index', self.tmp_prefix + '_sorted.bam']
+
+        subprocess.call(samtools_sort)
+        subprocess.call(samtools_index)
+
+
+        if verbose:
+            # print(err.decode('utf-8'))
+            samtools_count = shlex.split('samtools view -F 0x904 -c ' + self.tmp_prefix + '_sorted.bam')
+            read_count = subprocess.check_output(samtools_count)
+            print('Number of reads that aligned and passed filter:', read_count.decode("utf-8"))
+
+
+
+    def plot(self, plot_region='', spe='mmu'):
+        '''Plot bam file using rscript
+        '''
+        assert self.dir_nam, 'Run align_single first!'
+
+        print('Saving coverage plot to', self.dir_nam)
+
+        #location of current scripts
+        plot_igh_bef = ['Rscript', os.path.dirname(os.path.realpath(__file__)) +
+        '/plot_igh.R','-o', self.dir_nam + '/' + self.prefix + '.pdf',
+        '-n', 'Coverage','--genome', species(spe).genome(), '-r', plot_region,
+        '-b', self.tmp_prefix + '_sorted.bam']
+
+        subprocess.call(plot_igh_bef)
+
+
+    def pysam_out(self, region=None, algn=False, fetch=False):
+        '''Pysam objects out
+        :param algn: output AlignmentFile
+        :param fetch: output fetch object
+        :return: fetch pysam object or AlignmentFile pysam object
+        '''
+        # Read from tmp file
+        self.sam_algn = pysam.AlignmentFile(self.tmp_prefix + '_sorted.bam', "rb")
+
+
+        # sam_pileup = sam_algn.pileup(region[0], region[1], region[2])
+
+        if algn:
+            return self.sam_algn
+        elif fetch:
+            if region == None:
+                sam_fetch = self.sam_algn.fetch()
+            else:
+                sam_fetch = self.sam_algn.fetch(region[0], region[1], region[2])
+            return sam_fetch
+
+
+    def write(self, region=None):
+        '''Write out tmp bam files
+        :param region: bam region to output
+        '''
+        assert self.dir_nam, 'Run align_single first!'
+        assert self.sam_algn, 'Run pysam_out first!'
+
+        name_out = self.dir_nam + '/' + self.prefix + '.bam' #output same location as input
+        print('Saving bam', self.prefix + '.bam', 'to', self.dir_nam)
+
+        with pysam.AlignmentFile(name_out, 'wb', template=self.sam_algn) as write_reads:
+
+            if region == None:
+                for read in self.sam_algn.fetch():
+                    write_reads.write(read)
+            else:
+                for read in self.sam_algn.fetch(region[0], region[1], region[2]):
+                    write_reads.write(read)
+
+
+    def del_tmp(self):
+        '''Clean up the named pipe and associated temp directory
+        '''
+        assert self.tmp_dir, 'Run align_single first!'
+
+        shutil.rmtree(self.tmp_dir)
