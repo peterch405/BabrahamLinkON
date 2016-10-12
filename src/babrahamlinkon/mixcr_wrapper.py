@@ -42,6 +42,7 @@ def run_mixcr(V_fastq, J_fastq, nthreads, species='mmu', out_dir=None):
         '-s', species,
         '--loci', 'IGH',
         '-f',
+        '-g',
         '--threads', str(nthreads),
         '--save-description',
         '--report', out_dir + '/' + prefix + '_MiXCR_align.log',

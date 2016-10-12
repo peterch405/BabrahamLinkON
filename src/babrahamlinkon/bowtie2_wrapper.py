@@ -9,7 +9,8 @@ from babrahamlinkon import general
 # from general import species
 
 def align_single(fastq, nthreads, region, trim5='0', score='L,0,-1', flags=('--very-sensitive', '--no-unal'),
-                 spe='mmu', samtools_mapq=0, write=False, write_full=False, verbose=True, plot=False, plot_region='', out_dir=None):
+                 spe='mmu', samtools_mapq=0, write=False, write_full=False, verbose=True, plot=False,
+                 plot_region='', out_dir=None, alignment_out=False):
     """Call bowtie2-align on single read data
     Adapted from https://gist.github.com/ArtPoon/62ccff9ef937d16c44af
     https://gist.github.com/ngcrawford/6074386
@@ -77,13 +78,6 @@ def align_single(fastq, nthreads, region, trim5='0', score='L,0,-1', flags=('--v
     subprocess.call(samtools_index)
 
 
-    # Read from tmp file
-    sam_algn = pysam.AlignmentFile(tmp_prefix + '_sorted.bam', "rb")
-
-
-    sam_fetch = sam_algn.fetch(region[0], region[1], region[2])
-    # sam_pileup = sam_algn.pileup(region[0], region[1], region[2])
-
     if verbose:
         # print(err.decode('utf-8'))
         samtools_count = shlex.split('samtools view -F 0x904 -c ' + tmp_prefix + '_sorted.bam')
@@ -103,6 +97,14 @@ def align_single(fastq, nthreads, region, trim5='0', score='L,0,-1', flags=('--v
         subprocess.call(plot_igh_bef)
 
 
+
+    # Read from tmp file
+    sam_algn = pysam.AlignmentFile(tmp_prefix + '_sorted.bam', "rb")
+
+    sam_fetch = sam_algn.fetch(region[0], region[1], region[2])
+    # sam_pileup = sam_algn.pileup(region[0], region[1], region[2])
+
+
     #keep bam file
     if write:
 
@@ -111,7 +113,6 @@ def align_single(fastq, nthreads, region, trim5='0', score='L,0,-1', flags=('--v
         write_reads = pysam.AlignmentFile(name_out, 'wb', template=sam_algn)
         for read in sam_algn.fetch(region[0], region[1], region[2]):
             write_reads.write(read)
-
         write_reads.close()
 
     if write_full:
@@ -127,4 +128,7 @@ def align_single(fastq, nthreads, region, trim5='0', score='L,0,-1', flags=('--v
     # print(tmp_dir)
     shutil.rmtree(tmp_dir)
 
-    return (sam_fetch)
+    if alignment_out:
+        return (sam_fetch, sam_algn)
+    else:
+        return sam_fetch
