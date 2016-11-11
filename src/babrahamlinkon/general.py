@@ -38,221 +38,6 @@ def file_open(filename):
         return f
 
 
-class fastqHolder:
-    '''
-    Store fastq split by gene (J gene)
-    '''
-    def __init__(self):
-        self.gene_split = defaultdict(set) #split into seperate J's and germline
-        self.preclean_v = defaultdict(set) #read has to be in both gene_split and preclean_v
-        self.demultiplex = defaultdict(set)
-        # self.germline = defaultdict(set)
-        self.misprimed = defaultdict(lambda: dict())
-        self.original_id = defaultdict(set)
-        self.fastq_split = defaultdict(list)
-
-    # def add_to_gene(self, gene, qname):
-    #     '''Add to gene_split dictionary
-    #     :param gene: name of key
-    #     :param qname: fastq qname to be stored under key
-    #     '''
-    #     self.gene_split[gene].add(qname)
-
-    def add_to_misprimed(self, orig_gene, gene, cor_seq, qname):
-        '''Add to gene_split dictionary
-        :param gene: name of key
-        :param orig_gene: initial identity of J before mispriming correction
-        :param qname: fastq qname to be stored under key
-        :param cor_seq: corrected misprimed sequence to be stored under key
-        '''
-        self.misprimed[gene][qname] = cor_seq
-        self.original_id[qname] = orig_gene
-
-    def add_to_fastq(self, gene, qname, seq, third, qual):
-        self.fastq_split[gene].append([qname, seq, third, qual])
-
-    # def write_to_file(self, gene, path):
-    #     '''Write fastq_split to file
-    #     '''
-    #     with open(path, 'w') as out_file:
-    #         for qname, seq, thrd, qual in self.fastq_split[gene]:
-    #             out_file.write(qname + '\n' + seq + '\n' + thrd + '\n' + qual + '\n')
-
-    def write_demultiplex(self, fastq_path, gene, out_path, j_end=False):
-        '''Write to a fastq
-        :param fastq_path: fastq to subset
-        :param gene: what to subset by (J gene in split_gene)
-        :param out_path: write path
-        :param j_end: are these J reads? if yes will correct misprimed sequences
-        '''
-
-        with file_open(fastq_path) as fq:
-            with open(out_path, 'w') as out_file:
-                for qname, seq, thrd, qual in fastq_parse(fq):
-                    if qname.split(' ')[0][1:] in self.demultiplex[gene]:
-                        if j_end and self.misprimed: #empty dict evals to False; only run for J reads
-                            try:
-                                seq = self.misprimed[gene][qname.split(' ')[0][1:]] #overwrite seq
-                                if len(qual)>=len(seq):
-                                    qual = qual[len(qual)-len(seq):] #trim qual if it is longer than corrected seq
-                                else:
-                                    qual = 'I'*(len(seq)-len(qual)) + qual #if corrected seq longer, append 'I' at the beginning
-
-                                gene = self.original_id[qname.split(' ')[0][1:]]
-
-                                assert len(seq) == len(qual), 'Sequence and quality length do not match!'
-                            except KeyError:
-                                pass
-                        #Add J gene identity into qname
-                        out_file.write(qname + '_' + gene + '\n' + seq + '\n' + thrd + '\n' + qual + '\n')
-
-
-    def write_demultiplex_umi_extract(self, V_fastq, J_fastq, gene_list, q_score, V_out_path, J_out_path, br1, br2, ):
-        '''Write everything into single fastq file and extract umi
-        :param fastq: fastq to subset
-        :param gene_list: what to subset by (J gene in split_gene)
-        :param V_out_path: V out write path
-        :param J_out_path: J out write path
-        :param br_1: barcode 1 GACTCGT
-        :param br_2: barcode 2 CTGCTCCT
-        '''
-        #process V reads extracting umi
-        # qname_set = {self.demultiplex[x] for x in gene_list} #get all the qnames
-        umi_dict = defaultdict()
-
-        def check_qual(umi_qual, q_score=30):
-            for val in umi_qual:
-                phred = ord(val)-33
-                assert phred <= 41 and phred >= 0, 'Phred score out side range 0-41'
-                if phred < 30:
-                    return True
-                else:
-                    return False
-
-        with file_open(V_fastq) as v_fq, open(V_out_path + '_' + br1, 'w') as br1_out_file, open(V_out_path + '_' + br2, 'w') as br2_out_file:
-            for qname, seq, thrd, qual in fastq_parse(v_fq):
-                for gene in gene_list: #loop through list of genes (Jx_barcode)
-                    if qname.split(' ')[0][1:] in self.demultiplex[gene]:
-
-                        #Check quality of UMI Q20, skip low qual UMI reads
-                        umi_qual = qual[:6]
-                        if check_qual(umi_qual, q_score=q_score):
-                            continue
-
-                        umi = seq[:6] #first 6 bases NNNNNN
-
-                        umi_dict[qname.split(' ')[0][1:]] = umi #add to dict so can add to J qname too
-                        #Add J gene identity into qname
-                        if br1 in gene:
-                            br1_out_file.write(qname.split(' ')[0] + '_' + gene + '_' + umi + ' ' + qname.split(' ')[1] + '\n' + seq + '\n' + thrd + '\n' + qual + '\n')
-                        else:
-                            br2_out_file.write(qname.split(' ')[0] + '_' + gene + '_' + umi + ' ' + qname.split(' ')[1] + '\n' + seq + '\n' + thrd + '\n' + qual + '\n')
-
-
-        with file_open(J_fastq) as j_fq, open(J_out_path + '_' + br1, 'w') as br1_out_file, open(J_out_path + '_' + br2, 'w') as br2_out_file:
-            for qname, seq, thrd, qual in fastq_parse(j_fq):
-                for gene in gene_list:
-                    if qname.split(' ')[0][1:] in self.demultiplex[gene]:
-                        #only do for J reads!
-                        if self.misprimed: #empty dict evals to False
-                            try:
-                                seq = self.misprimed[gene][qname.split(' ')[0][1:]] #overwrite seq
-                                if len(qual)>=len(seq):
-                                    qual = qual[len(qual)-len(seq):] #trim qual if it is longer than corrected seq
-                                else:
-                                    qual = 'I'*(len(seq)-len(qual)) + qual #if corrected seq longer, append 'I' at the beginning
-
-                                gene = self.original_id[qname.split(' ')[0][1:]]
-
-                                assert len(seq) == len(qual), 'Sequence and quality length do not match!'
-                            except KeyError:
-                                pass
-
-                        if br1 in gene:
-                            br1_out_file.write(qname.split(' ')[0] + '_' + gene + '_' + umi_dict[qname.split(' ')[0][1:]] + ' ' + qname.split(' ')[1] + '\n' + seq + '\n' + thrd + '\n' + qual + '\n')
-                        else:
-                            br2_out_file.write(qname.split(' ')[0] + '_' + gene + '_' + umi_dict[qname.split(' ')[0][1:]] + ' ' + qname.split(' ')[1] + '\n' + seq + '\n' + thrd + '\n' + qual + '\n')
-
-
-    def write_demultiplex_umi_extract_assembled(self, jv_fastq, gene_list, q_score, out_path, br1, br2):
-        '''Write everything into single fastq file and extract umi
-        :param fastq: fastq to subset
-        :param gene_list: what to subset by (J gene in split_gene)
-        :param V_out_path: V out write path
-        :param J_out_path: J out write path
-        :param br_1: barcode 1 GACTCGT
-        :param br_2: barcode 2 CTGCTCCT
-        '''
-        #process V reads extracting umi
-        # qname_set = {self.demultiplex[x] for x in gene_list} #get all the qnames
-        umi_dict = defaultdict()
-
-        def check_qual(umi_qual, q_score=30):
-            for val in umi_qual:
-                phred = ord(val)-33
-                assert phred <= 41 and phred >= 0, 'Phred score out side range 0-41'
-                if phred < q_score:
-                    return True
-                else:
-                    return False
-
-        low_qual_UMI = 0
-
-        with file_open(jv_fastq) as jv_fq, open(out_path + '_' + br1, 'w') as br1_out_file, open(out_path + '_' + br2, 'w') as br2_out_file:
-            for qname, seq, thrd, qual in fastq_parse(jv_fq):
-                for gene in gene_list:
-                    if qname.split(' ')[0][1:] in self.demultiplex[gene]:
-
-                        #Check quality of UMI Q20, skip low qual UMI reads
-                        umi_qual = qual[-6:]
-                        if check_qual(umi_qual, q_score=q_score):
-                            low_qual_UMI += 1
-                            continue
-
-                        umi = seq[-6:] #last 6 bases NNNNNN (it is in reverse complement configuration compared to original V read)
-
-                        umi_dict[qname.split(' ')[0][1:]] = umi #add to dict so can add to J qname too
-                        #only do for J reads!
-                        if self.misprimed: #empty dict evals to False
-                            try:
-                                seq = self.misprimed[gene][qname.split(' ')[0][1:]] #overwrite seq
-                                if len(qual)>=len(seq):
-                                    qual = qual[len(qual)-len(seq):] #trim qual if it is longer than corrected seq
-                                else:
-                                    qual = 'I'*(len(seq)-len(qual)) + qual #if corrected seq longer, append 'I' at the beginning
-
-                                gene = self.original_id[qname.split(' ')[0][1:]]
-
-                                assert len(seq) == len(qual), 'Sequence and quality length do not match!'
-                            except KeyError:
-                                pass
-                        #Remove UMI and barcode from seq (keeping it in read qname only)
-                        if br1 in gene:
-                            br1_out_file.write(qname.split(' ')[0] + '_' + gene + '_' + umi_dict[qname.split(' ')[0][1:]] + ' ' +
-                            ''.join(qname.split(' ')[1:]) + '\n' + seq[:-13] + '\n' + thrd + '\n' + qual[:-13] + '\n')
-                        else:
-                            br2_out_file.write(qname.split(' ')[0] + '_' + gene + '_' + umi_dict[qname.split(' ')[0][1:]] + ' ' +
-                            ''.join(qname.split(' ')[1:]) + '\n' + seq[:-14] + '\n' + thrd + '\n' + qual[:-14] + '\n')
-
-        print('Low quality UMIs:', low_qual_UMI)
-
-
-    def write_preclean(self, fastq_path, gene, out_path):
-        '''Write fastq file
-        :param fastq: fastq to subset
-        :param gene: what to subset by (J gene in split_gene)
-        :param path: write path
-        '''
-
-        with file_open(fastq_path) as fq:
-            with open(out_path, 'w') as out_file:
-                for qname, seq, thrd, qual in fastq_parse(fq):
-                    if qname.split(' ')[0][1:] in self.gene_split[gene]:
-                        out_file.write(qname + '_' + gene + '\n' + seq + '\n' + thrd + '\n' + qual + '\n')
-
-
-
-
 
 def fastq_parse(fp):
     """
@@ -297,6 +82,305 @@ def fastq_parse(fp):
             name, seq, thrd, qual = [None] * 4
 
 
+
+
+def fasta_parse(fp):
+    '''
+    Parse fasta file
+    '''
+    linecount = 0
+    name, seq = [None] * 2
+    for line in fp:
+
+        linecount += 1
+        if linecount % 2 == 1:
+
+            try:
+                name = line.decode('UTF-8').rstrip()
+            except AttributeError:
+                name = line.rstrip()
+
+            assert name.startswith('>'),\
+                   "ERROR: The 1st line in fasta element does not start with '>'.\n\
+                   Please check FastQ file near line number %s" % (linecount)
+        elif linecount % 2 == 0:
+            try:
+                seq = line.decode('UTF-8').rstrip()
+            except AttributeError:
+                seq = line.rstrip()
+
+            yield name, seq
+            name, seq = [None] * 2
+
+
+
+
+def trim_fastq(J_region, out_file, trim_size=100):
+    '''Trim all reads to a set length
+    :param J_region: J fastq
+    :param out_file: path of output file
+    :param trim_size: what size to trim all the reads down to (default: 100)
+    :return: fastq with trimmed sequences
+    '''
+    with open(out_file, 'w') as out, file_open(J_region) as Jr:
+            lines = Jr.read().splitlines()
+            for item in fastq_parse(lines):
+                title = item[0]
+                seq = item[1]
+                thrd = item[2]
+                qual = item[3]
+
+                if len(seq) <= trim_size:
+                    out.write(title + '\n' + seq + '\n' + thrd + '\n' + qual + '\n')
+                else:
+                    seq = seq[:trim_size]
+                    qual = qual[:trim_size]
+                    out.write(title + '\n' + seq + '\n' + thrd + '\n' + qual + '\n')
+
+
+
+def reverse_complement(seq):
+    '''Return reverse complement of DNA sequence
+    '''
+    complement = {'A': 'T', 'C': 'G', 'G': 'C', 'T': 'A', 'N':'N'}
+    return ''.join([complement[base] for base in seq.upper()[::-1]])
+
+
+def reverse_string(my_str):
+    '''
+    Reverse the qual of a sequence
+    '''
+    return ''.join(let for let in my_str.upper()[::-1])
+
+
+
+
+#########################
+###### Data holder ######
+#########################
+
+
+class fastqHolder:
+    '''
+    Store fastq split by gene (J gene)
+    '''
+    def __init__(self):
+        self.gene_split = defaultdict(set) #split into seperate J's and germline
+        self.preclean_v = defaultdict(set) #read has to be in both gene_split and preclean_v
+        self.demultiplex = defaultdict(set)
+        # self.germline = defaultdict(set)
+        self.misprimed = defaultdict(lambda: dict())
+        self.original_id = defaultdict(set)
+        self.fastq_split = defaultdict(list)
+
+    # def add_to_gene(self, gene, qname):
+    #     '''Add to gene_split dictionary
+    #     :param gene: name of key
+    #     :param qname: fastq qname to be stored under key
+    #     '''
+    #     self.gene_split[gene].add(qname)
+
+    def add_to_misprimed(self, orig_gene, gene, cor_seq, qname):
+        '''Add to gene_split dictionary
+        :param gene: name of key
+        :param orig_gene: initial identity of J before mispriming correction
+        :param qname: fastq qname to be stored under key
+        :param cor_seq: corrected misprimed sequence to be stored under key
+        '''
+        self.misprimed[gene][qname] = cor_seq
+        self.original_id[qname] = orig_gene
+
+    def add_to_fastq(self, gene, qname, seq, third, qual):
+        self.fastq_split[gene].append([qname, seq, third, qual])
+
+    # def write_to_file(self, gene, path):
+    #     '''Write fastq_split to file
+    #     '''
+    #     with open(path, 'w') as out_file:
+    #         for qname, seq, thrd, qual in self.fastq_split[gene]:
+    #             out_file.write(qname + '\n' + seq + '\n' + thrd + '\n' + qual + '\n')
+
+    def write_demultiplex_unassigned(self, fastq_path, gene, out_path, j_end=False):
+        '''Write to a fastq (for unasigned reads)
+        :param fastq_path: fastq to subset
+        :param gene: what to subset by (J gene in split_gene)
+        :param out_path: write path
+        :param j_end: are these J reads? if yes will correct misprimed sequences
+        '''
+
+        with file_open(fastq_path) as fq:
+            with open(out_path, 'w') as out_file:
+                for qname, seq, thrd, qual in fastq_parse(fq):
+                    if qname.split(' ')[0][1:] in self.demultiplex[gene]:
+                        #Add J gene identity into qname
+                        out_file.write(qname + '_' + gene + '\n' + seq + '\n' + thrd + '\n' + qual + '\n')
+
+    #TODO: check it matches assembled, demultiplexing misprimed reads correction
+    def write_demultiplex_umi_extract(self, V_fastq, J_fastq, gene_list, q_score, V_out_path, J_out_path, br1, br2, ):
+        '''Write everything into single fastq file and extract umi
+        :param fastq: fastq to subset
+        :param gene_list: what to subset by (J gene in split_gene)
+        :param V_out_path: V out write path
+        :param J_out_path: J out write path
+        :param br_1: barcode 1 GACTCGT
+        :param br_2: barcode 2 CTGCTCCT
+        '''
+        #process V reads extracting umi
+        # qname_set = {self.demultiplex[x] for x in gene_list} #get all the qnames
+        umi_dict = defaultdict()
+
+        def check_qual(umi_qual, q_score=30):
+            for val in umi_qual:
+                phred = ord(val)-33
+                assert phred <= 41 and phred >= 0, 'Phred score out side of range 0-41'
+                if phred < 30:
+                    return True
+                else:
+                    return False
+
+        with file_open(V_fastq) as v_fq, open(V_out_path + '_' + br1, 'w') as br1_out_file, open(V_out_path + '_' + br2, 'w') as br2_out_file:
+            for qname, seq, thrd, qual in fastq_parse(v_fq):
+                for gene in gene_list: #loop through list of genes (Jx_barcode)
+                    if qname.split(' ')[0][1:] in self.demultiplex[gene]:
+
+                        #Check quality of UMI Q20, skip low qual UMI reads
+                        umi_qual = qual[:6]
+                        if check_qual(umi_qual, q_score=q_score):
+                            continue
+
+                        umi = seq[:6] #first 6 bases NNNNNN
+
+                        umi_dict[qname.split(' ')[0][1:]] = umi #add to dict so can add to J qname too
+                        #Add J gene identity into qname
+                        if br1 in gene:
+                            br1_out_file.write(qname.split(' ')[0] + '_' + gene + '_' + umi + ' ' + qname.split(' ')[1] + '\n' + seq + '\n' + thrd + '\n' + qual + '\n')
+                        else:
+                            br2_out_file.write(qname.split(' ')[0] + '_' + gene + '_' + umi + ' ' + qname.split(' ')[1] + '\n' + seq + '\n' + thrd + '\n' + qual + '\n')
+
+
+        with file_open(J_fastq) as j_fq, open(J_out_path + '_' + br1, 'w') as br1_out_file, open(J_out_path + '_' + br2, 'w') as br2_out_file:
+            for qname, seq, thrd, qual in fastq_parse(j_fq):
+                for gene in gene_list:
+                    if qname.split(' ')[0][1:] in self.demultiplex[gene]: #both normarl and misprimed in demultiplex
+                        #only do for J reads!
+                        if self.misprimed: #empty dict evals to False
+                            try:
+                                base_gene = gene.split('_')[0] #get rid of barcode, mispriming dict doesn't have barcode
+                                seq = self.misprimed[base_gene][qname.split(' ')[0][1:]] #overwrite seq
+                                if len(qual)>=len(seq):
+                                    qual = qual[len(qual)-len(seq):] #trim qual if it is longer than corrected seq
+                                else:
+                                    qual = 'I'*(len(seq)-len(qual)) + qual #if corrected seq longer, append 'I' at the beginning
+
+                                #TODO: Don't put original identity in header (put new misprime corrected)
+                                gene = self.original_id[qname.split(' ')[0][1:]] #to match V
+
+                                assert len(seq) == len(qual), 'Sequence and quality length do not match!'
+                            except KeyError:
+                                pass
+
+                        if br1 in gene:
+                            br1_out_file.write(qname.split(' ')[0] + '_' + gene + '_' + umi_dict[qname.split(' ')[0][1:]] + ' ' + qname.split(' ')[1] + '\n' + seq + '\n' + thrd + '\n' + qual + '\n')
+                        else:
+                            br2_out_file.write(qname.split(' ')[0] + '_' + gene + '_' + umi_dict[qname.split(' ')[0][1:]] + ' ' + qname.split(' ')[1] + '\n' + seq + '\n' + thrd + '\n' + qual + '\n')
+
+
+    def write_demultiplex_umi_extract_assembled(self, jv_fastq, gene_list, q_score, out_path, br1, br2):
+        '''Write everything into single fastq file and extract umi
+        :param fastq: fastq to subset
+        :param gene_list: what to subset by (J gene in split_gene)
+        :param V_out_path: V out write path
+        :param J_out_path: J out write path
+        :param br_1: barcode 1 GACTCGT
+        :param br_2: barcode 2 CTGCTCCT
+        '''
+        # umi_dict = defaultdict()
+
+        def check_qual(umi_qual, q_score=30):
+            for val in umi_qual:
+                phred = ord(val)-33
+                assert phred <= 41 and phred >= 0, 'Phred score out side of range 0-41'
+                if phred < q_score:
+                    return True
+                else:
+                    return False
+
+        low_qual_UMI = 0
+        br1_count = 0
+        br2_count = 0
+        gene_count = defaultdict(int)
+
+        with file_open(jv_fastq) as jv_fq, open(out_path + '_' + br1, 'w') as br1_out_file, open(out_path + '_' + br2, 'w') as br2_out_file:
+            for qname, seq, thrd, qual in fastq_parse(jv_fq):
+                for gene in gene_list: #J1 J2 J3 J4...
+                    if qname.split(' ')[0][1:] in self.demultiplex[gene]:
+
+                        #Check quality of UMI Q30, skip low qual UMI reads
+                        umi_qual = qual[-6:]
+                        if check_qual(umi_qual, q_score=q_score):
+                            low_qual_UMI += 1
+                            continue
+
+                        umi = seq[-6:] #last 6 bases NNNNNN (it is in reverse complement configuration compared to original V read)
+
+                        # umi_dict[qname.split(' ')[0][1:]] = umi #add to dict so can add to J qname too
+                        if self.misprimed: #empty dict evals to False
+                            try:
+                                base_gene = gene.split('_')[0] #get rid of barcode, mispriming dict doesn't have barcode
+                                seq = self.misprimed[base_gene][qname.split(' ')[0][1:]] #overwrite seq
+                                if len(qual)>=len(seq):
+                                    qual = qual[len(qual)-len(seq):] #trim qual if it is longer than corrected seq
+                                else:
+                                    qual = 'I'*(len(seq)-len(qual)) + qual #if corrected seq longer, append 'I' at the beginning
+
+                                #Don't write original identity, but identity after misprime correction
+                                # gene = self.original_id[qname.split(' ')[0][1:]]
+
+                                assert len(seq) == len(qual), 'Sequence and quality length do not match!'
+                            except KeyError:
+                                pass
+                        #Remove UMI and barcode from seq (keeping it in read qname only)
+                        if br1 in gene:
+                            br1_out_file.write(qname.split(' ')[0] + '_' + gene + '_' + umi + ' ' +
+                            ''.join(qname.split(' ')[1:]) + '\n' + seq[:-13] + '\n' + thrd + '\n' + qual[:-13] + '\n')
+                            br1_count += 1
+                            gene_count[gene] += 1
+                        else:
+                            br2_out_file.write(qname.split(' ')[0] + '_' + gene + '_' + umi + ' ' +
+                            ''.join(qname.split(' ')[1:]) + '\n' + seq[:-14] + '\n' + thrd + '\n' + qual[:-14] + '\n')
+                            br2_count += 1
+                            gene_count[gene] += 1
+
+        print('Low quality UMIs:', low_qual_UMI)
+        print(br1, 'reads written out:', br1_count)
+        print(br2, 'reads written out:', br2_count)
+
+        for j in gene_count.keys():
+            print('Number of', j, 'reads written out:', gene_count[j])
+
+
+
+    def write_preclean(self, fastq_path, gene, out_path):
+        '''Write fastq file
+        :param fastq: fastq to subset
+        :param gene: what to subset by (J gene in split_gene)
+        :param path: write path
+        '''
+
+        with file_open(fastq_path) as fq:
+            with open(out_path, 'w') as out_file:
+                for qname, seq, thrd, qual in fastq_parse(fq):
+                    if qname.split(' ')[0][1:] in self.gene_split[gene]:
+                        out_file.write(qname + '_' + gene + '\n' + seq + '\n' + thrd + '\n' + qual + '\n')
+
+
+
+
+
+
+#####################
+###### Presets ######
+#####################
 
 #TODO: Find a more elegent way to store this information
 class species:
@@ -427,6 +511,7 @@ class species:
         else:
             print('Under construction, use mmu for now')
 
+    #REVIEW: reduce to 4 bp?
     def mispriming(self): #implement auto method to generate this dict
         if self.name == 'mmu' or self.name == 'mouse' or self.name == 'mus musculus':
             return {'J1':'ACATC',
@@ -456,8 +541,9 @@ class species:
 
 
 
-
-
+########################################
+###### J alignment for mispriming ######
+########################################
 
 class SSW_align:
     '''Align reads using StripedSmithWaterman from scikit-bio
@@ -582,7 +668,7 @@ class SSW_align:
                                 poscounter += cig['length']  #skip over insertion
 
                         #get sequence beyond reference/alignment
-                        #know where reference ends so can go 5bp back even if the end did not align
+                        #know where reference ends so can go 5bp back even if the end did not align / add the full query sequcence back
                         print_seq_full = print_seq + qry[poscounter:] #+ '-'*(len(alignment['target_sequence'])-end-len(qry[poscounter:]))
                         # CCCTGTGCCCCAGACATCNNNNNNAGTGGTGCCTTGGCCCCAGTAGTCAAANNNNNNACCAGAGTCCCTTGGCCCCAGTAAGCAAANNNNNNTGAGGTTCCTTGACCCCAGTAGTCCAT
                         # CCCCTGTGCCCCAGACATCGAAGTACCAGTA raw read
@@ -619,8 +705,8 @@ class SSW_align:
                                 add = 5-len(seq_chk)
                                 redo=True
                                 not_added = False
-                            else:
-                                return 'unclear-' + read_identity
+                            else: #shouldn't return anything here
+                                return 'unclear-' + read_identity + '-bpa'
 
                         if redo: #redo with a longer read if too many insertions present
                             continue
@@ -631,19 +717,27 @@ class SSW_align:
                             #retrieve key of min val (J)
                             min_val_key = [k for k, v in differences.items() if v == min_val]
 
-                            if len(min_val_key) > 1: #if there are multiple values with same score
-                                return 'unclear-' + read_identity
+                            if len(min_val_key) > 1: #if there are multiple values with same score (shouldn't happen)
+                                return 'unclear-' + read_identity + '-mh'
                             else:
                                 replace_seq = species(spe).replace()[min_val_key[0]]
 
                                 corrected_seq = replace_seq + print_seq_full[primer_end[min_val_key[0]]:]
 
+                                assert '-' not in corrected_seq, 'Unknown space in corrected sequence'
+
                                 #Will correct qual when writing out fastq (fastqHolder), just trim start or add 'I'
                                 # print(read_identity, min_val_key[0], corrected_seq)
                                 return [read_identity, min_val_key[0], corrected_seq] #identity of J and corrected sequence
 
-                        else: #if more than allowed mismatches
-                            return 'unclear-' + read_identity
+                        else: #if more than allowed mismatches (chewing back?)
+                            return 'unclear-' + read_identity + '-chw'
+                            # #return 15bp beyond primer for lowest score
+                            # min_val_key = [k for k, v in differences.items() if v == min_val]
+                            # if len(min_val_key) > 1: #if there are multiple values with same score
+                            #     return 'unclear-' + read_identity + '-mh'
+                            # else:
+                            #     return 'unclear-' + read_identity + '-' + print_seq_full[primer_end[min_val_key[0]]:primer_end[min_val_key[0]]+15]
 
                     else: #if not misprime correcting return identity of primer seq
                         return [read_identity]
@@ -731,29 +825,10 @@ class SSW_align:
 
 
 
-def trim_fastq(J_region, out_file, trim_size=100):
-    '''Trim all reads to a set length
-    :param J_region: J fastq
-    :param out_file: path of output file
-    :param trim_size: what size to trim all the reads down to (default: 100)
-    :return: fastq with trimmed sequences
-    '''
-    with open(out_file, 'w') as out, file_open(J_region) as Jr:
-            lines = Jr.read().splitlines()
-            for item in fastq_parse(lines):
-                title = item[0]
-                seq = item[1]
-                thrd = item[2]
-                qual = item[3]
 
-                if len(seq) <= trim_size:
-                    out.write(title + '\n' + seq + '\n' + thrd + '\n' + qual + '\n')
-                else:
-                    seq = seq[:trim_size]
-                    qual = qual[:trim_size]
-                    out.write(title + '\n' + seq + '\n' + thrd + '\n' + qual + '\n')
-
-
+#####################
+###### Bowtie2 ######
+#####################
 
 class bowtie2:
     """Call bowtie2-align on single read data
@@ -761,12 +836,12 @@ class bowtie2:
     """
 
     def __init__(self):
-        # check bowtie2 and samtools is accessible
-        try:
-            subprocess.check_output(['bowtie2', '-h'])
-            subprocess.check_output(['samtools', '--help'])
-        except OSError:
-            raise RuntimeError('bowtie2/samtools not found; put directory in $PATH\n')
+        # # check bowtie2 and samtools is accessible
+        # try:
+        #     subprocess.check_output(['bowtie2', '-h'])
+        #     subprocess.check_output(['samtools', '--help'])
+        # except OSError:
+        #     raise RuntimeError('bowtie2/samtools not found; put directory in $PATH\n')
 
         # Create tmp files
         self.tmp_dir = tempfile.mkdtemp()
@@ -907,11 +982,3 @@ class bowtie2:
         assert self.tmp_dir, 'Run align_single first!'
 
         shutil.rmtree(self.tmp_dir)
-
-
-
-def reverse_complement(seq):
-    '''Return reverse complement of DNA sequence
-    '''
-    complement = {'A': 'T', 'C': 'G', 'G': 'C', 'T': 'A', 'N':'N'}
-    return ''.join([complement[base] for base in seq.upper()[::-1]])
