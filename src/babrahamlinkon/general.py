@@ -11,6 +11,7 @@ import pysam
 import tempfile
 import shutil
 import shlex
+from babrahamlinkon import presets
 
 try:
     from skbio.alignment import StripedSmithWaterman #put into setup.py install
@@ -213,79 +214,97 @@ class fastqHolder:
                 for qname, seq, thrd, qual in fastq_parse(fq):
                     if qname.split(' ')[0][1:] in self.demultiplex[gene]:
                         #Add J gene identity into qname
-                        out_file.write(qname + '_' + gene + '\n' + seq + '\n' + thrd + '\n' + qual + '\n')
+                        out_file.write(qname.split(' ')[0] + '_' + gene + ' ' +
+                                       ''.join(qname.split(' ')[1:]) + '\n' + seq + '\n' + thrd + '\n' + qual + '\n')
+
+
+
+    def write_preclean(self, fastq_path, gene, out_path):
+        '''Write fastq file
+        :param fastq: fastq to subset
+        :param gene: what to subset by (J gene in split_gene)
+        :param path: write path
+        '''
+
+        with file_open(fastq_path) as fq:
+            with open(out_path, 'w') as out_file:
+                for qname, seq, thrd, qual in fastq_parse(fq):
+                    if qname.split(' ')[0][1:] in self.gene_split[gene]:
+                        out_file.write(qname.split(' ')[0] + '_' + gene + ' ' +
+                                       ''.join(qname.split(' ')[1:]) + '\n' + seq + '\n' + thrd + '\n' + qual + '\n')
+
 
     #TODO: check it matches assembled, demultiplexing misprimed reads correction
-    def write_demultiplex_umi_extract(self, V_fastq, J_fastq, gene_list, q_score, V_out_path, J_out_path, br1, br2, ):
-        '''Write everything into single fastq file and extract umi
-        :param fastq: fastq to subset
-        :param gene_list: what to subset by (J gene in split_gene)
-        :param V_out_path: V out write path
-        :param J_out_path: J out write path
-        :param br_1: barcode 1 GACTCGT
-        :param br_2: barcode 2 CTGCTCCT
-        '''
-        #process V reads extracting umi
-        # qname_set = {self.demultiplex[x] for x in gene_list} #get all the qnames
-        umi_dict = defaultdict()
+    # def write_demultiplex_umi_extract(self, V_fastq, J_fastq, gene_list, q_score, V_out_path, J_out_path, br1, br2, ):
+    #     '''Write everything into single fastq file and extract umi
+    #     :param fastq: fastq to subset
+    #     :param gene_list: what to subset by (J gene in split_gene)
+    #     :param V_out_path: V out write path
+    #     :param J_out_path: J out write path
+    #     :param br_1: barcode 1 GACTCGT
+    #     :param br_2: barcode 2 CTGCTCCT
+    #     '''
+    #     #process V reads extracting umi
+    #     # qname_set = {self.demultiplex[x] for x in gene_list} #get all the qnames
+    #     umi_dict = defaultdict()
+    #
+    #     def check_qual(umi_qual, q_score=30):
+    #         for val in umi_qual:
+    #             phred = ord(val)-33
+    #             assert phred <= 41 and phred >= 0, 'Phred score out side of range 0-41'
+    #             if phred < 30:
+    #                 return True
+    #             else:
+    #                 return False
+    #
+    #     with file_open(V_fastq) as v_fq, open(V_out_path + '_' + br1, 'w') as br1_out_file, open(V_out_path + '_' + br2, 'w') as br2_out_file:
+    #         for qname, seq, thrd, qual in fastq_parse(v_fq):
+    #             for gene in gene_list: #loop through list of genes (Jx_barcode)
+    #                 if qname.split(' ')[0][1:] in self.demultiplex[gene]:
+    #
+    #                     #Check quality of UMI Q20, skip low qual UMI reads
+    #                     umi_qual = qual[:6]
+    #                     if check_qual(umi_qual, q_score=q_score):
+    #                         continue
+    #
+    #                     umi = seq[:6] #first 6 bases NNNNNN
+    #
+    #                     umi_dict[qname.split(' ')[0][1:]] = umi #add to dict so can add to J qname too
+    #                     #Add J gene identity into qname
+    #                     if br1 in gene:
+    #                         br1_out_file.write(qname.split(' ')[0] + '_' + gene + '_' + umi + ' ' + qname.split(' ')[1] + '\n' + seq + '\n' + thrd + '\n' + qual + '\n')
+    #                     else:
+    #                         br2_out_file.write(qname.split(' ')[0] + '_' + gene + '_' + umi + ' ' + qname.split(' ')[1] + '\n' + seq + '\n' + thrd + '\n' + qual + '\n')
+    #
+    #
+    #     with file_open(J_fastq) as j_fq, open(J_out_path + '_' + br1, 'w') as br1_out_file, open(J_out_path + '_' + br2, 'w') as br2_out_file:
+    #         for qname, seq, thrd, qual in fastq_parse(j_fq):
+    #             for gene in gene_list:
+    #                 if qname.split(' ')[0][1:] in self.demultiplex[gene]: #both normarl and misprimed in demultiplex
+    #                     #only do for J reads!
+    #                     if self.misprimed: #empty dict evals to False
+    #                         try:
+    #                             base_gene = gene.split('_')[0] #get rid of barcode, mispriming dict doesn't have barcode
+    #                             seq = self.misprimed[base_gene][qname.split(' ')[0][1:]] #overwrite seq
+    #                             if len(qual)>=len(seq):
+    #                                 qual = qual[len(qual)-len(seq):] #trim qual if it is longer than corrected seq
+    #                             else:
+    #                                 qual = 'I'*(len(seq)-len(qual)) + qual #if corrected seq longer, append 'I' at the beginning
+    #
+    #                             #TODO: Don't put original identity in header (put new misprime corrected)
+    #                             gene = self.original_id[qname.split(' ')[0][1:]] #to match V
+    #
+    #                             assert len(seq) == len(qual), 'Sequence and quality length do not match!'
+    #                         except KeyError:
+    #                             pass
+    #
+    #                     if br1 in gene:
+    #                         br1_out_file.write(qname.split(' ')[0] + '_' + gene + '_' + umi_dict[qname.split(' ')[0][1:]] + ' ' + qname.split(' ')[1] + '\n' + seq + '\n' + thrd + '\n' + qual + '\n')
+    #                     else:
+    #                         br2_out_file.write(qname.split(' ')[0] + '_' + gene + '_' + umi_dict[qname.split(' ')[0][1:]] + ' ' + qname.split(' ')[1] + '\n' + seq + '\n' + thrd + '\n' + qual + '\n')
 
-        def check_qual(umi_qual, q_score=30):
-            for val in umi_qual:
-                phred = ord(val)-33
-                assert phred <= 41 and phred >= 0, 'Phred score out side of range 0-41'
-                if phred < 30:
-                    return True
-                else:
-                    return False
 
-        with file_open(V_fastq) as v_fq, open(V_out_path + '_' + br1, 'w') as br1_out_file, open(V_out_path + '_' + br2, 'w') as br2_out_file:
-            for qname, seq, thrd, qual in fastq_parse(v_fq):
-                for gene in gene_list: #loop through list of genes (Jx_barcode)
-                    if qname.split(' ')[0][1:] in self.demultiplex[gene]:
-
-                        #Check quality of UMI Q20, skip low qual UMI reads
-                        umi_qual = qual[:6]
-                        if check_qual(umi_qual, q_score=q_score):
-                            continue
-
-                        umi = seq[:6] #first 6 bases NNNNNN
-
-                        umi_dict[qname.split(' ')[0][1:]] = umi #add to dict so can add to J qname too
-                        #Add J gene identity into qname
-                        if br1 in gene:
-                            br1_out_file.write(qname.split(' ')[0] + '_' + gene + '_' + umi + ' ' + qname.split(' ')[1] + '\n' + seq + '\n' + thrd + '\n' + qual + '\n')
-                        else:
-                            br2_out_file.write(qname.split(' ')[0] + '_' + gene + '_' + umi + ' ' + qname.split(' ')[1] + '\n' + seq + '\n' + thrd + '\n' + qual + '\n')
-
-
-        with file_open(J_fastq) as j_fq, open(J_out_path + '_' + br1, 'w') as br1_out_file, open(J_out_path + '_' + br2, 'w') as br2_out_file:
-            for qname, seq, thrd, qual in fastq_parse(j_fq):
-                for gene in gene_list:
-                    if qname.split(' ')[0][1:] in self.demultiplex[gene]: #both normarl and misprimed in demultiplex
-                        #only do for J reads!
-                        if self.misprimed: #empty dict evals to False
-                            try:
-                                base_gene = gene.split('_')[0] #get rid of barcode, mispriming dict doesn't have barcode
-                                seq = self.misprimed[base_gene][qname.split(' ')[0][1:]] #overwrite seq
-                                if len(qual)>=len(seq):
-                                    qual = qual[len(qual)-len(seq):] #trim qual if it is longer than corrected seq
-                                else:
-                                    qual = 'I'*(len(seq)-len(qual)) + qual #if corrected seq longer, append 'I' at the beginning
-
-                                #TODO: Don't put original identity in header (put new misprime corrected)
-                                gene = self.original_id[qname.split(' ')[0][1:]] #to match V
-
-                                assert len(seq) == len(qual), 'Sequence and quality length do not match!'
-                            except KeyError:
-                                pass
-
-                        if br1 in gene:
-                            br1_out_file.write(qname.split(' ')[0] + '_' + gene + '_' + umi_dict[qname.split(' ')[0][1:]] + ' ' + qname.split(' ')[1] + '\n' + seq + '\n' + thrd + '\n' + qual + '\n')
-                        else:
-                            br2_out_file.write(qname.split(' ')[0] + '_' + gene + '_' + umi_dict[qname.split(' ')[0][1:]] + ' ' + qname.split(' ')[1] + '\n' + seq + '\n' + thrd + '\n' + qual + '\n')
-
-
-    def write_demultiplex_umi_extract_assembled(self, jv_fastq, gene_list, q_score, out_path, br1, br2):
+    def write_demultiplex_umi_extract_assembled(self, jv_fastq, gene_list, out_path, br1, br2):
         '''Write everything into single fastq file and extract umi
         :param fastq: fastq to subset
         :param gene_list: what to subset by (J gene in split_gene)
@@ -296,14 +315,7 @@ class fastqHolder:
         '''
         # umi_dict = defaultdict()
 
-        def check_qual(umi_qual, q_score=30):
-            for val in umi_qual:
-                phred = ord(val)-33
-                assert phred <= 41 and phred >= 0, 'Phred score out side of range 0-41'
-                if phred < q_score:
-                    return True
-                else:
-                    return False
+
 
         low_qual_UMI = 0
         br1_count = 0
@@ -314,12 +326,6 @@ class fastqHolder:
             for qname, seq, thrd, qual in fastq_parse(jv_fq):
                 for gene in gene_list: #J1 J2 J3 J4...
                     if qname.split(' ')[0][1:] in self.demultiplex[gene]:
-
-                        #Check quality of UMI Q30, skip low qual UMI reads
-                        umi_qual = qual[-6:]
-                        if check_qual(umi_qual, q_score=q_score):
-                            low_qual_UMI += 1
-                            continue
 
                         umi = seq[-6:] #last 6 bases NNNNNN (it is in reverse complement configuration compared to original V read)
 
@@ -351,7 +357,7 @@ class fastqHolder:
                             br2_count += 1
                             gene_count[gene] += 1
 
-        print('Low quality UMIs:', low_qual_UMI)
+        # print('Low quality UMIs:', low_qual_UMI)
         print(br1, 'reads written out:', br1_count)
         print(br2, 'reads written out:', br2_count)
 
@@ -360,184 +366,11 @@ class fastqHolder:
 
 
 
-    def write_preclean(self, fastq_path, gene, out_path):
-        '''Write fastq file
-        :param fastq: fastq to subset
-        :param gene: what to subset by (J gene in split_gene)
-        :param path: write path
-        '''
-
-        with file_open(fastq_path) as fq:
-            with open(out_path, 'w') as out_file:
-                for qname, seq, thrd, qual in fastq_parse(fq):
-                    if qname.split(' ')[0][1:] in self.gene_split[gene]:
-                        out_file.write(qname + '_' + gene + '\n' + seq + '\n' + thrd + '\n' + qual + '\n')
 
 
 
 
 
-
-#####################
-###### Presets ######
-#####################
-
-#TODO: Find a more elegent way to store this information
-class species:
-    '''Which species to be analysed
-    :return: Data specific to organism
-    '''
-    def __init__(self, name):
-        self.name = name
-
-    def J_seq(self):
-        if self.name == 'mmu' or self.name == 'mouse' or self.name == 'mus musculus':
-            return {'J1':'CCCTGTGCCCCAGACATCGAA',
-                    'J2':'AGTGGTGCCTTGGCCCCAGTAG',
-                    'J3':'ACCAGAGTCCCTTGGCCCCAGTAA',
-                    'J4':'TGAGGTTCCTTGACCCCAGTAGTCCATA'}
-        elif self.name == 'hsa' or self.name == 'human' or self.name == 'homo sapien':
-            return {'J1':'GGTGCCCTGGCCCCAGTG',
-                    'J2':'GGTGCCACGGCCCCAGAGA',
-                    'J3':'ACCATTGTCCCTTGGCCCCAG',
-                    'J4.1':'GACCAGGGTTCCTTGGCCCC',
-                    'J4.3':'GACCAGGGTCCCTTGGCCCC',
-                    'J5.1':'CAGGGTTCCTTGGCCCCAGG',
-                    'J5.2':'CAGGGTTCCCTGGCCCCAGG',
-                    'J6.1':'TGCCCCCAGACGTCCATACCGT',
-                    'J6.2':'TGGCCCCAGACGTCCATACCGT',
-                    'J6.3':'CCTTTGCCCCAGACGTCCATGTAGT',
-                    'J6.4':'TTGCCCCAGACGTCCATACCGT'}
-        else:
-            print('Under construction, use mm for now')
-
-    def igh(self):
-        if self.name == 'mmu' or self.name == 'mouse' or self.name == 'mus musculus':
-            return ['chr12', 113249830, 116015093] #IgH mm10
-        elif self.name == 'hsa' or self.name == 'human' or self.name == 'homo sapien':
-            # return ['chr14', 105857867, 106890699] #IgH GRCh38.7 (VDJ only)
-            return ['chr14', 106324871, 107292532] #hg19
-        else:
-            print('Under construction, use mm for now')
-
-    def bowtie_index(self):
-        if not os.environ.get('BOWTIE2_INDEXES'):
-            print("'echo 'export BOWTIE2_INDEXES=/path/to/bowtie2_indexes' >> ~/.bashrc \
-                    source ~/.bashrc'")
-            raise Exception('BOWTIE2_INDEXES enviromental variable not set!')
-
-        if self.name == 'mmu' or self.name == 'mouse' or self.name == 'mus musculus':
-            return 'mm10'
-        elif self.name == 'hsa' or self.name == 'human' or self.name == 'homo sapien':
-            # return 'GCA_000001405.15_GRCh38_no_alt_analysis_set.fna.bowtie_index'
-            return 'Homo_sapiens.GRCh37'
-        else:
-            print('Under construction, use mmu for now')
-
-    ## Germline identification ##
-
-    def germline(self):
-        if self.name == 'mmu' or self.name == 'mouse' or self.name == 'mus musculus':
-            return ['chr12', 113428237, 113430474] #J genes mm10
-        elif self.name == 'hsa' or self.name == 'human' or self.name == 'homo sapien':
-            # return ['chr14', 105863049, 105865530] #J genes without J1P and IGHD7-27 hg38
-            return ['chr14',106329364,106331708]
-        else:
-            print('Under construction, use mmu for now')
-
-    #TODO:Implement automatic import from biomart
-    def J_location(self): #required to seperate germline into unique J's
-        if self.name == 'mmu' or self.name == 'mouse' or self.name == 'mus musculus':
-            return {'J1':{'start':113429781, 'end':113429833},
-                    'J2':{'start':113429514, 'end':113429567},
-                    'J3':{'start':113429085, 'end':113429132},
-                    'J4':{'start':113428514, 'end':113428567}}
-                    #mm10
-        elif self.name == 'hsa' or self.name == 'human' or self.name == 'homo sapien':
-            return {'J1':{'start':105865407, 'end':105865458},
-                    'J2':{'start':105865199, 'end':105865250},
-                    'J2P':{'start':105864793, 'end':105864852}, #pseudogene, but still need to get rid of germline
-                    'J3':{'start':105864587, 'end':105864635},
-                    'J4':{'start':105864215, 'end':105864260},
-                    'J5':{'start':105863814, 'end':105863862},
-                    'J6':{'start':105863198, 'end':105863258}}
-                    # GRCh38.p7
-        else:
-            print('Under construction, use mmu for now')
-
-    ## Regions / genomes ##
-
-    def dj(self):
-        '''Location of DJ genes to remove DJ recombination (seqmonk)
-        '''
-        if self.name == 'mmu' or self.name == 'mouse' or self.name == 'mus musculus':
-            return ['chr12','113428112', '113488696']
-        elif self.name == 'hsa' or self.name == 'human' or self.name == 'homo sapien':
-            # return ['chr14','105862474','105920591']
-            return ['chr14','106327849','106392148'] #hg19
-        else:
-            print('Under construction, use mmu for now')
-
-    def genome(self):
-        '''Which genome is being used
-        '''
-        if self.name == 'mmu' or self.name == 'mouse' or self.name == 'mus musculus':
-            return 'mm10'
-        elif self.name == 'hsa' or self.name == 'human' or self.name == 'homo sapien':
-            # return 'hg38'
-            return 'hg19'
-        else:
-            print('Under construction, use mmu for now')
-
-    def v_region(self):
-        '''Coordinates of V region (seqmonk)
-        '''
-        if self.name == 'mmu' or self.name == 'mouse' or self.name == 'mus musculus':
-            return 'chr12:113531809-116015193'
-        elif self.name == 'hsa' or self.name == 'human' or self.name == 'homo sapien':
-            # return 'chr14:105931103-106903920'
-            return 'chr14:106394250-107295467' #hg19
-        else:
-            print('Under construction, use mmu for now')
-
-    ## Mispriming ##
-
-    def J_for_mispriming(self): #ref created using these
-        if self.name == 'mmu' or self.name == 'mouse' or self.name == 'mus musculus':
-            return {'J1':'CCCTGTGCCCCAGACATC',
-                    'J2':'AGTGGTGCCTTGGCCCCAGTAGTCAAA',
-                    'J3':'ACCAGAGTCCCTTGGCCCCAGTAAGCAAA',
-                    'J4':'TGAGGTTCCTTGACCCCAGTAGTCCAT'}
-        else:
-            print('Under construction, use mmu for now')
-
-    #REVIEW: reduce to 4 bp?
-    def mispriming(self): #implement auto method to generate this dict
-        if self.name == 'mmu' or self.name == 'mouse' or self.name == 'mus musculus':
-            return {'J1':'ACATC',
-                    'J2':'TCAAA',
-                    'J3':'GCAAA',
-                    'J4':'TCCAT'}
-        else:
-            print('Under construction, use mmu for now')
-
-    def offset(self):
-        if self.name == 'mmu' or self.name == 'mouse' or self.name == 'mus musculus':
-            return {'J1':{'J2':2, 'J3':2, 'J4':2},
-                    'J2':{'J1':8},
-                    'J3':{'J1':8},
-                    'J4':{'J1':8}}
-        else:
-            print('Under construction, use mmu for now')
-
-    def replace(self):
-        if self.name == 'mmu' or self.name == 'mouse' or self.name == 'mus musculus':
-            return {'J1':'CCCTGTGCCCCAG',
-                    'J2':'AGTGGTGCCTTGGCCCCAGTAG',
-                    'J3':'ACCAGAGTCCCTTGGCCCCAGTAA',
-                    'J4':'TGAGGTTCCTTGACCCCAGTAG'}
-        else:
-            print('Under construction, use mmu for now')
 
 
 
@@ -575,8 +408,8 @@ class SSW_align:
         while restart:
             restart = False
             J_identities = defaultdict(int)
-            for J in species(spe).J_seq().keys():
-                dist = Levenshtein.distance(qry[:ini_len], species(spe).J_seq()[J][:ini_len])
+            for J in presets.prs(spe).J_seq().keys():
+                dist = Levenshtein.distance(qry[:ini_len], presets.prs(spe).J_seq()[J][:ini_len])
                 J_identities[J] = dist #if incorrect will catch later
             #chose J with lowest score
             if J_identities and ini_len <= 10: #if dict not empty and iteration is less then 10bp
@@ -602,7 +435,7 @@ class SSW_align:
             redo = False
 
             #Use initial identity to align x bp
-            align_size = len(species(spe).J_for_mispriming()[initial_identity]) + add
+            align_size = len(presets.prs(spe).J_for_mispriming()[initial_identity]) + add
 
             #allows 1 error per 5 bases
             qry_err = align_size-round(align_size/5)
@@ -682,11 +515,11 @@ class SSW_align:
 
                         differences = defaultdict(int)
                         primer_end = defaultdict(int)
-                        for key in species(spe).mispriming().keys():
+                        for key in presets.prs(spe).mispriming().keys():
 
                             try: #if in offset dict do ... else do ...
                                 #Special case for J1 (rare)
-                                off = species(spe).offset()[read_identity][key]
+                                off = presets.prs(spe).offset()[read_identity][key]
                                 seq_chk = print_seq_full[ref_end-off:ref_end-off+5]
                                 primer_end[key] = ref_end-off
                                 # read_offset = True
@@ -699,7 +532,7 @@ class SSW_align:
 
                             if len(seq_chk) >= 4:
                                 # print('seq_chk', seq_chk)
-                                differences[key] = (Levenshtein.distance(seq_chk, species(spe).mispriming()[key][:len(seq_chk)]))
+                                differences[key] = (Levenshtein.distance(seq_chk, presets.prs(spe).mispriming()[key][:len(seq_chk)]))
                             #REVIEW: Can skip this now?
                             elif not_added: #if sequence beyond primer is shorter than 4bp redo adding x bp to initial alignment
                                 add = 5-len(seq_chk)
@@ -720,7 +553,7 @@ class SSW_align:
                             if len(min_val_key) > 1: #if there are multiple values with same score (shouldn't happen)
                                 return 'unclear-' + read_identity + '-mh'
                             else:
-                                replace_seq = species(spe).replace()[min_val_key[0]]
+                                replace_seq = presets.prs(spe).replace()[min_val_key[0]]
 
                                 corrected_seq = replace_seq + print_seq_full[primer_end[min_val_key[0]]:]
 
@@ -808,9 +641,9 @@ class SSW_align:
         if quick_align:
             return ref
 
-        for key in sorted(species(spe).J_for_mispriming().keys()):
+        for key in sorted(presets.prs(spe).J_for_mispriming().keys()):
             start = len(ref)
-            ref = ref + species(spe).J_for_mispriming()[key] + 'N'*6
+            ref = ref + presets.prs(spe).J_for_mispriming()[key] + 'N'*6
             end = len(ref)-6
             if start == 0:
                 self.align_coord[key] = {'start':start, 'end':end}
@@ -866,7 +699,7 @@ class bowtie2:
         :param out_dir: custom output directory
         '''
 
-        ref_index = species(spe).bowtie_index()
+        ref_index = presets.prs(spe).bowtie_index()
 
         #Set up variables for write functions
         if out_dir == None:
@@ -925,7 +758,7 @@ class bowtie2:
         #location of current scripts
         plot_igh_bef = ['Rscript', os.path.dirname(os.path.realpath(__file__)) +
         '/plot_igh.R','-o', self.dir_nam + '/' + self.prefix + '.pdf',
-        '-n', 'Coverage','--genome', species(spe).genome(), '-r', plot_region,
+        '-n', 'Coverage','--genome', presets.prs(spe).genome(), '-r', plot_region,
         '-b', self.tmp_prefix + '_sorted.bam']
 
         subprocess.call(plot_igh_bef)
@@ -972,9 +805,13 @@ class bowtie2:
                 for read in self.sam_algn.fetch():
                     write_reads.write(read)
             else:
-                for read in self.sam_algn.fetch(region[0], region[1], region[2]):
-                    write_reads.write(read)
+                try: 
+                    sam_fetch = self.sam_algn.fetch(region[0], region[1], region[2])
+                except ValueError:
+                    sam_fetch = self.sam_algn.fetch(region[0].split('chr')[1], region[1], region[2])
 
+                for read in sam_fetch:
+                    write_reads.write(read)
 
     def del_tmp(self):
         '''Clean up the named pipe and associated temp directory

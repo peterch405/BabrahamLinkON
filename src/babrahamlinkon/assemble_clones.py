@@ -1,0 +1,246 @@
+from collections import defaultdict, Counter
+import matplotlib.pyplot as plt
+from matplotlib.backends.backend_pdf import PdfPages
+import pandas as pd
+import numpy as np
+from pyxdameraulevenshtein import damerau_levenshtein_distance
+from babrahamlinkon import deduplicate
+import os
+from matplotlib.backends.backend_pdf import PdfPages
+
+# %matplotlib inline
+# %config InlineBackend.figure_format = 'svg'
+# '/media/chovanec/My_Passport/Dan_VDJ-seq_cycles_new/J_merged_1c_Deduplicated_test/J_merged_1c_dedup.0.fasta_db-pass.tab'
+
+
+def ambigious_calls(item):
+    '''remove v calls that are ambigous'''
+    v_call = item.split(',')
+    if len(v_call) >1:
+        first_call = v_call[0].split('*')[0]
+        for calls in range(1,len(v_call)):
+            if v_call[calls].split('*')[0] == first_call:
+                continue
+            else:
+                return None
+        return first_call
+    else:
+        return v_call[0].split('*')[0]
+
+
+def lev_adj_list_directional_adjacency(umis, counts, threshold=1):
+    ''' identify all umis within the levenshtein distance threshold
+    and where the counts of the first umi is > (2 * second umi counts)-1
+    will have duplicates'''
+
+    #should be 50% faster
+    adj_list = collections.defaultdict(list)
+    for i,umi in enumerate(umis):
+        a1 = adj_list[umi]
+        c1 = counts[umi]
+        for j in range(i+1,len(umis)):
+            umi2 = umis[j] #dict_keys object doesn't support indexing
+
+            if damerau_levenshtein_distance(umi, umi2) == threshold:
+                c2 = counts[umi2]
+                if c1 >= (c2*2)-1:
+                    adj_list[umi].append(umi2)
+                if c2 >= (c1*2)-1:
+                    adj_list[umi2].append(umi)
+
+    return adj_list
+
+
+def lev_adj_list_adjacency(umis, counts, threshold=1):
+    ''' identify all umis within the levenshtein distance threshold'''
+
+    #should be 50% faster
+    adj_list = collections.defaultdict(list)
+    for i,umi in enumerate(umis):
+        a1 = adj_list[umi]
+        for j in range(i+1,len(umis)):
+            umi2 = umis[j] #dict_keys object doesn't support indexing
+            if damerau_levenshtein_distance(umi, umi2) == threshold:
+                adj_list[umi].append(umi2)
+
+    return adj_list
+
+
+def read_changeo_out(tab_file, out, prefix, plot=False):
+
+    igblast_out = pd.DataFrame()
+    df_list = []
+    for f in tab_file:
+        df = pd.read_table(f, header=0)
+        list_.append(df)
+    igblast_out = pd.concat(df_list)
+
+    # len(igblast_out)
+
+    if plot:
+        with PdfPages(out + '/' + prefix + '_score_plots.pdf') as pdf_out:
+        #Plot V and J scores
+            labels, values = zip(*Counter(igblast_out['V_SCORE']).items())
+            non_dedup_values = tuple(l*v for l, v in zip(labels, values))
+
+            plt.figure()
+            plt.bar(labels, non_dedup_values)
+            my_plot = plt.axvline(50, linestyle='dashed', linewidth=2).get_figure()
+            pdf_out.savefig(my_plot)
+
+            labels, values = zip(*Counter(igblast_out['J_SCORE']).items())
+            non_dedup_values = tuple(l*v for l, v in zip(labels, values))
+
+            plt.figure()
+            plt.bar(labels, non_dedup_values)
+            my_plot = plt.axvline(35, linestyle='dashed', linewidth=2).get_figure()
+            pdf_out.savefig(my_plot)
+
+    #Filter out low quality scores
+    igblast_out_hs = igblast_out[(igblast_out['V_SCORE'] > 50) & (igblast_out['J_SCORE'] > 35)]
+    # len(igblast_out_hs)
+
+    #Filter mutiple different V calls
+    # igblast_out_hs['V_CALL'].str.split('(,|\*)').str[0]
+    # igblast_out_hs['V_CALL'].str.split('(,|\*)').str[4]
+
+    pd.options.mode.chained_assignment = None #Turn of warning http://stackoverflow.com/questions/20625582/how-to-deal-with-settingwithcopywarning-in-pandas
+    igblast_out_hs.loc[:,'V_CALL'] = igblast_out_hs['V_CALL'].apply(ambigious_calls)
+    igblast_out_hs.loc[:,'J_CALL'] = igblast_out_hs['J_CALL'].apply(ambigious_calls)
+
+    # Counter(igblast_out_hs['V_CALL'])
+    # Counter(igblast_out_hs['J_CALL'])
+
+    #Remove rows with None call
+    igblast_out_hs = igblast_out_hs[igblast_out_hs['V_CALL'].notnull()]
+    igblast_out_hs = igblast_out_hs[igblast_out_hs['J_CALL'].notnull()]
+
+    # len(igblast_out_hs)
+
+    #Seperate into functional non-functional
+    # functional = igblast_out_hs[igblast_out_hs['FUNCTIONAL'] == 'T']
+    # non_functional = igblast_out_hs[igblast_out_hs['FUNCTIONAL'] == 'F']
+
+    # len(functional)
+    # len(non_functional)
+
+    igblast_out_hs_cln = igblast_out_hs.dropna(subset = ['CDR3_IMGT'])
+    # functional_cln = functional.dropna(subset = ['CDR3_IMGT'])
+    # non_functional_cln = non_functional.dropna(subset = ['CDR3_IMGT'])
+
+    # len(functional_cln)
+
+    # return (functional_cln, non_functional_cln)
+    return igblast_out_hs_cln
+
+# functional_cln['SEQUENCE_ID']['HWI-M02293:218:000000000-AKGG1:1:1101:8139:9569_J3_CTGCTCCT_AGCGGA_5']
+# functional_cln.SEQUENCE_ID[functional_cln.SEQUENCE_ID == 'HWI-M02293:218:000000000-AKGG1:1:1101:8139:9569_J3_CTGCTCCT_AGCGGA_5'].index.tolist()[0]
+
+def make_bundle(pd_data_frame):
+    '''Make dictionary of V-CRD3-J (bundle)'''
+    clonotype_dict = collections.defaultdict(lambda: collections.defaultdict(dict))
+
+    assert 'V_CALL' in pd_data_frame.columns and 'J_CALL' in pd_data_frame.columns \
+    and 'CDR3_IMGT' in pd_data_frame.columns and 'SEQUENCE_ID' in pd_data_frame.columns \
+    and 'SEQUENCE_INPUT' in pd_data_frame.columns, 'Requried columns not in data frame'
+
+    for line in pd_data_frame.index:
+        v_j = pd_data_frame['V_CALL'][line] + '_' + pd_data_frame['J_CALL'][line]
+        cdr3 = pd_data_frame['CDR3_IMGT'][line]
+
+        try:
+            clonotype_dict[v_j][cdr3]['qname'].append(pd_data_frame['SEQUENCE_ID'][line])
+            clonotype_dict[v_j][cdr3]['read'].update([pd_data_frame['SEQUENCE_INPUT'][line]])
+            clonotype_dict[v_j][cdr3]['count'] += 1
+        except KeyError:
+            clonotype_dict[v_j][cdr3]['qname'] = [pd_data_frame['SEQUENCE_ID'][line]]
+            clonotype_dict[v_j][cdr3]['read'] = collections.Counter([pd_data_frame['SEQUENCE_INPUT'][line]])
+            clonotype_dict[v_j][cdr3]['count'] = 1
+
+    return clonotype_dict
+
+# make_bundle(functional_cln)
+
+# Assemble clones allowing 1 mismatch in CDR3 (how many times does the same recombination take place?)
+def assemble_colonotype(pd_data_frame, bundles, threshold):
+    pd_data_frame['clonotype'] = ''
+
+    bundle_count = 0
+    for bundle in bundles.values():
+        umis = bundle.keys()
+
+        # len_umis = [len(x) for x in umis]
+        # assert max(len_umis) == min(len_umis), ('not all umis are the same length(!):  %d - %d' % (min(len_umis), max(len_umis)))
+
+        counts = {umi: bundle[umi]['count'] for umi in umis} #If two UMI's mergered, count will be taken only from the larger UMI group
+        # print('Getting directional adjacency list')
+        adj_list = lev_adj_list_adjacency(list(umis), counts, threshold)
+
+        # print(len(adj_list), sorted(adj_list)[1:5])
+        print('Getting connected components')
+        clusters = deduplicate.get_connected_components_adjacency(umis, adj_list, counts)
+        print(clusters)
+        #Assign clonotypes
+        cluster_count = 0
+        for cluster in clusters:
+            for cdr3 in cluster:
+                #write into original pandas table
+                for qname in bundle[cdr3]['qname']:
+                    row_loc = pd_data_frame.SEQUENCE_ID[pd_data_frame.SEQUENCE_ID == qname].index.tolist()[0]
+                    functional_cln['clonotype'][row_loc] = str(bundle_count) + '_' + str(cluster_count)
+            cluster_count += 1
+        bundle_count += 1
+
+    return pd_data_frame
+
+# assemble_colonotype(functional_cln, clonotype_dict)
+
+#Write out pandas table
+def write_out(pd_data_frame, out):
+    pd_data_frame.to_csv(out, sep='\t')
+
+# pd_data_frame.to_csv('/media/chovanec/My_Passport/Dan_VDJ-seq_cycles_new/J_merged_1c_Deduplicated_test/J_merged_1c_dedup.0.fasta_db-pass_assembled.tab', sep='\t')
+
+
+#Assemble clones comparing entire sequence (allowing x mismatches?) msa? different V starts makes this complicated
+
+
+
+#parser
+def parse_args():
+    parser = argparse.ArgumentParser(description='BabrahamLinkON Assemble Clones')
+
+    parser.add_argument('--tab_files', dest='in_file', type=str, nargs='+', required=True, help='Input tab file from changeo IgBlast MakeDb')
+    parser.add_argument('--plot', action='store_true', help='Plot V and J scores with cutoff')
+    parser.add_argument('--out', dest='out_dir', type=str, help='Output directory, default: creates Deduplicated in main directory')
+    parser.add_argument('--threshold', dest='thres', type=int, help='Number of differences allowed between CDR3 sequences')
+
+
+    opts = parser.parse_args()
+
+    return opts
+
+
+def main():
+
+    #argparse
+    opts = parse_args()
+
+
+    # functional_cln, non_functional_cln = read_changeo_out(opts.in_file, plot=opts.plot)
+    full_path = os.path.abspath(opts.in_file[0])
+    prefix = os.path.basename(full_path).split('.')[0]
+
+    for f in opts.in_file:
+        igblast_cln = read_changeo_out(full_path, opts.out_dir, prefix, plot=opts.plot)
+
+    clonotype_dict = make_bundle(igblast_cln)
+
+    ig_blast_asm = assemble_colonotype(igblast_cln, clonotype_dict, opts.thres)
+
+    write_out(ig_blast_asm, opts.out_dir + '/' + prefix + '_assembled_clones.tab')
+
+
+
+if __name__ == "__main__":
+    main()

@@ -3,12 +3,28 @@
 
 import sys
 from setuptools import setup, find_packages
+import subprocess
 
 try:
     import Cython
 except ImportError:
     raise ImportError(
         "BabrahamLinkON requires cython to be installed before running setup.py (pip install cython)")
+
+# check kalign is accessible
+try:
+    subprocess.check_output(['kalign', '-q'])
+except OSError:
+    raise RuntimeError('kalign not found; put directory in $PATH\n')
+
+# check bowtie2 and samtools is accessible
+try:
+    subprocess.check_output(['bowtie2', '-h'])
+    subprocess.check_output(['samtools', '--help'])
+except OSError:
+    raise RuntimeError('bowtie2/samtools not found; put directory in $PATH\n')
+
+
 
 from Cython.Build import cythonize
 
@@ -33,6 +49,8 @@ setup(name='BabrahamLinkON',
       scripts=['src/babrahamlinkon/deduplicate.py',
                'src/babrahamlinkon/preclean.py',
                'src/babrahamlinkon/run_mixcr.py',
-               'src/babrahamlinkon/germline_mispriming.py'],
+               'src/babrahamlinkon/germline_mispriming.py',
+               'src/babrahamlinkon/presets.py',
+               'src/babrahamlinkon/assemble_clones.py'],
       ext_modules=cythonize('src/babrahamlinkon/_dedup_umi.pyx')
 )
