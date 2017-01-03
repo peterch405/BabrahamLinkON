@@ -5,7 +5,7 @@ import numpy as np
 import pandas as pd
 import os
 import Levenshtein
-
+import operator
 import subprocess
 import pysam
 import tempfile
@@ -101,9 +101,10 @@ def fasta_parse(fp):
             except AttributeError:
                 name = line.rstrip()
 
+
             assert name.startswith('>'),\
                    "ERROR: The 1st line in fasta element does not start with '>'.\n\
-                   Please check FastQ file near line number %s" % (linecount)
+                   Please check Fasta file near line number %s %s" % (linecount, fp)
         elif linecount % 2 == 0:
             try:
                 seq = line.decode('UTF-8').rstrip()
@@ -805,7 +806,7 @@ class bowtie2:
                 for read in self.sam_algn.fetch():
                     write_reads.write(read)
             else:
-                try: 
+                try:
                     sam_fetch = self.sam_algn.fetch(region[0], region[1], region[2])
                 except ValueError:
                     sam_fetch = self.sam_algn.fetch(region[0].split('chr')[1], region[1], region[2])
@@ -819,3 +820,68 @@ class bowtie2:
         assert self.tmp_dir, 'Run align_single first!'
 
         shutil.rmtree(self.tmp_dir)
+
+
+#
+#
+# class mafft:
+#     """Call mafft multiple sequence aligner
+#
+#     """
+#
+#     def __init__(self):
+#         # # check bowtie2 and samtools is accessible
+#
+#         # Create tmp files
+#         self.tmp_dir = tempfile.mkdtemp()
+#         self.tmp_prefix = os.path.join(self.tmp_dir, "mafftpipe")
+#
+#
+#     def write_fasta(self, seq_counter_dict, out_dir=None):
+#
+#         #Convert Counter into fasta input for kalign
+#         #Need to sort beacuse of Instability in progressive multiple sequence alignment algorithms
+#         seq_fasta = ''
+#         count = 0
+#         reads = 0
+#         for umi, cntr in sorted(seq_counter_dict.items(), key=operator.itemgetter(0)):
+#             for seq, freq in sorted(cntr.items(), key=lambda x:x[0]):
+#                 seq_fasta = seq_fasta + '>' + str(count) + '_' + umi + '_' + str(freq) + '\n' + seq + '\n'
+#                 count += 1  #how many different reads
+#                 reads += freq #how many total reads
+#
+#         #Can't get consensus from single sequence, return single sequence
+#         if count == 1:
+#             assert len(list(seq_counter_dict.values())) == 1, 'Not a single sequence'
+#             seq_out= re.sub('\n', '', seq_fasta)
+#             seq_out = list(filter(None, re.split('(>\d+_[A-Z]+_\d+)', seq_out)))
+#             return seq_out
+#         else: #write out fasta
+#             with open(self.tmp_prefix + '.fasta', 'w') as out_fasta:
+#                 out_fasta.write(seq_fasta)
+#
+#
+#
+#     def align(self, iterations=16, threads=1):
+#
+#         mafft_cmd = ['mafft', '--maxiterate', str(iterations), '--localpair', '--inputorder', '--quiet',  '--thread', str(threads), self.tmp_prefix + '.fasta']
+#
+#         mafft_stdout = subprocess.Popen(mafft_cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT).communicate()[0]
+#
+#         # --localpair  --maxiterate 16 --inputorder "mafftpipe.fasta" > "mafft.fasta"
+#
+#         alignment = mafft_stdout.decode()
+#         alignment = re.sub('\n', '', alignment)
+#         alignment = list(filter(None, re.split('(>\d+_[A-Z]+_\d+)', alignment)))
+#
+#         # assert len(alignment) == count*2, 'Alignment output fewer reads'
+#         return alignment
+#
+#
+#
+#     def del_tmp(self):
+#         '''Clean up the named pipe and associated temp directory
+#         '''
+#         assert self.tmp_dir, 'Run align_single first!'
+#
+#         shutil.rmtree(self.tmp_dir)
