@@ -23,7 +23,11 @@ from matplotlib.backends.backend_pdf import PdfPages
 import itertools
 from joblib import Parallel, delayed
 import logging
-import pickle
+# import pickle
+import warnings
+import operator
+import Levenshtein
+from copy import deepcopy
 
 import pyximport
 
@@ -106,16 +110,19 @@ def breadth_first_search(node, adj_list):
 ######### read loss #########
 
 #TODO: use quality as an additional metric to resolve ambigious bases (highest quality base prevail)?
-def consensus(seq_dict):
+def consensus(list_of_lists):
     '''
+    :param list_of_lists: string split into individual letters
+                          [['C', 'A', 'C', 'A', 'T', 'A', 'T', 'A'],
+                          ['G', 'A', 'T', 'A', 'T', 'A', 'T', 'A'],
+                          ['G', 'A', 'T', 'A', 'T', 'A', 'T', 'A']]
     If base ambigous return N
     Else return most frequent base
     '''
-    lst_lsts = [list(item) for item in seq_dict.values()]
 
     consensus_seq = ''
     # count = 0
-    for pos in zip(*lst_lsts):
+    for pos in zip(*list_of_lists):
         base_counts = collections.Counter(pos)
         most_freq = base_counts.most_common(2)
         if len(most_freq) > 1:
@@ -129,57 +136,176 @@ def consensus(seq_dict):
     return consensus_seq
 
 
-def consensus_difference(seq_counter, differences=5): #, umi=None
+def consensus_unequal(list_of_lists):
+    '''
+    :param list_of_lists: string split into individual letters
+                          [['C', 'A', 'C', 'A', 'T', 'A', 'T', 'A'],
+                          ['G', 'A', 'T', 'A', 'T', 'A', 'T', 'A'],
+                          ['G', 'A', 'T', 'A', 'T', 'A', 'T', 'A']]
+    If base ambigous return N
+    Else return most frequent base
+    '''
+
+    consensus_seq = ''
+    # count = 0
+    for pos in itertools.zip_longest(*list_of_lists):
+        base_counts = collections.Counter(pos)
+        most_freq = base_counts.most_common(2)
+        if len(most_freq) > 1:
+            if most_freq[0][1] == most_freq[1][1]:
+                consensus_seq += 'N' #ambigous base
+            elif most_freq[0][0] == None:
+                #skip position
+                continue
+            else:
+                consensus_seq += most_freq[0][0]
+        elif most_freq[0][0] == None:
+            continue
+        else:
+            consensus_seq += most_freq[0][0]
+
+    return consensus_seq
+
+
+
+def msa(seq_counter_dict): #, umi=None
     '''Read loss analysis
-    :param seq_counter: Counter object with sequences
+    :param dict seq_counter: dict of Counter object with sequences
     :param differences: number of differences from consensus allowed
     '''
     #Only aligning single copy of a duplicate sequence and then subsequently
     #multiplying the output alignment by Counter
 
     #Convert Counter into fasta input for kalign
-    seq_fasta = ''
-    count = 0
-    reads = 0
-    for item in seq_counter:
-        for tup in item.items():
-            seq, freq = tup
-            seq_fasta = seq_fasta + '>seq' + str(count) + '_' + str(freq) + '\n' + seq + '\n'
-            count += 1 #how many different reads
-            reads += freq #how many total reads
+    #Need to sort beacuse of Instability in progressive multiple sequence alignment algorithms
+    # seq_fasta = ''
+    # count = 0
+    # reads = 0
+    # for umi, cntr in sorted(seq_counter_dict.items(), key=operator.itemgetter(0)):
+    #     for seq, freq in sorted(cntr.items(), key=lambda x:x[0]):
+    #         seq_fasta = seq_fasta + '>' + str(count) + '_' + umi + '_' + str(freq) + '\n' + seq + '\n'
+    #         count += 1  #how many different reads
+    #         reads += freq #how many total reads
+    #
+    #
+    # #Can't get consensus from single sequence, return single sequence
+    # if count == 1:
+    #     assert len(list(seq_counter_dict.values())) == 1, 'Not a single sequence'
+    #     seq_out= re.sub('\n', '', seq_fasta)
+    #     seq_out = list(filter(None, re.split('(>\d+_[A-Z]+_\d+)', seq_out)))
+    #     return seq_out
+    #
+    #
+    # #Multiple sequence alignment
+    # #http://msa.sbc.su.se/cgi-bin/msa.cgi
+    # kalign_cmd = ['kalign', '-f', 'fasta']
+    #
+    #
+    # p = subprocess.Popen(kalign_cmd, stdout=subprocess.PIPE, stdin=subprocess.PIPE, stderr=subprocess.STDOUT)
+    # kalign_stdout = p.communicate(input=seq_fasta.encode('utf-8'))[0]
+    #
+    # #parse kalign output and derive consensus seq
+    # head, sep, tail = kalign_stdout.partition(b'>') #remove head kalign intro
+    #
+    # alignment = sep.decode() + tail.decode()
+    # alignment = re.sub('\n', '', alignment)
+    # alignment = list(filter(None, re.split('(>\d+_[A-Z]+_\d+)', alignment)))
+    #
+    # # assert len(alignment) == count*2, 'Alignment output fewer reads'
+    # return alignment
 
-    #Can't get consensus from single sequence, return single sequence
-    if count == 1:
-        return (1, list(seq_counter[0].elements())[0])
+    # msa_algn = general.mafft()
+    #
+    # single_seq = msa_algn.write_fasta(seq_counter_dict)
+    #
+    # if single_seq is None:
+    #     alignment = msa_algn.align(threads=4)
+    #
+    #     msa_algn.del_tmp()
+    #     # print(alignment)
+    #     return alignment
+    # else:
+    #     return single_seq
 
-    #Multiple sequence alignment
-    #http://msa.sbc.su.se/cgi-bin/msa.cgi
-    kalign_cmd = ['kalign', '-f', 'fasta']
+# def consensus_difference(alignment):
+def consensus_difference(seq_counter_dict):
+    '''
+    :param alignment: output from msa
+    :return: number of differences between two umi group consensus sequences
+    '''
+
+    # seq_dict = collections.defaultdict(list)
+    #
+    # for item in general.fasta_parse(alignment):
+    #     qname = item[0]
+    #     seq = item[1]
+    #
+    #     freq = int(qname.split('_')[-1]) #freq saved in name
+    #     #split fasta into umi groups (head and child)
+    #     umi = qname.split('_')[-2]
+    #     for i in range(freq):
+    #         seq_dict[umi].append(seq)
 
 
-    p = subprocess.Popen(kalign_cmd, stdout=subprocess.PIPE, stdin=subprocess.PIPE, stderr=subprocess.STDOUT)
-    kalign_stdout = p.communicate(input=seq_fasta.encode('utf-8'))[0]
 
-    #parse kalign output and derive consensus seq
-    head, sep, tail = kalign_stdout.partition(b'>') #remove head kalign intro
+    # assert len(seq_dict.values()) == 2, 'More than two UMI groups, only two allowed'
 
-    alignment = sep.decode() + tail.decode()
-    alignment = re.sub('\n', '', alignment)
-    alignment = list(filter(None, re.split('(>seq\d+_\d+)', alignment)))
-    # print((umi, alignment))
+    # lst_1, lst_2 = list(seq_dict.values())
+    #
+    # lst_lists_1 = [list(item) for item in lst_1]
+    # lst_lists_2 = [list(item) for item in lst_2]
 
-    #Convert into TabularMSA scikit bio object
-    seq_dict = collections.defaultdict(list)
+    cntr_1, cntr_2 = list(seq_counter_dict.values())
 
-    for item in general.fasta_parse(alignment):
-        qname = item[0]
-        seq = item[1]
+    lst_lists_1 = [list(item) for item in cntr_1.elements()]
+    lst_lists_2 = [list(item) for item in cntr_2.elements()]
 
-        freq = int(qname.split('_')[-1]) #freq saved in name
-        for i in range(freq):
-            seq_dict[qname+str(i)] = seq
+    cons_seq_1 = consensus_unequal(lst_lists_1)
+    cons_seq_2 = consensus_unequal(lst_lists_2)
 
-    cons_seq = consensus(seq_dict)
+    # num_diffs = edit_distance(cons_seq_1.encode('utf-8'), cons_seq_2.encode('utf-8'))
+
+    #Need to pad seq if length unequal!
+    len_diff = len(cons_seq_1) - len(cons_seq_2)
+    if len_diff < 0: #pad cons_seq_1
+        cons_seq_1 = cons_seq_1 + '-'*abs(len_diff)
+    elif len_diff > 0:
+        cons_seq_2 = cons_seq_2 + '-'*len_diff
+
+    assert len(cons_seq_1) == len(cons_seq_2), 'Sequences for hamming distance not same length!'
+
+    num_diffs = edit_distance(cons_seq_1.encode('utf-8'), cons_seq_2.encode('utf-8'))
+
+    return num_diffs
+
+
+
+# def read_loss(alignment, differences=5):
+def read_loss(seq_counter_dict, differences=5): #, umi=None
+    '''Read loss analysis
+    :param alignment: fasta from msa function
+    :param differences: number of differences from consensus allowed
+    '''
+    # seq_dict = collections.defaultdict(list)
+    #
+    # for item in general.fasta_parse(alignment):
+    #     qname = item[0]
+    #     seq = item[1]
+    #
+    #     freq = int(qname.split('_')[-1]) #freq saved in name
+    #     for i in range(freq):
+    #         seq_dict[qname+str(i)] = seq #each seq has unique key
+    #
+    # #all values in list of lists
+    # seq_list_lsts = [list(item) for item in seq_dict.values()]
+
+    list_of_lists = []
+    for umi, seqs in seq_counter_dict.items():
+        for seq in seqs.elements():
+            list_of_lists.append(list(seq))
+
+    # cons_seq = consensus(seq_list_lsts)
+    cons_seq = consensus_unequal(list_of_lists)
 
     #Skip poor consensus (i.e. if building consensus from only two different seqs)
     if cons_seq.count('N') > differences: #5
@@ -189,15 +315,28 @@ def consensus_difference(seq_counter, differences=5): #, umi=None
     total = 0
     diffs = len(cons_seq)
     best_seq = ''
-    for seq in seq_dict.values():
-        total += 1
+    for umi, seqs in seq_counter_dict.items():
+        for seq in seqs.keys():
+            total += 1
 
-        consensus_diff = edit_distance(str(seq).encode('utf-8'), cons_seq.encode('utf-8')) #how many mismatches present
-        if consensus_diff < diffs: #need only if many N's in cons_seq
-            diffs = consensus_diff
-            best_seq = str(seq)
-        if consensus_diff <= differences:
-            good += 1
+            #Need to pad seq if length unequal!
+            len_diff = len(cons_seq) - len(seq)
+            if len_diff < 0: #pad cons_seq_1
+                cons_seq = cons_seq + '-'*abs(len_diff)
+            elif len_diff > 0:
+                seq = seq + '-'*len_diff
+
+            assert len(seq) == len(cons_seq), 'Length of sequences into hamming distance unequal'
+
+            consensus_diff = edit_distance(seq.encode('utf-8'), cons_seq.encode('utf-8')) #how many mismatches present
+            # if consensus_diff > 5:
+                # print('seq', seq, 'cons', cons_seq)
+            # consensus_diff = Levenshtein.distance(seq, cons_seq)
+            if consensus_diff < diffs: #need only if many N's in cons_seq
+                diffs = consensus_diff
+                best_seq = str(seq)
+            if consensus_diff <= differences:
+                good += 1
 
     #replace N's in cons_seq by values in best_seq
     if 'N' in cons_seq:
@@ -273,48 +412,70 @@ def get_connected_components_adjacency(umis, graph, counts):
             found.extend(component)
             components.append(component)
 
+    if 'GGAGCAAGCTTTCA' in components:
+        print('components', components)
     return components
 
 
-def get_connected_components(shared_list):
-    ''' find the connected shared head nodes'''
+# def merge(sets):
+#     '''
+#     Merge shared sets in a list
+#     '''
+#     merged = 1
+#     while merged:
+#         merged = 0
+#         results = []
+#         while sets:
+#             common, rest = sets[0], sets[1:]
+#             sets = []
+#             for x in rest:
+#                 if x.isdisjoint(common): #sets are disjoint only if their intersection is the empty set
+#                     sets.append(x) #don't share values with other sets
+#                 else:
+#                     merged = 1
+#                     common.update(x)
+#             results.append(common)
+#         sets = results
+#     return sets
+#
+#
+# #TODO: merge get_shared and merge functions?
+# def get_shared(network_dict):
+#     shared_list = [] #which head nodes share values
+#     found = set()
+#     for node in network_dict: #head_node
+#         if node not in found:
+#             shared_values = set()
+#             for key, values in network_dict.items(): #loop through all networks to check if they share values with node
+#                 if len(network_dict[node].intersection(values)) > 0: #setA network_dict[node] share values with setB (values)
+#                     shared_values.add(key) #will also add initial head node itself
+#                     found.add(key)
+#             if len(shared_values) != 0:
+#                 shared_list.append(shared_values)
+#     return shared_list
 
-    new_shared_list = []
-    indx = set()
-    for i,shared in enumerate(shared_list):
-        # print(i, shared)
-        shrd = shared
-        if i in indx:
-            continue
-        else:
-            indx.add(i)
-        for j in range(i+1,len(shared_list)):
-            # print(j)
-            if len(shrd.intersection(shared_list[j])) >0:
-                # print('share',shared, shared_list[j])
-                shrd = shared.union(shared_list[j])
-                indx.add(j)
-        new_shared_list.append(shrd)
-    return new_shared_list
 
-
-
-def get_shared(network_dict):
-    shared_list = [] #which head nodes share values
-    found = set()
-    for node in network_dict:
-        if node not in found:
-            shared_values = set()
-            for key, values in network_dict.items(): #loop through all networks to check if they share values with node
-                if len(network_dict[node] & values) > 0: #setA network_dict[node] share values with setB (values)
-                    shared_values.add(key)
-                    found.add(key)
-            if len(shared_values) != 0:
-                shared_list.append(shared_values)
-    return shared_list
-
-
-
+def merge_dict(in_dict):
+    #Messes up in_dict!
+    k_v = [(set([k]), v) for k, v in in_dict.items()]
+    merged = 1
+    while merged:
+        merged = 0
+        results = []
+        while k_v:
+            common, rest = k_v[0], k_v[1:]
+            k_v = []
+            for x in rest:
+                if x[1].isdisjoint(common[1]): #sets are disjoint only if their intersection is the empty set
+                    k_v.append((x[0], x[1])) #don't share values with other sets
+                else:
+                    merged = 1
+                    common[1].update(x[1])
+                    common[0].update(x[0])
+            results.append(common)
+        k_v = results
+    #return only keys (shared keys)
+    return [tp[0] for tp in k_v]
 
 
 
@@ -324,121 +485,248 @@ def resolve_clusters(bundle, clusters, counts, differences, gt_threshold):
     '''
     single_components = []
     network_dict = collections.defaultdict(set)
+    # network_dict_2 = collections.defaultdict()
+    cont_comp = 0
+
     for comp in clusters:
+        pr_comp = False
+        if 'CCTAGGGACGCTGG' in set(comp):
+            print('comp_CCTAGGGACGCTGG', comp)
+            pr_comp = True
+
+        if 'CCTAGGGACGATGC' in set(comp):
+            print('comp_CCTAGGGACGATGC', comp)
+            pr_comp = True
         if len(comp) == 1: #not a cluster
             single_components.append(comp)
         else:
+            cont_comp += len(comp)
             ordered_network = sorted(comp, key=lambda x: counts[x], reverse=True)
-            network_dict[ordered_network[0]].update(ordered_network[1:])
+            if pr_comp:
+                print(ordered_network)
+            network_dict[ordered_network[0]] = set(ordered_network[1:])
+            # network_dict[ordered_network[0]].update(ordered_network[1:])
+
 
     #which clusters share components
-    shared_list = get_shared(network_dict)
-    shared_list_new = get_connected_components(shared_list)
+    print('single_component', len(single_components), 'network_dict', len(network_dict))#, 'network_dict_2', len(network_dict_2))
 
-    # print('shared_list:', len(shared_list))
-    # print('shared_list set:', len(set(frozenset(shared_lst) for shared_lst in shared_list)))
+    # my_list = ['TGAGGTCCCAGCGG', 'TGAGGTCCACCCGA', 'TGAGGTCCACGCGA', 'TGAGGTCCACGCGG', 'TGAGGTCCCCGCGG']
+    # for item in my_list:
+    #     try:
+    #         print(item, bundle[item]['seq'])
+    #     except KeyError:
+    #         pass
+
+    shared_list = merge_dict(deepcopy(network_dict))
+    # network_dict_2 = {item[0]:item[1] for item in sorted(network_dict.items(), key=operator.itemgetter(1))}
+    # shared_list_2 = merge_dict(network_dict_2)
+    #
+    # single_components = []
+    # network_dict = collections.defaultdict(set)
+    # # network_dict_2 = collections.defaultdict()
+    # cont_comp = 0
+    #
+    # for comp in clusters:
+    #     pr_comp = False
+    #     if 'CCTAGGGACGCTGG' in set(comp):
+    #         print('comp_CCTAGGGACGCTGG', comp)
+    #         pr_comp = True
+    #
+    #     if 'CCTAGGGACGATGC' in set(comp):
+    #         print('comp_CCTAGGGACGATGC', comp)
+    #         pr_comp = True
+    #     if len(comp) == 1: #not a cluster
+    #         single_components.append(comp)
+    #     else:
+    #         cont_comp += len(comp)
+    #         ordered_network = sorted(comp, key=lambda x: counts[x], reverse=True)
+    #         if pr_comp:
+    #             print(ordered_network)
+    #         network_dict[ordered_network[0]] = set(ordered_network[1:])
+    #         # network_dict[ordered_network[0]].update(ordered_network[1:])
+
+
+
+
+    for item in shared_list:
+        if item == {'CCTAGGGACGATGC', 'CCTAGGGACGCTGG'}:
+            print('present', {'CCTAGGGACGATGC', 'CCTAGGGACGCTGG'})
+        if item == {'GGAGCAAGCTTTCA', 'GGAGCAAGGTTTCG'}:
+            print('present', {'GGAGCAAGCTTTCA', 'GGAGCAAGGTTTCG'})
+
+
+    my_count = collections.Counter()
+    for item in shared_list:
+        my_count.update([len(item)])
+
+    print('counter', my_count)
+
 
     connect_comp = []
     added_key = set()
     duplicates_removed = 0
     head_node_removed = 0
+    single_share = 0
+    umbigous = 0
+
+
+
+    shared_num = 0
+    combinations = 0
+    # print(shared_list)
+    shared_list.sort(key=len, reverse=True)
+    # shared_list_lst = []
+    # for item in shared_list:
+    #     shared_list_lst.append(sorted(item))
+    # print(shared_list_lst)
+    remove_dict = collections.defaultdict(set)
     #Process shared one at a time (create subset of network_dict)
-    for shared in shared_list_new:
+    for shared in shared_list:
+        shr = False
+        if shared == {'CCTAGGGACGATGC', 'CCTAGGGACGCTGG'}:
+            print('present_shared', {'CCTAGGGACGATGC', 'CCTAGGGACGCTGG'})
+            shr = True
+        if shared == {'GGAGCAAGCTTTCA', 'GGAGCAAGGTTTCG'}:
+            print('present_shared', {'GGAGCAAGCTTTCA', 'GGAGCAAGGTTTCG'})
+            shr = True
 
-        shared_network = {key:value for key,value in network_dict.items() if key in shared}
+        shared_num += 1
 
-
-        # if len(shared_network.keys()) != len(set(list(shared_network.keys()))):
-        #     print('b_shared_network_keys:', len(shared_network.keys()))
-        #     print('b_shared_network_keys_set:', len(set(list(shared_network.keys()))))
-
-        #Head consensus
-        head_cons_dict = collections.defaultdict()
-        #Head node consensus sequence
-        for head in shared_network.keys():
-            head_cons_dict[head] = consensus_difference([bundle[head]['seq']], differences=5)
-
-        #if head_gt_ratio != 1 then discard head node
-        #REVIEW:(let crappy sequences collected under a crappy head node?)
-
+        #get all the netwroks that share components
+        # shared_network = {key:network_dict[key] for key in shared}
+        # shared_network = {key:value for key,value in network_dict.items() if key in shared}
+        appended_df = []
         #skip next part if head node not sharing item with other head nodes
-        if len(shared) != 1:
+        if len(shared) > 1:
+            # print('shared', sorted(shared))
 
             remove_dict = collections.defaultdict(set)
+            rm = False
+            for head_1, head_2 in itertools.combinations(list(shared),2):
+                combinations += 1
+                # shared_values = shared_network[head_1].intersection(shared_network[head_2])
+                h_1 = network_dict[head_1]
+                h_2 = network_dict[head_2]
+                shared_values = h_1.intersection(h_2)
+                if shr:
+                    print('shared_values',shared_values)
+                    print('hd1', head_1, 'hd2', head_2)
+                    # print('sh_h1', shared_network[head_1], 'sh_h2', shared_network[head_2])
+                    print('n_h1', network_dict[head_1], 'n_h2', network_dict[head_2])
+                    if network_dict[head_1] == network_dict[head_2]:
+                        print('same')
+                    # print('shared_values_2', shared_values_2)
+                # print(sorted(shared_values), len(shared), shared_values==shared_values_2)
+                columns = [head_1, head_2]
+                df = pd.DataFrame(index = shared_values, columns=columns)
 
-            for head_1, head_2 in itertools.combinations(shared_network.keys(),2):
+                if len(shared_values) > 0: #head nodes need to share values
+                    # head_1_gt, head_1_cons = head_cons_dict[head_1]
+                    # head_2_gt, head_2_cons = head_cons_dict[head_2]
 
-                shared_pair = shared_network[head_1] & shared_network[head_2]
+                    to_1 = 0
+                    to_2 = 0
+                    for item in sorted(shared_values):
 
-                head_1_gt, head_1_cons = head_cons_dict[head_1]
-                head_2_gt, head_2_cons = head_cons_dict[head_2]
+                        # if item in {'TGAGGTCCACGCGA', 'TGAGGTCCACGCGG', 'TGAGGTCCCCGCGG'}:
+                        #     print(item, bundle[item]['seq'])
+                        #     rm = True
+                        #
+                        # if head_1 in {'TGAGGTCCCAGCGG', 'TGAGGTCCACCCGA'}:
+                        #     print(head_1, bundle[head_1]['seq'])
+                        #     resolve_dict_1 = {head_1:bundle[head_1]['seq'], item:bundle[item]['seq']}
+                        #     print('dict_1', resolve_dict_1)
+                        #     rm = True
+                        # if head_2 in {'TGAGGTCCCAGCGG', 'TGAGGTCCACCCGA'}:
+                        #     print(head_2, bundle[head_2]['seq'])
+                        #     resolve_dict_2 = {head_2:bundle[head_2]['seq'], item:bundle[item]['seq']}
+                        #     print('dict_2', resolve_dict_2)
+                        #     rm = True
 
-                to_1 = 0
-                to_2 = 0
-                for item in shared_pair:
-
-                    gt_ratio, cons_seq = consensus_difference([bundle[item]['seq']], differences=5)
-
-                    to_1 += edit_distance(cons_seq.encode('utf-8'), head_1_cons.encode('utf-8'))
-                    to_2 += edit_distance(cons_seq.encode('utf-8'), head_2_cons.encode('utf-8'))
-
-                #which ever is lower asign to that
-                if to_1 < to_2 and gt_ratio >= gt_threshold:
-                    remove_dict[head_2].update(shared_pair)
-                elif to_1 > to_2 and gt_ratio >= gt_threshold:
-                    remove_dict[head_1].update(shared_pair)
-                else: #remove from both
-                    # print('umbigous')
-                    remove_dict[head_2].update(shared_pair)
-                    remove_dict[head_1].update(shared_pair)
+                        resolve_dict_1 = {head_1:bundle[head_1]['seq'], item:bundle[item]['seq']}
+                        resolve_dict_2 = {head_2:bundle[head_2]['seq'], item:bundle[item]['seq']}
+                        #Align head 1 and value
+                        # algn_1 = msa(resolve_dict_1)
+                        # diff_1 = consensus_difference(algn_1)
+                        diff_1 = consensus_difference(resolve_dict_1)
+                        #Align head 2 and value
+                        # algn_2 = msa(resolve_dict_2)
+                        # diff_2 = consensus_difference(algn_2)
+                        diff_2 = consensus_difference(resolve_dict_2)
+                        if math.isnan(diff_1):
+                            print(resolve_dict_1, 'not a number')
+                        if math.isnan(diff_2):
+                            print(resolve_dict_2, 'not a number')
 
 
+                        df.set_value(item, head_1, diff_1)
+                        df.set_value(item, head_2, diff_2)
+
+                        #which ever is lower asign to that
+                        # print('diff_1', diff_1, 'diff_2', diff_2)
+                        if diff_1 < diff_2:
+                            remove_dict[head_2].update([item])
+                        elif diff_1 > diff_2:
+                            remove_dict[head_1].update([item])
+                        elif diff_1 == diff_2: #remove from both
+                            umbigous += 1
+                            # print('rs1', diff_1, resolve_dict_1)
+                            # print('rs2', diff_2, resolve_dict_2)
+                            # print('shared', shared)
+                            rm = True
+                            # print(item, head_1, head_2, 'shared_values', shared_network)
+                            # print('resolve_dict_1', resolve_dict_1)
+                            # print('resolve_dict_2', resolve_dict_2)
+                            remove_dict[head_2].update([item])
+                            remove_dict[head_1].update([item])
+
+                        else:
+                            print('Something else')
+                        #
+                        # if rm:
+                        #     print('remove_dict', remove_dict, 'diff_1', diff_1, 'diff_2', diff_2, 'rd_1', resolve_dict_1, 'rd_2', resolve_dict_2)
+
+                appended_df.append(df)
+            # print(pd.concat(appended_df, axis=1))
+            # if rm:
+            #     print('remove_dict', remove_dict)
+            # print('sn before', shared_network)
             for key, value in remove_dict.items():
-                shared_network[key].difference_update(value)
+                # shared_network[key].difference_update(value)
+                network_dict[key].difference_update(value)
+            # print('sn after', shared_network)
+        else:
+            single_share += 1
 
-        # if len(shared_network.keys()) != len(set(list(shared_network.keys()))):
-        #     print('shared_network_keys:', len(shared_network.keys()))
-        #     print('shared_network_keys_set:', len(set(list(shared_network.keys()))))
 
-        # all_count = 0
-        # set_count = 0
         # for key, value in shared_network.items():
-        #     all_count += len(key)
-        #     for item in  value:
-        #         all_count += 1
-        #     set_count += len(set(key)) +len(set(value))
+        #     if key not in added_key:
         #
-        # if all_count != set_count:
-        #     print('all not set:', all_count, set_count)
+        #         node = set([key]).union(value)
+        #         connect_comp.append(node)
+        #     else:
+        #         duplicates_removed +=1
 
-        #if head_gt_ratio != 1 then discard head node (could do it earlier?)
+    for key, value in network_dict.items():
+        if key not in added_key:
 
-        for key, value in shared_network.items():
-            if key not in added_key:
-                # try:
-                head_gt, head_cons = head_cons_dict[key]
-                # except KeyError:
-                #     print('Head node missing')
+            node = set([key]).union(value)
+            connect_comp.append(node)
+        else:
+            duplicates_removed +=1
 
-                if head_gt < gt_threshold: #delete head node
-                    head_node_removed += 1
-                    continue
-
-                else:
-                    node = set()
-                    # if key not in added_key:
-                    node.add(key)
-                    node.update(value) #duplicates arising here possibly
-                    added_key.add(key)
-                    connect_comp.append(node)
-            else:
-                duplicates_removed +=1
-                #Duplicates arising from the pairwise comparison of head nodes,
-                #if previous iteration removed
+    # 'shared_list_2', sum(len(item) for item in shared_list_2),
+    print('shared_list', sum(len(item) for item in shared_list),  'connect_comp', len(connect_comp), 'shared_num', shared_num, 'combinations', combinations)
 
     out_components = single_components + connect_comp
 
-    # print('connect_comp:', len(connect_comp))
+    all_connected = 0
+    for item in connect_comp:
+        all_connected += len(item) #difference in how clusters are resolved
+
+    print('connect_comp:', len(connect_comp), 'cont_comp', cont_comp, 'all_connected', all_connected, 'out_component', len(out_components),\
+    'single_share', single_share, 'dup_removed', duplicates_removed, 'umbigous', umbigous)
     # print('connect_comp set:', len(set(frozenset(cluster) for cluster in connect_comp)))
     # if len(connect_comp) != len(set(frozenset(cluster) for cluster in connect_comp)):
     #     # print(connect_comp)
@@ -450,8 +738,10 @@ def resolve_clusters(bundle, clusters, counts, differences, gt_threshold):
     # # assert  len(connect_comp) == len(set(frozenset(cluster) for cluster in connect_comp)), 'End'
     # print('single_components:', len(single_components))
     # print('single_components set:', len(set(frozenset(cluster) for cluster in single_components)))
-    assert duplicates_removed == 0, 'Duplicates present'
+    # assert duplicates_removed == 0, 'Duplicates present'
+
     print('Head nodes removed:', head_node_removed)
+    # print('Final out:',len(out_components))
     return out_components
 
 
@@ -470,6 +760,8 @@ def reduce_clusters_single(bundle, clusters, counts, stats, mismtch, gt_threshol
     low_gt = 0
     corrected = 0
     low_gt_corrected = 0
+    total = 0
+
 
     parent_umi_dict = collections.defaultdict()
     # cons_not_match = 0
@@ -477,26 +769,32 @@ def reduce_clusters_single(bundle, clusters, counts, stats, mismtch, gt_threshol
     # print('unique clusters:', len(set(frozenset(cluster) for cluster in clusters)))
 
     for cluster in clusters:
-
-        umi_in_cluster = 0
+        total += 1
+        umi_in_cluster = len(cluster)
         #Consensus for read loss filter
-        out = [] #This is what want a consensus of
+        # out = [] #This is what want a consensus of
         # umi_cons = []
-        for umi in cluster: #if not corrected should have single UMI in cluster
-            umi_in_cluster += 1
-            try:
-                out.append(bundle[umi]['seq'])
-                # umi_cons.append(umi)
-            except KeyError:
-                print('UMI not in bundle')
 
-        assert len(out) != 0, 'No sequence from umi'
+        out_dict = {umi:bundle[umi]['seq'] for umi in cluster}
+
+        # for umi in cluster: #if not corrected should have single UMI in cluster
+        #     umi_in_cluster += 1
+        #     try:
+        #         out.append(bundle[umi]['seq'])
+        #         # umi_cons.append(umi)
+        #     except KeyError:
+        #         print('UMI not in bundle')
+
+
+        assert len(out_dict) != 0, 'No sequence from umi'
 
         if umi_in_cluster > 1: #contains umi with 1 error
             corrected += 1
         # print(umi_cons)
         #TODO: Make sure there aren't any long streches of - which would lead to low gt_ratio
-        gt_ratio, consensus_seq = consensus_difference(out, differences=mismtch) #umi=umi_cons
+        # alignment = msa(out_dict)
+        # gt_ratio, consensus_seq = read_loss(alignment, differences=mismtch) #umi=umi_cons
+        gt_ratio, consensus_seq = read_loss(out_dict, differences=mismtch) #umi=umi_cons
 
         if gt_ratio >= gt_threshold:
             #Parent umi = highest count umi which account for the cluster
@@ -517,13 +815,18 @@ def reduce_clusters_single(bundle, clusters, counts, stats, mismtch, gt_threshol
             #Number of UMI's in the cluster (how many have been collapsed)
             umi_counts.append(sum([counts[x] for x in cluster]))
         else:
+            #REVIEW: if the gt ratio low seperate seq into unique seqs? UMI not unique enought and count too low?
             low_gt += 1
             # print('Cluster:', cluster, 'seqs:', gt_ratio)
             if umi_in_cluster > 1: #contains umi with 1 error and low ratio
                 low_gt_corrected += 1
+    #
+    # if total == 14176:
+    #     with open('/media/chovanec/My_Passport/Dan_paper_datasets/mu/test_cluster', 'w') as out_file:
+    #         out_file.write(out_lst)
 
-
-
+    print('Total:', total, 'Output:', len(reads), 'low_gt', low_gt, 'umi_count', len(umi_counts), 'corrected', corrected)
+    # print(gt_ratio_lst)
     assert len(set(reads)) == len(reads), 'Not all reads unique!'
     # if len(set(reads)) != len(reads):
     #     print('bad bundle')
@@ -563,7 +866,8 @@ def reduce_clusters_single_parallel(bundle, clusters, counts, nprocs, stats, mis
                 inter_results['corrected'] += 1
 
             #Get consensus sequence and good to total ratio
-            gt_ratio, consensus_seq = consensus_difference(out, differences=mismtch)
+            # alignment =  msa(out)
+            gt_ratio, consensus_seq = read_loss(alignment, differences=mismtch)
 
 
             if gt_ratio >= gt_threshold:
@@ -654,14 +958,16 @@ def run_dir_adj(bundle, threshold, stats, further_stats, mismatches, nprocs, gt_
     print('Resolving clusters')
     #gt_threshold implemented here too so will reduce the overall number of clusters
     rclusters = resolve_clusters(bundle, clusters, counts, mismatches, gt_threshold)
-
+    print('rclutsers', len(rclusters))
     print('Reducing clusters')
     # if nprocs == 1: #if no additional cores available
     reads, consensus, final_umis, umi_counts, low_gt, corrected, low_gt_corrected =\
     reduce_clusters_single(bundle, rclusters, counts, stats, mismatches, gt_threshold)
-    # else:
 
-    # print('Unique:', len(set(reads)), 'All:', len(reads))
+    # else
+
+
+    print('Unique:', len(set(reads)), 'All:', len(reads))
     #TODO: http://stackoverflow.com/questions/6974695/python-process-pool-non-daemonic/8963618#8963618
     # reads, consensus, final_umis, umi_counts, low_gt, corrected, low_gt_corrected =\
     # reduce_clusters_single_parallel(bundle, rclusters, counts, nprocs, stats, mismatches, gt_threshold)
@@ -726,7 +1032,7 @@ def dir_adj_worker(bundle, threshold, stats, further_stats, mismatch, min_reads,
                 mismatches=mismatch, nprocs=nprocs, gt_threshold=gt_threshold)
     # print(reads, umis, umi_counts, topologies, nodes)
 
-    num_input = sum([bundle[umi]["count"] for umi in bundle])
+    num_input = sum([bundle[umi]['count'] for umi in bundle])
     # collect pre-dudupe stats
     stats_pre_df_dict = {'UMI': [], 'counts': []}
     # pre_average_distance = ''
@@ -1029,6 +1335,10 @@ def make_bundle(fastq, ignore_umi, spe, ignore_j, skip_unclear):
             else:
                 key = j_idn + barcode
 
+            # vs = v_seq + umi
+            # my_set = {'TGAGGTCCCAGCGG', 'TGAGGTCCACCCGA', 'TGAGGTCCACGCGA', 'TGAGGTCCACGCGG', 'TGAGGTCCCCGCGG'}
+            # if vs in my_set:
+            #     print(key, vs, seq)
 
             try:
                 reads_dict[key][v_seq + umi]['count'] += 1
