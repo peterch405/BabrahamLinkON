@@ -1,12 +1,16 @@
+#!/usr/bin/env python3
+
 from collections import defaultdict, Counter
 import matplotlib.pyplot as plt
 from matplotlib.backends.backend_pdf import PdfPages
 import pandas as pd
 import numpy as np
-from pyxdameraulevenshtein import damerau_levenshtein_distance
+import Levenshtein
 from babrahamlinkon import deduplicate
 import os
+import argparse
 from matplotlib.backends.backend_pdf import PdfPages
+import glob
 
 # %matplotlib inline
 # %config InlineBackend.figure_format = 'svg'
@@ -34,14 +38,14 @@ def lev_adj_list_directional_adjacency(umis, counts, threshold=1):
     will have duplicates'''
 
     #should be 50% faster
-    adj_list = collections.defaultdict(list)
+    adj_list = defaultdict(list)
     for i,umi in enumerate(umis):
         a1 = adj_list[umi]
         c1 = counts[umi]
         for j in range(i+1,len(umis)):
             umi2 = umis[j] #dict_keys object doesn't support indexing
 
-            if damerau_levenshtein_distance(umi, umi2) == threshold:
+            if Levenshtein.distance(umi, umi2) == threshold:
                 c2 = counts[umi2]
                 if c1 >= (c2*2)-1:
                     adj_list[umi].append(umi2)
@@ -55,12 +59,12 @@ def lev_adj_list_adjacency(umis, counts, threshold=1):
     ''' identify all umis within the levenshtein distance threshold'''
 
     #should be 50% faster
-    adj_list = collections.defaultdict(list)
+    adj_list = defaultdict(list)
     for i,umi in enumerate(umis):
         a1 = adj_list[umi]
         for j in range(i+1,len(umis)):
             umi2 = umis[j] #dict_keys object doesn't support indexing
-            if damerau_levenshtein_distance(umi, umi2) == threshold:
+            if Levenshtein.distance(umi, umi2) == threshold:
                 adj_list[umi].append(umi2)
 
     return adj_list
@@ -72,9 +76,9 @@ def read_changeo_out(tab_file, out, prefix, plot=False):
     df_list = []
     for f in tab_file:
         df = pd.read_table(f, header=0)
-        list_.append(df)
+        df_list.append(df)
     igblast_out = pd.concat(df_list)
-
+    igblast_out.reset_index(drop=True, inplace=True)
     # len(igblast_out)
 
     if plot:
@@ -138,23 +142,22 @@ def read_changeo_out(tab_file, out, prefix, plot=False):
 
 def make_bundle(pd_data_frame):
     '''Make dictionary of V-CRD3-J (bundle)'''
-    clonotype_dict = collections.defaultdict(lambda: collections.defaultdict(dict))
+    clonotype_dict = defaultdict(lambda: defaultdict(dict))
 
     assert 'V_CALL' in pd_data_frame.columns and 'J_CALL' in pd_data_frame.columns \
     and 'CDR3_IMGT' in pd_data_frame.columns and 'SEQUENCE_ID' in pd_data_frame.columns \
     and 'SEQUENCE_INPUT' in pd_data_frame.columns, 'Requried columns not in data frame'
-
+    # print(pd_data_frame)
     for line in pd_data_frame.index:
         v_j = pd_data_frame['V_CALL'][line] + '_' + pd_data_frame['J_CALL'][line]
         cdr3 = pd_data_frame['CDR3_IMGT'][line]
-
         try:
             clonotype_dict[v_j][cdr3]['qname'].append(pd_data_frame['SEQUENCE_ID'][line])
             clonotype_dict[v_j][cdr3]['read'].update([pd_data_frame['SEQUENCE_INPUT'][line]])
             clonotype_dict[v_j][cdr3]['count'] += 1
         except KeyError:
             clonotype_dict[v_j][cdr3]['qname'] = [pd_data_frame['SEQUENCE_ID'][line]]
-            clonotype_dict[v_j][cdr3]['read'] = collections.Counter([pd_data_frame['SEQUENCE_INPUT'][line]])
+            clonotype_dict[v_j][cdr3]['read'] = Counter([pd_data_frame['SEQUENCE_INPUT'][line]])
             clonotype_dict[v_j][cdr3]['count'] = 1
 
     return clonotype_dict
@@ -177,9 +180,9 @@ def assemble_colonotype(pd_data_frame, bundles, threshold):
         adj_list = lev_adj_list_adjacency(list(umis), counts, threshold)
 
         # print(len(adj_list), sorted(adj_list)[1:5])
-        print('Getting connected components')
+        # print('Getting connected components')
         clusters = deduplicate.get_connected_components_adjacency(umis, adj_list, counts)
-        print(clusters)
+        # print(clusters)
         #Assign clonotypes
         cluster_count = 0
         for cluster in clusters:
@@ -187,7 +190,7 @@ def assemble_colonotype(pd_data_frame, bundles, threshold):
                 #write into original pandas table
                 for qname in bundle[cdr3]['qname']:
                     row_loc = pd_data_frame.SEQUENCE_ID[pd_data_frame.SEQUENCE_ID == qname].index.tolist()[0]
-                    functional_cln['clonotype'][row_loc] = str(bundle_count) + '_' + str(cluster_count)
+                    pd_data_frame['clonotype'][row_loc] = str(bundle_count) + '_' + str(cluster_count)
             cluster_count += 1
         bundle_count += 1
 
@@ -210,10 +213,10 @@ def write_out(pd_data_frame, out):
 def parse_args():
     parser = argparse.ArgumentParser(description='BabrahamLinkON Assemble Clones')
 
-    parser.add_argument('--tab_files', dest='in_file', type=str, nargs='+', required=True, help='Input tab file from changeo IgBlast MakeDb')
+    parser.add_argument('--tab_file', dest='in_file', type=str, required=True, help='Input tab file from changeo IgBlast MakeDb (or file wildcard)')
     parser.add_argument('--plot', action='store_true', help='Plot V and J scores with cutoff')
     parser.add_argument('--out', dest='out_dir', type=str, help='Output directory, default: creates Deduplicated in main directory')
-    parser.add_argument('--threshold', dest='thres', type=int, help='Number of differences allowed between CDR3 sequences')
+    parser.add_argument('--threshold', dest='thres', type=int, default=1, help='Number of differences allowed between CDR3 sequences')
 
 
     opts = parser.parse_args()
@@ -226,19 +229,27 @@ def main():
     #argparse
     opts = parse_args()
 
-
+    files = glob.glob(opts.in_file)
     # functional_cln, non_functional_cln = read_changeo_out(opts.in_file, plot=opts.plot)
-    full_path = os.path.abspath(opts.in_file[0])
-    prefix = os.path.basename(full_path).split('.')[0]
+    full_path = os.path.abspath(files[0])
+    prefix = os.path.basename(files[0]).split('.')[0]
 
-    for f in opts.in_file:
-        igblast_cln = read_changeo_out(full_path, opts.out_dir, prefix, plot=opts.plot)
+    if opts.out_dir == None:
+        out_dir = os.path.dirname(full_path)
+    else:
+        out_dir = opts.out_dir
+
+    # print('out_dir', out_dir, opts.out_dir)
+
+    igblast_cln = read_changeo_out(files, out_dir, prefix, plot=opts.plot)
 
     clonotype_dict = make_bundle(igblast_cln)
 
     ig_blast_asm = assemble_colonotype(igblast_cln, clonotype_dict, opts.thres)
 
-    write_out(ig_blast_asm, opts.out_dir + '/' + prefix + '_assembled_clones.tab')
+
+
+    write_out(ig_blast_asm, out_dir + '/' + prefix + '_assembled_clones.tab')
 
 
 
