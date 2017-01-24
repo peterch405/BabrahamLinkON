@@ -1,9 +1,26 @@
 #!/usr/bin/Rscript 
 
-suppressMessages(library(GenomicFeatures))
-suppressMessages(library(Gviz))
-suppressMessages(library(biomaRt))
-suppressMessages(library(argparse))
+source("https://bioconductor.org/biocLite.R")
+if("GenomicFeatures" %in% rownames(installed.packages()) == FALSE) {
+  biocLite("GenomicFeatures")
+}else{
+    require(GenomicFeatures)
+}
+if("GenomicFeatures" %in% rownames(installed.packages()) == FALSE) {
+  biocLite("GenomicFeatures")
+}else{
+  require(GenomicFeatures)
+}
+if("Gviz" %in% rownames(installed.packages()) == FALSE) {
+  biocLite("Gviz")
+}else{
+  require(Gviz)
+}
+if("argparse" %in% rownames(installed.packages()) == FALSE) {
+  install.packages("argparse")
+}else{
+  require(argparse)
+}
 
 #######################
 ### Set up argparse ###
@@ -13,7 +30,7 @@ parser <- ArgumentParser(description='Plot BAM alignment coverage of IgH genes')
 
 parser$add_argument("-b", "--bam", dest="input_list", type="character", metavar='N', nargs='+', help="BAM input files")
 parser$add_argument("-n", "--names", dest="names_list", type="character", metavar='N', nargs='+', help="Names to be used for plotting")
-parser$add_argument("-o", "--out_pdf", dest="output", help="Output pdf file location")
+parser$add_argument("-o", "--out_pdf", dest="output", help="Output pdf file location/name")
 parser$add_argument("-r", "--region", dest="region", type="character", default="chr12:113531809-116015193", help="Region to plot (e.g. chr12:113531809-116015193)")
 parser$add_argument("--genome", dest="genome", type="character", default="mm10", help="Which genome is being used (e.g. mm10, hg38)")
 

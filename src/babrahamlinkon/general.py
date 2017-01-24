@@ -385,6 +385,7 @@ class SSW_align:
     #align_coord = {'J1':0,'J2':27, 'J3':55, 'J4':85}
     def __init__(self):
         self.alignments = []
+        # self.print_full = []
         self.ref_overlap = defaultdict(list) #created by reference function
         self.align_coord = defaultdict(int) #created by reference function
 
@@ -421,7 +422,16 @@ class SSW_align:
                 else:
                     initial_identity = min_dist_key[0]
             else:
-                return 'other' #no hits
+                #if all the same keys are haplotypes, take one of them
+                min_dist = min(J_identities.values())
+                min_dist_key = [k for k, v in J_identities.items() if v == min_dist]
+                keys = set()
+                for key in min_dist_key:
+                    keys.add(key.split('.')[0])
+                if len(keys) > 1:
+                    return 'other' #no hits
+                else:
+                    initial_identity = min_dist_key[0]
 
         if quick_align: #in case only interested in V genes skipp SSW and mispriming
             return [initial_identity]
@@ -459,13 +469,15 @@ class SSW_align:
 
 
                 #if read doesn't match initial identification
-                if not_switched:
-                    if read_identity != initial_identity:
+                if read_identity != initial_identity:
+                    if not_switched:
                         redo = True
                         initial_identity = read_identity
                         not_switched = False
                         continue
-
+                    else: #initial and after alignment identity didn't match for second time
+                        return 'other'
+                else:
 
                     #If mispriming include original read identity in header; output: (before, after, correct_seq)
                     if misprim_cor:
@@ -508,7 +520,7 @@ class SSW_align:
                         # CCTTGTGCCCCAGACATCGAAGTACCAGTA-----------------------------------------------------------------------------------------
                         # print_seq = print_seq + '-'*(len(alignment['target_sequence'])-end)
                         # CCTTGTGCCCCAGACAT------------------------------------------------------------------------------------------------------
-
+                        # self.print_full = print_seq_full
 
                         ref_end = self.align_coord[read_identity]['end'] #End of J in the reference
 
@@ -516,30 +528,38 @@ class SSW_align:
                         differences = defaultdict(int)
                         primer_end = defaultdict(int)
                         for key in presets.prs(spe).mispriming().keys():
-
+                            seq_chk_lst = []
                             try: #if in offset dict do ... else do ...
                                 #Special case for J1 (rare)
-                                off = presets.prs(spe).offset()[read_identity][key]
-                                seq_chk = print_seq_full[ref_end-off:ref_end-off+5]
-                                primer_end[key] = ref_end-off
+
+                                offst = presets.prs(spe).offset()[read_identity][key]
+                                for off in offst:
+                                    seq_chk_lst.append(print_seq_full[ref_end-off:ref_end-off+5])
+                                    primer_end[key] = ref_end-off
                                 # read_offset = True
                             except KeyError: #if don't need to offset using offset dict then just use last 5bp
                                 #reference end - 5 : reference end - distance from actual end of reference + last letters that have been cut off
-                                seq_chk = print_seq_full[ref_end-5:ref_end]
+                                seq_chk_lst.append(print_seq_full[ref_end-5:ref_end])
                                 primer_end[key] = ref_end-5
                                 # read_offset = False
                                 # pass
 
-                            if len(seq_chk) >= 4:
-                                # print('seq_chk', seq_chk)
-                                differences[key] = (Levenshtein.distance(seq_chk, presets.prs(spe).mispriming()[key][:len(seq_chk)]))
-                            #REVIEW: Can skip this now?
-                            elif not_added: #if sequence beyond primer is shorter than 4bp redo adding x bp to initial alignment
-                                add = 5-len(seq_chk)
-                                redo=True
-                                not_added = False
-                            else: #shouldn't return anything here
-                                return 'unclear-' + read_identity + '-bpa'
+                            diffs = []
+                            for seq_chk in seq_chk_lst:
+                                diffs.append(Levenshtein.distance(seq_chk, presets.prs(spe).mispriming()[key][:len(seq_chk)]))
+                            #Pick smallest diff
+                            differences[key] = min(diffs)
+
+                            # if len(seq_chk) >= 4:
+                            #     # print('seq_chk', seq_chk)
+                            #     differences[key] = (Levenshtein.distance(seq_chk, presets.prs(spe).mispriming()[key][:len(seq_chk)]))
+                            # #REVIEW: Can skip this now?
+                            # elif not_added: #if sequence beyond primer is shorter than 4bp redo adding x bp to initial alignment
+                            #     add = 5-len(seq_chk)
+                            #     redo=True
+                            #     not_added = False
+                            # else: #shouldn't return anything here
+                            #     return 'unclear-' + read_identity + '-bpa'
 
                         if redo: #redo with a longer read if too many insertions present
                             continue
@@ -556,7 +576,11 @@ class SSW_align:
                                 replace_seq = presets.prs(spe).replace()[min_val_key[0]]
 
                                 corrected_seq = replace_seq + print_seq_full[primer_end[min_val_key[0]]:]
-
+                                # if '-' in corrected_seq:
+                                #     print(min_val_key, differences)
+                                #     print(corrected_seq)
+                                #     print(print_seq_full)
+                                #     corrected_seq.replace('-', '')
                                 assert '-' not in corrected_seq, 'Unknown space in corrected sequence'
 
                                 #Will correct qual when writing out fastq (fastqHolder), just trim start or add 'I'
@@ -574,8 +598,6 @@ class SSW_align:
 
                     else: #if not misprime correcting return identity of primer seq
                         return [read_identity]
-                else: #initial and after alignment identity didn't match for second time
-                    return 'other'
             else: #doesn't match primer seq within acceptable paramenters
                 return 'other'
 
@@ -761,6 +783,7 @@ class bowtie2:
         '-n', 'Coverage','--genome', presets.prs(spe).genome(), '-r', plot_region,
         '-b', self.tmp_prefix + '_sorted.bam']
 
+        #TODO: capture error here
         subprocess.call(plot_igh_bef)
 
 
@@ -805,7 +828,7 @@ class bowtie2:
                 for read in self.sam_algn.fetch():
                     write_reads.write(read)
             else:
-                try: 
+                try:
                     sam_fetch = self.sam_algn.fetch(region[0], region[1], region[2])
                 except ValueError:
                     sam_fetch = self.sam_algn.fetch(region[0].split('chr')[1], region[1], region[2])

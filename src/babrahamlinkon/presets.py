@@ -29,7 +29,8 @@ class prs:
                     'J6.1':'TGCCCCCAGACGTCCATACCGT',
                     'J6.2':'TGGCCCCAGACGTCCATACCGT',
                     'J6.3':'CCTTTGCCCCAGACGTCCATGTAGT',
-                    'J6.4':'TTGCCCCAGACGTCCATACCGT'}
+                    'J6.4':'TTGCCCCAGACGTCCATACCGT',
+                    'J6.c':'TTCCCCCAGACGTCCATACCGT'}  #Misprimed sequence
         else:
             print('Under construction, use mm for now')
 
@@ -76,14 +77,22 @@ class prs:
                     'J4':{'start':113428514, 'end':113428567}}
                     #mm10
         elif self.name == 'hsa' or self.name == 'human' or self.name == 'homo sapien':
-            return {'J1':{'start':105865407, 'end':105865458},
-                    'J2':{'start':105865199, 'end':105865250},
-                    'J2P':{'start':105864793, 'end':105864852}, #pseudogene, but still need to get rid of germline
-                    'J3':{'start':105864587, 'end':105864635},
-                    'J4':{'start':105864215, 'end':105864260},
-                    'J5':{'start':105863814, 'end':105863862},
-                    'J6':{'start':105863198, 'end':105863258}}
-                    # GRCh38.p7
+            # return {'J1':{'start':105865407, 'end':105865458},
+            #         'J2':{'start':105865199, 'end':105865250},
+            #         'J2P':{'start':105864793, 'end':105864852}, #pseudogene, but still need to get rid of germline
+            #         'J3':{'start':105864587, 'end':105864635},
+            #         'J4':{'start':105864215, 'end':105864260},
+            #         'J5':{'start':105863814, 'end':105863862},
+            #         'J6':{'start':105863198, 'end':105863258}}
+            #         # GRCh38.p7
+            return {'J1':{'start':106331617, 'end':106331668},
+                    'J2':{'start':106331409, 'end':106331460},
+                    'J2P':{'start':106331003, 'end':106331062}, #pseudogene, but still need to get rid of germline
+                    'J3':{'start':106330797, 'end':106330845},
+                    'J4':{'start':106330425, 'end':106330470},
+                    'J5':{'start':106330024, 'end':106330072},
+                    'J6':{'start':106329408, 'end':106329468}}
+                    # GRCh37
         else:
             print('Under construction, use mmu for now')
 
@@ -130,6 +139,22 @@ class prs:
                     'J2':'AGTGGTGCCTTGGCCCCAGTAGTCAAA',
                     'J3':'ACCAGAGTCCCTTGGCCCCAGTAAGCAAA',
                     'J4':'TGAGGTTCCTTGACCCCAGTAGTCCAT'}
+        elif self.name == 'hsa' or self.name == 'human' or self.name == 'homo sapien':
+            return {'J1':'GGTGCCCTGGCCCCAGTGCTGGAA',
+                    'J2':'GGTGCCACGGCCCCAGAGATCGAA',
+                    'J3':'ACCATTGTCCCTTGGCCCCAGATATCAA',
+                    'J4.1':'GACCAGGGTTCCTTGGCCCCAGTAG',
+                    'J4.3':'GACCAGGGTCCCTTGGCCCCAGTAG',
+                    'J4.1c':'GACCAGGGTTCCTTGGCCCCAGGAGT',
+                    'J4.3c':'GACCAGGGTCCCTTGGCCCCAGGAGT',
+                    'J5.1':'CAGGGTTCCTTGGCCCCAGGAGTCG',
+                    'J5.2':'CAGGGTTCCCTGGCCCCAGGGGTCG',
+                    'J6.1':'TGCCCCCAGACGTCCATACCGTAGTAGA',
+                    'J6.2':'CCTTTGCCCCAGACGTCCATGTAGTAGTAGA',
+                    'J6.3':'TGGCCCCAGACGTCCATACCGTAGTAGA',
+                    'J6.4':'TTGCCCCAGACGTCCATACCGTAGTAGA',
+                    'J6.c':'TTCCCCCAGACGTCCATACCGTA',
+                    'J6.c2':'GGTGCCCTGGCCCCAGACGTCCATACCGTA'} #Misprimed sequence (with c)
         else:
             print('Under construction, use mmu for now')
 
@@ -140,15 +165,38 @@ class prs:
                     'J2':'TCAAA',
                     'J3':'GCAAA',
                     'J4':'TCCAT'}
+        elif self.name == 'hsa' or self.name == 'human' or self.name == 'homo sapien':
+            return {'J1':'TGGAA',
+                    'J2':'CGAAG',
+                    'J3':'ATCAA',
+                    'J4.1':'AGTAG',
+                    'J4.3':'GGAGT',
+                    'J5.1':'AGTCG',
+                    'J5.2':'GGTCG',
+                    'J6.1':'GTAGT'}
         else:
             print('Under construction, use mmu for now')
 
     def offset(self):
         if self.name == 'mmu' or self.name == 'mouse' or self.name == 'mus musculus':
-            return {'J1':{'J2':2, 'J3':2, 'J4':2},
-                    'J2':{'J1':8},
-                    'J3':{'J1':8},
-                    'J4':{'J1':8}}
+            return {'J1':{'J2':[2], 'J3':[2], 'J4':[2]},
+                    'J2':{'J1':[8]},
+                    'J3':{'J1':[8]},
+                    'J4':{'J1':[8]}}
+        elif self.name == 'hsa' or self.name == 'human' or self.name == 'homo sapien':
+            return {'J1':{'J2':[4], 'J3':[6], 'J4.1':[1], 'J5.1':[7], 'J5.2':[7]},
+                    'J2':{'J2':[4], 'J3':[6], 'J4.1':[1], 'J5.1':[7], 'J5.2':[7], 'J6.1':[-3]},
+                    'J3':{'J1':[4], 'J2':[3], 'J4.1':[0], 'J5.1':[6], 'J5.2':[6], 'J6.1':[-4]},
+                    'J4.1':{'J1':[0], 'J2':[-1, -2], 'J3':[1], 'J5.1':[2], 'J5.2':[2], 'J6.1':[-8]},
+                    'J4.3':{'J1':[0], 'J2':[-1, -2], 'J3':[1], 'J5.1':[2], 'J5.2':[2], 'J6.1':[-8]},
+                    'J4.1c':{'J1':[1], 'J2':[0, -1], 'J3':[1], 'J5.1':[3], 'J5.2':[3], 'J6.1':[-7]},
+                    'J4.3c':{'J1':[1], 'J2':[0, -1], 'J3':[1], 'J5.1':[3], 'J5.2':[3], 'J6.1':[-7]},
+                    'J5.1':{'J1':[3], 'J2':[2], 'J3':[4], 'J4.1':[8], 'J4.3':[7], 'J6.1':[-5]},
+                    'J5.2':{'J1':[3], 'J2':[2], 'J3':[4], 'J4.1':[8], 'J4.3':[7], 'J6.1':[-5]},
+                    'J6.c':{'J6.1':[0]},
+                    'J6.c2':{'J6.1':[0]},
+                    'J6.3':{},
+                    'J6.4':{}} #TODO:check multiple human germline
         else:
             print('Under construction, use mmu for now')
 
@@ -158,5 +206,17 @@ class prs:
                     'J2':'AGTGGTGCCTTGGCCCCAGTAG',
                     'J3':'ACCAGAGTCCCTTGGCCCCAGTAA',
                     'J4':'TGAGGTTCCTTGACCCCAGTAG'}
+        elif self.name == 'hsa' or self.name == 'human' or self.name == 'homo sapien':
+            return {'J1':'GGTGCCCTGGCCCCAGTGC',
+                    'J2':'GGTGCCACGGCCCCAGAGA',
+                    'J3':'ACCATTGTCCCTTGGCCCCAGAT',
+                    'J4.1':'GACCAGGGTTCCTTGGCCCC',
+                    'J4.3':'GACCAGGGTCCCTTGGCCCCA',
+                    'J5.1':'CAGGGTTCCTTGGCCCCAGGA',
+                    'J5.2':'CAGGGTTCCCTGGCCCCAGGG',
+                    'J6.1':'TGCCCCCAGACGTCCATACCGT',
+                    'J6.2':'CCTTTGCCCCAGACGTCCATGTAGT',
+                    'J6.3':'TGGCCCCAGACGTCCATACCGT',
+                    'J6.4':'TTGCCCCAGACGTCCATACCGT'}
         else:
             print('Under construction, use mmu for now')

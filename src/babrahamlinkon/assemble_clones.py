@@ -17,7 +17,7 @@ import glob
 # '/media/chovanec/My_Passport/Dan_VDJ-seq_cycles_new/J_merged_1c_Deduplicated_test/J_merged_1c_dedup.0.fasta_db-pass.tab'
 
 
-def ambigious_calls(item):
+def ambigious_calls(item, full_name=False):
     '''remove v calls that are ambigous'''
     v_call = item.split(',')
     if len(v_call) >1:
@@ -27,9 +27,15 @@ def ambigious_calls(item):
                 continue
             else:
                 return None
-        return first_call
+        if full_name:
+            return v_call[0]
+        else:
+            return first_call
     else:
-        return v_call[0].split('*')[0]
+        if full_name:
+            return v_call[0]
+        else:
+            return v_call[0].split('*')[0]
 
 
 def lev_adj_list_directional_adjacency(umis, counts, threshold=1):
@@ -70,7 +76,7 @@ def lev_adj_list_adjacency(umis, counts, threshold=1):
     return adj_list
 
 
-def read_changeo_out(tab_file, out, prefix, plot=False):
+def read_changeo_out(tab_file, out, prefix, plot=False, retain_nam=False):
 
     igblast_out = pd.DataFrame()
     df_list = []
@@ -109,8 +115,8 @@ def read_changeo_out(tab_file, out, prefix, plot=False):
     # igblast_out_hs['V_CALL'].str.split('(,|\*)').str[4]
 
     pd.options.mode.chained_assignment = None #Turn of warning http://stackoverflow.com/questions/20625582/how-to-deal-with-settingwithcopywarning-in-pandas
-    igblast_out_hs.loc[:,'V_CALL'] = igblast_out_hs['V_CALL'].apply(ambigious_calls)
-    igblast_out_hs.loc[:,'J_CALL'] = igblast_out_hs['J_CALL'].apply(ambigious_calls)
+    igblast_out_hs.loc[:,'V_CALL'] = igblast_out_hs['V_CALL'].apply(ambigious_calls, args=(retain_nam,))
+    igblast_out_hs.loc[:,'J_CALL'] = igblast_out_hs['J_CALL'].apply(ambigious_calls, args=(retain_nam,))
 
     # Counter(igblast_out_hs['V_CALL'])
     # Counter(igblast_out_hs['J_CALL'])
@@ -140,7 +146,7 @@ def read_changeo_out(tab_file, out, prefix, plot=False):
 # functional_cln['SEQUENCE_ID']['HWI-M02293:218:000000000-AKGG1:1:1101:8139:9569_J3_CTGCTCCT_AGCGGA_5']
 # functional_cln.SEQUENCE_ID[functional_cln.SEQUENCE_ID == 'HWI-M02293:218:000000000-AKGG1:1:1101:8139:9569_J3_CTGCTCCT_AGCGGA_5'].index.tolist()[0]
 
-def make_bundle(pd_data_frame):
+def make_bundle(pd_data_frame, only_v=False):
     '''Make dictionary of V-CRD3-J (bundle)'''
     clonotype_dict = defaultdict(lambda: defaultdict(dict))
 
@@ -149,7 +155,11 @@ def make_bundle(pd_data_frame):
     and 'SEQUENCE_INPUT' in pd_data_frame.columns, 'Requried columns not in data frame'
     # print(pd_data_frame)
     for line in pd_data_frame.index:
-        v_j = pd_data_frame['V_CALL'][line] + '_' + pd_data_frame['J_CALL'][line]
+        if only_v:
+            v_j = pd_data_frame['V_CALL'][line]
+        else:
+            v_j = pd_data_frame['V_CALL'][line] + '_' + pd_data_frame['J_CALL'][line]
+
         cdr3 = pd_data_frame['CDR3_IMGT'][line]
         try:
             clonotype_dict[v_j][cdr3]['qname'].append(pd_data_frame['SEQUENCE_ID'][line])
@@ -217,7 +227,8 @@ def parse_args():
     parser.add_argument('--plot', action='store_true', help='Plot V and J scores with cutoff')
     parser.add_argument('--out', dest='out_dir', type=str, help='Output directory, default: creates Deduplicated in main directory')
     parser.add_argument('--threshold', dest='thres', type=int, default=1, help='Number of differences allowed between CDR3 sequences')
-
+    parser.add_argument('--only_v', action='store_true', help='Use only V idenity for clone assembly')
+    parser.add_argument('--full_name', action='store_true', help='Retain full name of first V and J genes')
 
     opts = parser.parse_args()
 
@@ -241,9 +252,9 @@ def main():
 
     # print('out_dir', out_dir, opts.out_dir)
 
-    igblast_cln = read_changeo_out(files, out_dir, prefix, plot=opts.plot)
+    igblast_cln = read_changeo_out(files, out_dir, prefix, plot=opts.plot, retain_nam=opts.full_name)
 
-    clonotype_dict = make_bundle(igblast_cln)
+    clonotype_dict = make_bundle(igblast_cln, only_v=opts.only_v)
 
     ig_blast_asm = assemble_colonotype(igblast_cln, clonotype_dict, opts.thres)
 

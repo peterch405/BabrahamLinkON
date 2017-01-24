@@ -43,7 +43,11 @@ JV_un <- load_files(vj_unprod_clones)
 ```
 
 ```{r, echo=FALSE}
-library(ggplot2)
+if("ggplot2" %in% rownames(installed.packages()) == FALSE) {
+  install.packages("ggplot2")
+}else{
+  require(ggplot2)
+}
 # ggplot() +
 # 	geom_density(aes(x = Clone.count,y = ..density..*100),data=JV,adjust = 1) +
 # 	geom_vline(data=JV1_bw2_IMGT_clones_readIds,xintercept = 9.0,linetype = 2) +
@@ -82,7 +86,11 @@ library(ggplot2)
 
 ```{r, echo=FALSE}
 #Get IGHV gene names and order from IMGT:
-library(XML)
+if("XML" %in% rownames(installed.packages()) == FALSE) {
+  install.packages("XML")
+}else{
+  require(XML)
+}
 
 IGH <- "http://www.imgt.org/IMGTrepertoire/index.php?section=LocusGenes&repertoire=GenePositions&species=mouse&group=IGH"
 
