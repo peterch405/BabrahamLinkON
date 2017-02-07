@@ -219,11 +219,13 @@ def check_qual(umi_qual, q_score=30):
 
 
 
-def preclean_assembled(jv_region, fq_dict_germ, q_score, spe='mmu', verbose = True,
+def preclean_assembled(jv_region, fq_dict_germ, q_score, umi_len, spe='mmu', verbose = True,
                        misprime_correct=True, discard_germline=True, fast=False):
     '''Seperate out J reads and clean up low quality/unknown reads
     :param jv_region: assembled J and V sequences (from PEAR)
     :param fq_dict_germ: fastqHolder object from germline
+    :param q_score: Minimum Q score within UMI
+    :param umi_len: length of the UMI
     :param spe: which species
     :param verbose: output run startswith
     :param misprime_correct: run mispriming correction
@@ -271,7 +273,7 @@ def preclean_assembled(jv_region, fq_dict_germ, q_score, spe='mmu', verbose = Tr
                     print('Processed', count, 'J sequences')
 
             #Remove low quality and short reads and reads that were low quality
-            if '#' in qual or len(seq) < 60+14+28: #+ size of barcode and UMI 13 or 14 + longest J
+            if '#' in qual or len(seq) < 60+8+28+umi_len: #+ size of barcode and UMI 13 or 14 + longest J
                 low_qual_seq +=1
                 fq_dict_germ.gene_split['other_J'].add(title.split(' ')[0][1:]) #removes @ as well
                 continue
@@ -284,7 +286,7 @@ def preclean_assembled(jv_region, fq_dict_germ, q_score, spe='mmu', verbose = Tr
 
             #Check quality of UMI Q30, skip low qual UMI reads
             #Demultiplex will make sure the last 6 bases are actually the UMI!
-            umi_qual = qual[-6:]
+            umi_qual = qual[-umi_len:]
             if check_qual(umi_qual, q_score=q_score):
                 low_qual_UMI += 1
                 continue
@@ -354,10 +356,11 @@ def preclean_assembled(jv_region, fq_dict_germ, q_score, spe='mmu', verbose = Tr
     return fq_dict_germ
 
 
-def demultiplex_assembled(jv_region, fq_dict_pcln, barcode_1='GACTCGT', barcode_2='CTGCTCCT', verbose=True):
+def demultiplex_assembled(jv_region, fq_dict_pcln, umi_len, barcode_1='GACTCGT', barcode_2='CTGCTCCT', verbose=True):
     '''Demultiplex V reads and extract the umi from assembled reads
     :param V_region: R1 fastq file with V end sequences
     :param fq_dict_pcln: fastqHolder object from preclean
+    :param umi_len: length of the umi
     :param barcode_1: barcode 1 GACTCGT
     :param barcode_2: barcode 2 CTGCTCCT
     :param verbose: print stats
@@ -387,9 +390,9 @@ def demultiplex_assembled(jv_region, fq_dict_pcln, barcode_1='GACTCGT', barcode_
                     if title.split(' ')[0][1:] in fq_dict_pcln.gene_split[key]:
 
                         #perfect match wanted just so indels don't mess up UMI
-                        if seq[-6-len(barcode_1):-6] == rv_barcode_1:
+                        if seq[-umi_len-len(barcode_1):-umi_len] == rv_barcode_1:
                             fq_dict_pcln.demultiplex[key + '_' + barcode_1].add(title.split(' ')[0][1:])
-                        elif seq[-6-len(barcode_2):-6] == rv_barcode_2:
+                        elif seq[-umi_len-len(barcode_2):-umi_len] == rv_barcode_2:
                             fq_dict_pcln.demultiplex[key + '_' + barcode_2].add(title.split(' ')[0][1:])
                         else:
                             fq_dict_pcln.demultiplex['unassigned_J'].add(title.split(' ')[0][1:])
@@ -399,9 +402,9 @@ def demultiplex_assembled(jv_region, fq_dict_pcln, barcode_1='GACTCGT', barcode_
                 if title.split(' ')[0][1:] in fq_dict_pcln.misprimed[key]: #or fq_dict_pcln.misprimed[key].keys() does same thing
 
                     #perfect match wanted just so indels don't mess up UMI
-                    if seq[-6-len(barcode_1):-6] == rv_barcode_1:
+                    if seq[-umi_len-len(barcode_1):-umi_len] == rv_barcode_1:
                         fq_dict_pcln.demultiplex[key + '_' + barcode_1].add(title.split(' ')[0][1:])
-                    elif seq[-6-len(barcode_2):-6] == rv_barcode_2:
+                    elif seq[-umi_len-len(barcode_2):-umi_len] == rv_barcode_2:
                         fq_dict_pcln.demultiplex[key + '_' + barcode_2].add(title.split(' ')[0][1:])
                     else:
                         fq_dict_pcln.demultiplex['unassigned_J'].add(title.split(' ')[0][1:])
@@ -415,10 +418,11 @@ def demultiplex_assembled(jv_region, fq_dict_pcln, barcode_1='GACTCGT', barcode_
 
 
 
-def write_assembled(jv_region, fq_dict_demult, prefix=None, out_dir=None, barcode_1='GACTCGT', barcode_2='CTGCTCCT'):
+def write_assembled(jv_region, fq_dict_demult, umi_len, prefix=None, out_dir=None, barcode_1='GACTCGT', barcode_2='CTGCTCCT'):
     '''Write out precleaned fastq files
     :param jv_region: (PEAR) assembled fastq file with J and V end sequences
     :param fq_dict: a fastqHolder object from demultiplex
+    :param umi_len: length of UMI
     :param q_score: min phred quality for bases in the UMI
     :param prefix: prefix for out files, default is basename of input_J_R2
     :param out_dir: output directory, default is preclean folder created in input directory
@@ -462,7 +466,7 @@ def write_assembled(jv_region, fq_dict_demult, prefix=None, out_dir=None, barcod
     #Write out everything else
     fq_dict_demult.write_demultiplex_umi_extract_assembled(fp_jv_region, key_list,
                                                            out_path=out_dir + '/' + prefix_jv + '_' + 'all_jv',
-                                                           br1=barcode_1, br2=barcode_2)
+                                                           br1=barcode_1, br2=barcode_2, umi_len=umi_len)
 
     #write out germline and other
     for key in germ_files:
@@ -532,8 +536,9 @@ def parse_args():
 
     parser.add_argument('--keep_germline', action='store_false', help='Skip germline removal step')
     parser.add_argument('-q', '--q_score', dest='q_score', type=int, default=30, help='Minimum Phred quality score for bases in UMI')
+    parser.add_argument('-ul', '--umi_len', dest='umi_len', type=int, default=6, help='Length of the UMI')
 
-    parser.add_argument('--plot_QC', action='store_true', help='QC plot showing if all germline reads were removed (few will be present J-J rearrangements)')
+    # parser.add_argument('--plot_QC', action='store_true', help='QC plot showing if all germline reads were removed (few will be present J-J rearrangements)')
 
     opts = parser.parse_args()
 
@@ -603,19 +608,19 @@ def main():
             germ_assembled.gene_split['germline_J'].update(germ_unassembled.gene_split['germline_J']) #set
 
             #Merge the two files into one (pairing unassembled reads)
-            fq_clean = preclean_assembled(assembled_file + '.all_assembled.fastq', germ_assembled, q_score=opts.q_score, spe=opts.species, verbose=opts.verbose,
+            fq_clean = preclean_assembled(assembled_file + '.all_assembled.fastq', germ_assembled, q_score=opts.q_score, umi_len=opts.umi_len, spe=opts.species, verbose=opts.verbose,
                                           misprime_correct=opts.mispriming, discard_germline=opts.keep_germline, fast=opts.fast)
 
-            fq_demultiplex = demultiplex_assembled(assembled_file + '.all_assembled.fastq', fq_clean, barcode_1=opts.br1, barcode_2=opts.br2, verbose=opts.verbose)
+            fq_demultiplex = demultiplex_assembled(assembled_file + '.all_assembled.fastq', fq_clean, umi_len=opts.umi_len, barcode_1=opts.br1, barcode_2=opts.br2, verbose=opts.verbose)
 
-            write_assembled(assembled_file + '.all_assembled.fastq', fq_demultiplex, prefix=opts.prefix, out_dir=out_dir)
+            write_assembled(assembled_file + '.all_assembled.fastq', fq_demultiplex, umi_len=opts.umi_len, prefix=opts.prefix, out_dir=out_dir)
         else:
-            fq_clean = preclean_assembled(assembled_file + '.assembled.fastq', germ_assembled, q_score=opts.q_score, spe=opts.species, verbose=opts.verbose,
+            fq_clean = preclean_assembled(assembled_file + '.assembled.fastq', germ_assembled, q_score=opts.q_score, umi_len=opts.umi_len, spe=opts.species, verbose=opts.verbose,
                                           misprime_correct=opts.mispriming, discard_germline=opts.keep_germline, fast=opts.fast)
 
-            fq_demultiplex = demultiplex_assembled(assembled_file + '.assembled.fastq', fq_clean, barcode_1=opts.br1, barcode_2=opts.br2, verbose=opts.verbose)
+            fq_demultiplex = demultiplex_assembled(assembled_file + '.assembled.fastq', fq_clean, umi_len=opts.umi_len, barcode_1=opts.br1, barcode_2=opts.br2, verbose=opts.verbose)
 
-            write_assembled(assembled_file + '.assembled.fastq', fq_demultiplex, prefix=opts.prefix, out_dir=out_dir)
+            write_assembled(assembled_file + '.assembled.fastq', fq_demultiplex, umi_len=opts.umi_len, prefix=opts.prefix, out_dir=out_dir)
 
 
     else: #No input supplied

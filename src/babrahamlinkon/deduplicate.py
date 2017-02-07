@@ -1123,7 +1123,7 @@ class deduplicate:
             if len(reads_dict) >= threads:
                 nprocs = 1
             else:
-                nprocs = int(threads/len(read_dict)) #how many unused cores are available?
+                nprocs = int(threads/len(reads_dict)) #how many unused cores are available?
 
             #br1+2
             stats_pre_df_dict, stats_post_df_dict, pre_cluster_stats, post_cluster_stats, \

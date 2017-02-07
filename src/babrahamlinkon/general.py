@@ -113,6 +113,22 @@ def fasta_parse(fp):
             yield name, seq
             name, seq = [None] * 2
 
+#TODO: better fasta parser in case sequence is not all on the same line
+def fasta_iter(fasta_name):
+    '''
+    given a fasta file. yield tuples of header, sequence
+    https://drj11.wordpress.com/2010/02/22/python-getting-fasta-with-itertools-groupby/
+    https://www.biostars.org/p/710/
+    '''
+    with open(fasta_name) as fasta_in:
+        # ditch the boolean (x[0]) and just keep the header or sequence since we know they alternate.
+        faiter = (x[1] for x in groupby(fasta_in, lambda line: line[0] == '>'))
+        for header in faiter:
+            # drop the ">"
+            header = header.__next__()[1:].strip() #first group
+            # join all sequence lines to one.
+            seq = "".join(s.strip() for s in faiter.__next__()) #second group
+            yield header, seq
 
 
 
@@ -304,7 +320,7 @@ class fastqHolder:
     #                         br2_out_file.write(qname.split(' ')[0] + '_' + gene + '_' + umi_dict[qname.split(' ')[0][1:]] + ' ' + qname.split(' ')[1] + '\n' + seq + '\n' + thrd + '\n' + qual + '\n')
 
 
-    def write_demultiplex_umi_extract_assembled(self, jv_fastq, gene_list, out_path, br1, br2):
+    def write_demultiplex_umi_extract_assembled(self, jv_fastq, gene_list, out_path, br1, br2, umi_len):
         '''Write everything into single fastq file and extract umi
         :param fastq: fastq to subset
         :param gene_list: what to subset by (J gene in split_gene)
@@ -327,7 +343,7 @@ class fastqHolder:
                 for gene in gene_list: #J1 J2 J3 J4...
                     if qname.split(' ')[0][1:] in self.demultiplex[gene]:
 
-                        umi = seq[-6:] #last 6 bases NNNNNN (it is in reverse complement configuration compared to original V read)
+                        umi = seq[-umi_len:] #last 6 bases NNNNNN (it is in reverse complement configuration compared to original V read)
 
                         # umi_dict[qname.split(' ')[0][1:]] = umi #add to dict so can add to J qname too
                         if self.misprimed: #empty dict evals to False
@@ -348,12 +364,12 @@ class fastqHolder:
                         #Remove UMI and barcode from seq (keeping it in read qname only)
                         if br1 in gene:
                             br1_out_file.write(qname.split(' ')[0] + '_' + gene + '_' + umi + ' ' +
-                            ''.join(qname.split(' ')[1:]) + '\n' + seq[:-13] + '\n' + thrd + '\n' + qual[:-13] + '\n')
+                            ''.join(qname.split(' ')[1:]) + '\n' + seq[:-(7+umi_len)] + '\n' + thrd + '\n' + qual[:-(7+umi_len)] + '\n')
                             br1_count += 1
                             gene_count[gene] += 1
                         else:
                             br2_out_file.write(qname.split(' ')[0] + '_' + gene + '_' + umi + ' ' +
-                            ''.join(qname.split(' ')[1:]) + '\n' + seq[:-14] + '\n' + thrd + '\n' + qual[:-14] + '\n')
+                            ''.join(qname.split(' ')[1:]) + '\n' + seq[:-(8+umi_len)] + '\n' + thrd + '\n' + qual[:-(8+umi_len)] + '\n')
                             br2_count += 1
                             gene_count[gene] += 1
 

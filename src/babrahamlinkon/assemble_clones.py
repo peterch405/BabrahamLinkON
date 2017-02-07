@@ -9,7 +9,6 @@ import Levenshtein
 from babrahamlinkon import deduplicate
 import os
 import argparse
-from matplotlib.backends.backend_pdf import PdfPages
 import glob
 
 # %matplotlib inline
@@ -38,27 +37,27 @@ def ambigious_calls(item, full_name=False):
             return v_call[0].split('*')[0]
 
 
-def lev_adj_list_directional_adjacency(umis, counts, threshold=1):
-    ''' identify all umis within the levenshtein distance threshold
-    and where the counts of the first umi is > (2 * second umi counts)-1
-    will have duplicates'''
-
-    #should be 50% faster
-    adj_list = defaultdict(list)
-    for i,umi in enumerate(umis):
-        a1 = adj_list[umi]
-        c1 = counts[umi]
-        for j in range(i+1,len(umis)):
-            umi2 = umis[j] #dict_keys object doesn't support indexing
-
-            if Levenshtein.distance(umi, umi2) == threshold:
-                c2 = counts[umi2]
-                if c1 >= (c2*2)-1:
-                    adj_list[umi].append(umi2)
-                if c2 >= (c1*2)-1:
-                    adj_list[umi2].append(umi)
-
-    return adj_list
+# def lev_adj_list_directional_adjacency(umis, counts, threshold=1):
+#     ''' identify all umis within the levenshtein distance threshold
+#     and where the counts of the first umi is > (2 * second umi counts)-1
+#     will have duplicates'''
+#
+#     #should be 50% faster
+#     adj_list = defaultdict(list)
+#     for i,umi in enumerate(umis):
+#         a1 = adj_list[umi]
+#         c1 = counts[umi]
+#         for j in range(i+1,len(umis)):
+#             umi2 = umis[j] #dict_keys object doesn't support indexing
+#
+#             if Levenshtein.distance(umi, umi2) == threshold:
+#                 c2 = counts[umi2]
+#                 if c1 >= (c2*2)-1:
+#                     adj_list[umi].append(umi2)
+#                 if c2 >= (c1*2)-1:
+#                     adj_list[umi2].append(umi)
+#
+#     return adj_list
 
 
 def lev_adj_list_adjacency(umis, counts, threshold=1):
@@ -76,12 +75,15 @@ def lev_adj_list_adjacency(umis, counts, threshold=1):
     return adj_list
 
 
-def read_changeo_out(tab_file, out, prefix, plot=False, retain_nam=False):
+def read_changeo_out(tab_file, out, prefix, plot=False, retain_nam=False, minimal=False):
 
     igblast_out = pd.DataFrame()
     df_list = []
     for f in tab_file:
         df = pd.read_table(f, header=0)
+        #add column with file identity
+        id_label = os.path.basename(f).split('.')[0]
+        df['file_ID'] = pd.Series(np.repeat(id_label, len(df.index)))
         df_list.append(df)
     igblast_out = pd.concat(df_list)
     igblast_out.reset_index(drop=True, inplace=True)
@@ -138,8 +140,9 @@ def read_changeo_out(tab_file, out, prefix, plot=False, retain_nam=False):
     # functional_cln = functional.dropna(subset = ['CDR3_IMGT'])
     # non_functional_cln = non_functional.dropna(subset = ['CDR3_IMGT'])
 
-    # len(functional_cln)
-
+    #only output a minimal table
+    if minimal:
+        igblast_out_hs_cln = igblast_out_hs_cln[['SEQUENCE_ID', 'SEQUENCE_INPUT', 'V_CALL', 'D_CALL', 'J_CALL', 'CDR3_IMGT', 'file_ID']]
     # return (functional_cln, non_functional_cln)
     return igblast_out_hs_cln
 
@@ -229,6 +232,7 @@ def parse_args():
     parser.add_argument('--threshold', dest='thres', type=int, default=1, help='Number of differences allowed between CDR3 sequences')
     parser.add_argument('--only_v', action='store_true', help='Use only V idenity for clone assembly')
     parser.add_argument('--full_name', action='store_true', help='Retain full name of first V and J genes')
+    parser.add_argument('--minimal', action='store_true', help='Work with and output only a minimal table')
 
     opts = parser.parse_args()
 
@@ -251,17 +255,19 @@ def main():
         out_dir = opts.out_dir
 
     # print('out_dir', out_dir, opts.out_dir)
-
-    igblast_cln = read_changeo_out(files, out_dir, prefix, plot=opts.plot, retain_nam=opts.full_name)
+    # files = glob.glob('/media/chovanec/My_Passport/Dan_VDJ-seq_cycles_Jan17/results/lane5279*')
+    igblast_cln = read_changeo_out(files, out_dir, prefix, plot=opts.plot, retain_nam=opts.full_name, minimal=opts.minimal)
+    # igblast_cln = read_changeo_out(files, out_dir, prefix)
 
     clonotype_dict = make_bundle(igblast_cln, only_v=opts.only_v)
 
     ig_blast_asm = assemble_colonotype(igblast_cln, clonotype_dict, opts.thres)
 
 
-
-    write_out(ig_blast_asm, out_dir + '/' + prefix + '_assembled_clones.tab')
-
+    if opts.minimal:
+        write_out(ig_blast_asm, out_dir + '/' + prefix + '_assembled_clones_min.tab')
+    else:
+        write_out(ig_blast_asm, out_dir + '/' + prefix + '_assembled_clones.tab')
 
 
 if __name__ == "__main__":
