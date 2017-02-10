@@ -825,7 +825,7 @@ def dir_adj_worker(bundle, threshold, stats, further_stats, mismatch, min_reads,
 
 def dir_adj_bundle_parallel(reads_dict, low_umi_out, out, threshold, min_reads, mismatch,
                    stats, further_stats, threads, pdf_out, gt_threshold, nprocs, msa,
-                   skip_umi_correction):
+                   skip_umi_correction, no_anchor=False):
     '''
     :param reads_dict:
     :param min_reads: minimun number of reads required in a umi group [5]
@@ -871,8 +871,11 @@ def dir_adj_bundle_parallel(reads_dict, low_umi_out, out, threshold, min_reads, 
             #extract title from read
             # j_nam = re.search('J\d+', dir_adj_results[bundle][0][0].split(' ')[0]).group(0)
             j_nam = dir_adj_results[bundle][0][0].split(' ')[0].split('_')[-3]
-            barcode = dir_adj_results[bundle][0][0].split(' ')[0].split('_')[-2]
-            plt.title(j_nam + ' ' + barcode + ' Cut point: ' + str(cut_point), ha='center') #need to put name to know which bundle J is being processed
+            if no_anchor:
+                anchor = ''
+            else:
+                anchor = dir_adj_results[bundle][0][0].split(' ')[0].split('_')[-2]
+            plt.title(j_nam + ' ' + anchor + ' Cut point: ' + str(cut_point), ha='center') #need to put name to know which bundle J is being processed
             my_plot = plt.axvline(cut_point, linestyle='dashed', linewidth=2).get_figure()
             pdf_out.savefig(my_plot)
             plt.close('all')
@@ -954,7 +957,7 @@ def aggregateStatsDF(stats_df):
 
 
 
-def make_bundle(fastq, ignore_umi, ignore_j, ignore_v, skip_unclear, skip_mh):
+def make_bundle(fastq, ignore_umi, ignore_j, ignore_v, skip_unclear, skip_mh, no_anchor):
     '''bundle reads
     '''
     unclear_skip = 0
@@ -976,7 +979,10 @@ def make_bundle(fastq, ignore_umi, ignore_j, ignore_v, skip_unclear, skip_mh):
             else:
                 umi = qname.split(' ')[0].split('_')[-1]
 
-            barcode = qname.split(' ')[0].split('_')[-2]
+            if no_anchor:
+                anchor = ''
+            else:
+                anchor = qname.split(' ')[0].split('_')[-2]
 
             v_seq = seq[-8:]
 
@@ -992,10 +998,11 @@ def make_bundle(fastq, ignore_umi, ignore_j, ignore_v, skip_unclear, skip_mh):
             j_idn = qname.split('_')[-3]
 
 
+
             if ignore_j:
-                key = barcode
+                key = anchor
             else:
-                key = j_idn + barcode
+                key = j_idn + anchor
 
             if ignore_v:
                 dedup_seq = umi
@@ -1018,33 +1025,32 @@ def make_bundle(fastq, ignore_umi, ignore_j, ignore_v, skip_unclear, skip_mh):
 
 class deduplicate:
     '''Deduplicate using J, V start and UMI
-    barcode 1 GACTCGT  barcode 2 CTGCTCCT
+    anchor 1 GACTCGT  anchor 2 CTGCTCCT
     '''
 
-    def __init__(self, file_directory, br1='GACTCGT', br2='CTGCTCCT'):
+    def __init__(self, file_directory, an1, an2):
         '''
         :param file_directory: where files are
         :param single: seperate V and J (not assembled)
         '''
         self.file_directory = file_directory
-        self.br1 = br1
-        self.br2 = br2
+        self.an1 = an1
+        self.an2 = an2
         self.out_dir = ''
 
 
-        self.jv_fastq_br1 = glob.glob(self.file_directory + '/*all_jv*' + br1)[0]
-        self.jv_fastq_br2 = glob.glob(self.file_directory + '/*all_jv*' + br2)[0]
+        self.jv_fastq_an1 = glob.glob(self.file_directory + '/*all_jv*' + an1)[0]
+        self.jv_fastq_an2 = glob.glob(self.file_directory + '/*all_jv*' + an2)[0]
         self.jv_prefix = ''
         self.header_postfix_jv = ''
-
 
 
     def create_dirs_assembled(self, out_dir=None):
         '''#Create directories
         '''
 
-        dir_main = Path(os.path.abspath(self.jv_fastq_br1)).parents[1] #1 dir up, create outside of preclean directory
-        self.jv_prefix = re.split('(_all)', os.path.basename(self.jv_fastq_br1))[0]
+        dir_main = Path(os.path.abspath(self.jv_fastq_an1)).parents[1] #1 dir up, create outside of preclean directory
+        self.jv_prefix = re.split('(_all)', os.path.basename(self.jv_fastq_an1))[0]
 
 
         #final output dir
@@ -1060,7 +1066,7 @@ class deduplicate:
             pass
 
         #Get 1:N:0:GCCAAT from header
-        with open(self.jv_fastq_br1, 'r') as f:
+        with open(self.jv_fastq_an1, 'r') as f:
                 first_line = f.readline()
                 self.header_postfix_jv = first_line.split(' ')[1].rstrip()
 
@@ -1069,25 +1075,31 @@ class deduplicate:
 
     def v_start_j_umi_dedup_assembled(self, threshold, min_reads, threads, mismatch, gt_threshold,
                                       ignore_umi=False, stats=False, ignore_j=False, ignore_v=False, skip_unclear=False,
-                                      skip_mh=False, further_stats=False, msa=False, skip_umi_cor=False):
+                                      skip_mh=False, further_stats=False, msa=False, skip_umi_cor=False,
+                                      no_anchor=False):
         '''Determine start position of v reads
         some elements inspired by umi_tools by tom smith cagt
 
         '''
+        if no_anchor:
+            reads_dict, unclear_skip_an1 = make_bundle(self.jv_fastq_an1, ignore_umi=ignore_umi, ignore_j=ignore_j, ignore_v=ignore_v,
+                                                           skip_unclear=skip_unclear, skip_mh=skip_mh, no_anchor=no_anchor)
+            unclear_skip_an2 = 0
+        else:
 
-        reads_dict_br1, unclear_skip_br1 = make_bundle(self.jv_fastq_br1, ignore_umi=ignore_umi, ignore_j=ignore_j, ignore_v=ignore_v,
-                                                       skip_unclear=skip_unclear, skip_mh=skip_mh)
-        reads_dict_br2, unclear_skip_br2 = make_bundle(self.jv_fastq_br2, ignore_umi=ignore_umi, ignore_j=ignore_j, ignore_v=ignore_v,
-                                                       skip_unclear=skip_unclear, skip_mh=skip_mh)
+            reads_dict_an1, unclear_skip_an1 = make_bundle(self.jv_fastq_an1, ignore_umi=ignore_umi, ignore_j=ignore_j, ignore_v=ignore_v,
+                                                           skip_unclear=skip_unclear, skip_mh=skip_mh)
+            reads_dict_an2, unclear_skip_an2 = make_bundle(self.jv_fastq_an2, ignore_umi=ignore_umi, ignore_j=ignore_j, ignore_v=ignore_v,
+                                                           skip_unclear=skip_unclear, skip_mh=skip_mh)
 
-        # merge the two dict_keys
-        reads_dict = {**reads_dict_br1, **reads_dict_br2}
+            # merge the two dict_keys
+            reads_dict = {**reads_dict_an1, **reads_dict_an2}
 
         ########################
 
         if stats:
-            print('Unclear skiped:', unclear_skip_br1 + unclear_skip_br2)
-            all_unclear =  unclear_skip_br1 + unclear_skip_br2
+            print('Unclear skiped:', unclear_skip_an1 + unclear_skip_an2)
+            all_unclear =  unclear_skip_an1 + unclear_skip_an2
             logging.info('Unclear skiped:' +  str(all_unclear))
             # set up arrays to hold stats data
             stats_pre_df_dict_all = {'UMI': [], 'counts': []}
@@ -1102,46 +1114,46 @@ class deduplicate:
 
 
 
-            num_input_br1, num_output_br1 = 0, 0
-            num_input_br2, num_output_br2 = 0, 0
+            num_input_an1, num_output_an1 = 0, 0
+            num_input_an2, num_output_an2 = 0, 0
             # line_fmt = "@{0!s}\n{1!s}\n+\n{2!s}\n"
-            low_gt_reads_br1, low_gt_reads_br2 = 0, 0
-            corrected_reads_br1, corrected_reads_br2 = 0, 0
-            low_gt_corrected_reads_br1, low_gt_corrected_reads_br2 = 0, 0
-            low_umi_count_br1, low_umi_count_br2 = 0, 0
+            low_gt_reads_an1, low_gt_reads_an2 = 0, 0
+            corrected_reads_an1, corrected_reads_an2 = 0, 0
+            low_gt_corrected_reads_an1, low_gt_corrected_reads_an2 = 0, 0
+            low_umi_count_an1, low_umi_count_an2 = 0, 0
 
-        #Write both barcodes into same file
+        #Write both anchors into same file
         #Can't split into DJ and V
 
         # print(reads_dict.keys())
-        # with pysam.AlignmentFile(self.tmp_dir + '/' + self.v_prefix_br1 + '_' + self.br1 + '_dedup.bam', "wb", template=sam_algn_v_br1) as out_file:
+        # with pysam.AlignmentFile(self.tmp_dir + '/' + self.v_prefix_an1 + '_' + self.an1 + '_dedup.bam', "wb", template=sam_algn_v_an1) as out_file:
         with open(self.out_dir + '/' + self.jv_prefix + '_dedup.fasta', 'w') as jv_out, \
         open(self.out_dir + '/' + self.jv_prefix + '_low_umi.fasta', 'w') as low_umi_out, \
         PdfPages(self.out_dir + '/' + self.jv_prefix + '_histogram.pdf') as pdf:
 
-            #run br1 and br2 side by side (not tested!)
+            #run an1 and an2 side by side (not tested!)
             if len(reads_dict) >= threads:
                 nprocs = 1
             else:
                 nprocs = int(threads/len(reads_dict)) #how many unused cores are available?
 
-            #br1+2
+            #an1+2
             stats_pre_df_dict, stats_post_df_dict, pre_cluster_stats, post_cluster_stats, \
             topology_counts, node_counts, num_input, num_output, low_gt_reads, corrected_reads, \
             low_gt_corrected_reads, low_umi_count=\
             dir_adj_bundle_parallel(reads_dict, low_umi_out, jv_out, threshold=threshold, min_reads=min_reads,
                            mismatch=mismatch, gt_threshold=gt_threshold,
                            stats=stats, further_stats=further_stats, threads=threads, pdf_out=pdf, nprocs=nprocs, msa=msa,
-                           skip_umi_correction=skip_umi_cor)
+                           skip_umi_correction=skip_umi_cor, no_anchor=no_anchor)
 
             #stats
             if stats:
-                num_input_br1 += num_input
-                num_output_br1 += num_output
-                low_gt_reads_br1 += low_gt_reads
-                corrected_reads_br1 += corrected_reads
-                low_gt_corrected_reads_br1 += low_gt_corrected_reads
-                low_umi_count_br1 += low_umi_count
+                num_input_an1 += num_input
+                num_output_an1 += num_output
+                low_gt_reads_an1 += low_gt_reads
+                corrected_reads_an1 += corrected_reads
+                low_gt_corrected_reads_an1 += low_gt_corrected_reads
+                low_umi_count_an1 += low_umi_count
 
                 stats_pre_df_dict_all.update(stats_pre_df_dict)
                 stats_post_df_dict_all.update(stats_post_df_dict)
@@ -1155,25 +1167,19 @@ class deduplicate:
 
 
         if stats:
-            print('Number of input reads:', num_input_br1)
-            print('Number of output reads:', num_output_br1)
-            logging.info('Number of input reads:' + str(num_input_br1))
-            logging.info('Number of output reads:' + str(num_output_br1))
-            # print('Number of input reads barcode 2:', num_input_br2)
-            # print('Number of output reads barcode 2:', num_output_br2)
+            print('Number of input reads:', num_input_an1)
+            print('Number of output reads:', num_output_an1)
+            logging.info('Number of input reads:' + str(num_input_an1))
+            logging.info('Number of output reads:' + str(num_output_an1))
 
-            print('Number of clusters with low ratio discarded:' + str(low_gt_reads_br1))
-            # print('Number of clusters with low ratio discarded barcode 2:', low_gt_reads_br2)
-            logging.info('Number of clusters with low ratio discarded:' + str(low_gt_reads_br1))
-            print('Number of directional-adjacency corrected clusters:', corrected_reads_br1)
-            # print('Number of directional-adjacency corrected clusters barcode 2:', corrected_reads_br2)
-            logging.info('Number of directional-adjacency corrected clusters:' + str(corrected_reads_br1))
-            print('Number of corrected clusters with low ratio discarded:', low_gt_corrected_reads_br1)
-            # print('Number of corrected clusters with low ratio discarded barcode 2:', low_gt_corrected_reads_br2)
-            logging.info('Number of corrected clusters with low ratio discarded:' +  str(low_gt_corrected_reads_br1))
-            print('Number of low UMI count groups:', low_umi_count_br1)
-            # print('Number of low UMI count groups barcode 2:', low_umi_count_br2)
-            logging.info('Number of low UMI count groups:' + str(low_umi_count_br1))
+            print('Number of clusters with low ratio discarded:' + str(low_gt_reads_an1))
+            logging.info('Number of clusters with low ratio discarded:' + str(low_gt_reads_an1))
+            print('Number of directional-adjacency corrected clusters:', corrected_reads_an1)
+            logging.info('Number of directional-adjacency corrected clusters:' + str(corrected_reads_an1))
+            print('Number of corrected clusters with low ratio discarded:', low_gt_corrected_reads_an1)
+            logging.info('Number of corrected clusters with low ratio discarded:' +  str(low_gt_corrected_reads_an1))
+            print('Number of low UMI count groups:', low_umi_count_an1)
+            logging.info('Number of low UMI count groups:' + str(low_umi_count_an1))
             print('Topology:', topology_counts)
             print('Node count:', node_counts)
             logging.info('Topology:' + str(topology_counts))
@@ -1230,10 +1236,11 @@ def parse_args():
     parser.add_argument('--input_dir', dest='in_dir', type=str, required=True, help='Input directory (created for/by preclean)')
     parser.add_argument('--cores', dest='nthreads', default=1, type=int, help='Number of cores to use (if aligning), default: 1')
     # parser.add_argument('--species', dest='species', default='mmu', type=str, help='Which species (mmu, hsa), default: mmu')
-    parser.add_argument('--br1', dest='br1', default='GACTCGT', type=str, help='Default: GACTCGT')
-    parser.add_argument('--br2', dest='br2', default='CTGCTCCT', type=str, help='Default: CTGCTCCT')
+    parser.add_argument('--an1', dest='an1', default='GACTCGT', type=str, help='Default: GACTCGT')
+    parser.add_argument('--an2', dest='an2', default='CTGCTCCT', type=str, help='Default: CTGCTCCT')
     parser.add_argument('--verbose', action='store_true', help='Print detailed progress')
     parser.add_argument('--out', dest='out_dir', type=str, help='Output directory, default: creates Deduplicated in main directory')
+    parser.add_argument('--no_anchor', action='store_true', help='No anchor sequence present')
 
     parser.add_argument('--ignore_umi', action='store_true', help='Deduplicate without using UMI')
     parser.add_argument('--ignore_j', action='store_true', help='Deduplicate without using J end identity')
@@ -1269,7 +1276,14 @@ def main():
     #argparse
     opts = parse_args()
 
-    dedup = deduplicate(file_directory=opts.in_dir, br1=opts.br1, br2=opts.br2)
+    if opts.no_anchor:
+        an1 = ''
+        an2 = ''
+    else:
+        an1 = opts.an1
+        an2 = opts.an2
+
+    dedup = deduplicate(file_directory=opts.in_dir, an1=an1, an2=an2)
 
     dedup.create_dirs_assembled(out_dir=opts.out_dir)
 
@@ -1282,7 +1296,8 @@ def main():
                                         mismatch=opts.mismatch, gt_threshold=opts.gtratio, stats=opts.stats,
                                         further_stats=opts.further_stats, ignore_umi=opts.ignore_umi,
                                         ignore_j=opts.ignore_j, ignore_v=opts.ignore_v, skip_unclear=opts.skip_unclear,
-                                        skip_mh=opts.skip_mh, msa=opts.msa, skip_umi_cor=opts.skip_umi_correction)
+                                        skip_mh=opts.skip_mh, msa=opts.msa, skip_umi_cor=opts.skip_umi_correction,
+                                        no_anchor=opts.no_anchor)
 
 
 if __name__ == "__main__":
