@@ -1,0 +1,9 @@
+# V-segment database
+edit_imgt_file.pl /media/chovanec/My_Passport/Sync/BabrahamLinkON/resources/IMGT_reference/Homo_sapiens_IGHV.fasta > IgBlast_database/Homo_sapiens_IGHV
+makeblastdb -parse_seqids -dbtype nucl -in IgBlast_database/Homo_sapiens_IGHV
+# D-segment database
+edit_imgt_file.pl /media/chovanec/My_Passport/Sync/BabrahamLinkON/resources/IMGT_reference/Homo_sapiens_IGHD.fasta > IgBlast_database/Homo_sapiens_IGHD
+makeblastdb -parse_seqids -dbtype nucl -in IgBlast_database/Homo_sapiens_IGHD
+# J-segment database
+edit_imgt_file.pl /media/chovanec/My_Passport/Sync/BabrahamLinkON/resources/IMGT_reference/Homo_sapiens_IGHJ.fasta > IgBlast_database/Homo_sapiens_IGHJ
+makeblastdb -parse_seqids -dbtype nucl -in IgBlast_database/Homo_sapiens_IGHJ

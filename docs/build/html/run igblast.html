@@ -1,0 +1,159 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    
+    <title>Run IgBlast with ChangeO &mdash; BabrahamLinkON 0.0.1 documentation</title>
+    
+    <link rel="stylesheet" href="_static/alabaster.css" type="text/css" />
+    <link rel="stylesheet" href="_static/pygments.css" type="text/css" />
+    
+    <script type="text/javascript">
+      var DOCUMENTATION_OPTIONS = {
+        URL_ROOT:    './',
+        VERSION:     '0.0.1',
+        COLLAPSE_INDEX: false,
+        FILE_SUFFIX: '.html',
+        HAS_SOURCE:  true
+      };
+    </script>
+    <script type="text/javascript" src="_static/jquery.js"></script>
+    <script type="text/javascript" src="_static/underscore.js"></script>
+    <script type="text/javascript" src="_static/doctools.js"></script>
+    <link rel="top" title="BabrahamLinkON 0.0.1 documentation" href="index.html" />
+    <link rel="next" title="License" href="license.html" />
+    <link rel="prev" title="BabrahamLinkON documentation" href="index.html" />
+   
+  <link rel="stylesheet" href="_static/custom.css" type="text/css" />
+  
+  <meta name="viewport" content="width=device-width, initial-scale=0.9, maximum-scale=0.9" />
+
+  </head>
+  <body role="document">
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body" role="main">
+            
+  <div class="section" id="run-igblast-with-changeo">
+<h1>Run IgBlast with ChangeO<a class="headerlink" href="#run-igblast-with-changeo" title="Permalink to this headline">¶</a></h1>
+<p>For more information on how to set up IgBlast and run ChangeO please refer to the ChangeO documentation:
+<a class="reference external" href="https://changeo.readthedocs.io/en/version-0.3.3---makedb-expansion/examples/igblast.html">https://changeo.readthedocs.io/en/version-0.3.3&#8212;makedb-expansion/examples/igblast.html</a></p>
+<p>To run igblast on low umi sequences:</p>
+<div class="highlight-default"><div class="highlight"><pre><span></span><span class="n">cat</span> <span class="n">dedup</span><span class="o">.</span><span class="n">fasta</span> <span class="n">low_umi</span><span class="o">.</span><span class="n">fasta</span> <span class="o">&gt;</span> <span class="nb">all</span><span class="o">.</span><span class="n">fasta</span>
+</pre></div>
+</div>
+<p>Select how many cores to use with IgBlast:</p>
+<div class="highlight-default"><div class="highlight"><pre><span></span>cores=8
+pyfasta split -n $cores all.fasta
+
+
+for f in all.*.fasta; do
+    echo $f
+    igblastn \
+        -germline_db_V IgBlast_database/Mus_musculus_IGHV \
+        -germline_db_D IgBlast_database/Mus_musculus_IGHD \
+        -germline_db_J IgBlast_database/Mus_musculus_IGHJ \
+        -auxiliary_data igblast/optional_file/mouse_gl.aux \
+        -domain_system imgt -ig_seqtype Ig -organism mouse \
+        -outfmt &#39;7 std qseq sseq btop&#39; \
+        -query $f \
+        -out ${f}.fmt7 \
+        -num_threads 1 &amp;
+
+done
+
+
+FAIL=0
+for job in `jobs -p`
+do
+echo $job
+    wait $job || let &quot;FAIL+=1&quot;
+done
+
+echo $FAIL
+
+if [ &quot;$FAIL&quot; == &quot;0&quot; ];
+then
+echo &quot;All finished succesfully!&quot;
+else
+echo &quot;FAIL! ($FAIL)&quot;
+fi
+</pre></div>
+</div>
+<p>Run ChangeO MakeDb.py to pasrse IgBlast results:</p>
+<div class="highlight-default"><div class="highlight"><pre><span></span>for o in all.*.fmt7; do
+    MakeDb.py igblast -i $o \
+    -s ${o%.*} \
+    -r IgBlast_database/Mus_musculus_IGH[JDV].fasta \
+    --regions --scores
+
+    #Delete all intermediate files
+    rm $o
+    rm ${o%.*}
+done
+</pre></div>
+</div>
+<p>To assemble the clones into clonotypes:</p>
+<div class="highlight-default"><div class="highlight"><pre><span></span><span class="n">assemble_clones</span><span class="o">.</span><span class="n">py</span> <span class="o">--</span><span class="n">tab_file</span> <span class="s1">&#39;all.*.fasta_db-pass.tab&#39;</span> <span class="o">--</span><span class="n">plot</span>
+</pre></div>
+</div>
+</div>
+
+
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper"><div class="relations">
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="index.html">Documentation overview</a><ul>
+      <li>Previous: <a href="index.html" title="previous chapter">BabrahamLinkON documentation</a></li>
+      <li>Next: <a href="license.html" title="next chapter">License</a></li>
+  </ul></li>
+</ul>
+</div>
+  <div role="note" aria-label="source link">
+    <h3>This Page</h3>
+    <ul class="this-page-menu">
+      <li><a href="_sources/run igblast.txt"
+            rel="nofollow">Show Source</a></li>
+    </ul>
+   </div>
+<div id="searchbox" style="display: none" role="search">
+  <h3>Quick search</h3>
+    <form class="search" action="search.html" method="get">
+      <input type="text" name="q" />
+      <input type="submit" value="Go" />
+      <input type="hidden" name="check_keywords" value="yes" />
+      <input type="hidden" name="area" value="default" />
+    </form>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &copy;2016, Peter Chovanec.
+      
+      |
+      Powered by <a href="http://sphinx-doc.org/">Sphinx 1.4.1</a>
+      &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.8</a>
+      
+      |
+      <a href="_sources/run igblast.txt"
+          rel="nofollow">Page source</a>
+    </div>
+
+    
+
+    
+  </body>
+</html>
