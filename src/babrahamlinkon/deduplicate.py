@@ -957,7 +957,7 @@ def aggregateStatsDF(stats_df):
 
 
 
-def make_bundle(fastq, ignore_umi, ignore_j, ignore_v, skip_unclear, skip_mh, no_anchor):
+def make_bundle(fastq, ignore_umi, ignore_j, ignore_v, skip_unclear, skip_mh, no_anchor=False):
     '''bundle reads
     '''
     unclear_skip = 0
@@ -1033,6 +1033,7 @@ class deduplicate:
         :param file_directory: where files are
         :param single: seperate V and J (not assembled)
         '''
+
         self.file_directory = file_directory
         self.an1 = an1
         self.an2 = an2
@@ -1238,7 +1239,7 @@ def parse_args():
     # parser.add_argument('--species', dest='species', default='mmu', type=str, help='Which species (mmu, hsa), default: mmu')
     parser.add_argument('--an1', dest='an1', default='GACTCGT', type=str, help='Default: GACTCGT')
     parser.add_argument('--an2', dest='an2', default='CTGCTCCT', type=str, help='Default: CTGCTCCT')
-    parser.add_argument('--verbose', action='store_true', help='Print detailed progress')
+    # parser.add_argument('--verbose', action='store_true', help='Print detailed progress')
     parser.add_argument('--out', dest='out_dir', type=str, help='Output directory, default: creates Deduplicated in main directory')
     parser.add_argument('--no_anchor', action='store_true', help='No anchor sequence present')
 

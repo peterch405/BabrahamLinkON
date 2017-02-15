@@ -15,7 +15,7 @@ import logging
 
 
 
-def assemble(V_region, J_region, threads=1, prefix=None, short=False):
+def assemble(V_region, J_region, out_dir, threads=1, prefix=None, short=False):
     '''Assemble reads using pear and join unassembled reads
     http://stackoverflow.com/questions/21953835/run-subprocess-and-print-output-to-logging
     '''
@@ -26,11 +26,11 @@ def assemble(V_region, J_region, threads=1, prefix=None, short=False):
     fp_V_region = os.path.abspath(V_region)
     fp_J_region = os.path.abspath(J_region)
 
-    dir_path =  os.path.dirname(fp_V_region)
+    # dir_path =  os.path.dirname(fp_V_region)
 
     # prefix = ''.join(re.split('(L00[0-9])', os.path.basename(V_region))[:-1])
 
-    pear_assemble = ['pear', '-f', fp_J_region, '-r', fp_V_region, '-o', prefix, '-j', str(threads)]
+    pear_assemble = ['pear', '-f', fp_J_region, '-r', fp_V_region, '-o', out_dir + '/' + prefix, '-j', str(threads)]
 
     logging.info('Subprocess: "' + ' '.join(pear_assemble) + '"')
 
@@ -67,13 +67,13 @@ def assemble(V_region, J_region, threads=1, prefix=None, short=False):
     # prefix.unassembled.forward.fastq
     # prefix.unassembled.reverse.fastq
 
-    out_file_name = dir_path + '/' + prefix
+    out_file_name = out_dir + '/' + prefix
 
     if short:
         #Create merge file, basically do a fancy cat
-        with open(dir_path + '/' + prefix + '.unassembled.forward.fastq', 'r') as forward, \
-        open(dir_path + '/' + prefix + '.assembled.fastq', 'r') as assembled, \
-        open(dir_path + '/' + prefix + '.all_J.fastq', 'w') as out_file:
+        with open(out_dir + '/' + prefix + '.unassembled.forward.fastq', 'r') as forward, \
+        open(out_dir + '/' + prefix + '.assembled.fastq', 'r') as assembled, \
+        open(out_dir + '/' + prefix + '.all_J.fastq', 'w') as out_file:
 
             #first write out assembled reads
             out_file.write(assembled.read())
@@ -641,7 +641,7 @@ def main():
                             format='%(asctime)-15s %(levelname)-8s %(message)s')
 
 
-        assembled_file = assemble(opts.input_V[0], opts.input_J[0], threads=opts.nthreads, prefix=opts.prefix, short=opts.short)
+        assembled_file = assemble(opts.input_V[0], opts.input_J[0], out_dir, threads=opts.nthreads, prefix=opts.prefix, short=opts.short)
 
         # os.chdir('/media/chovanec/My_Passport/Old_vdj_seq_data/')
         # assembled_file = assemble('/media/chovanec/My_Passport/Old_vdj_seq_data/lane5_TGACCA_WT_BC_L005_R1_val_1.fq.gz',
@@ -655,9 +655,8 @@ def main():
         # prefix.unassembled.reverse.fastq
         # prefix.all_assembled.fastq
 
-        germ_assembled = germline(assembled_file + '.all_J.fastq', spe=opts.species, cores_num=opts.nthreads, plot=opts.plot, verbose=opts.verbose)
-
         if opts.short:
+            germ_assembled = germline(assembled_file + '.all_J.fastq', spe=opts.species, cores_num=opts.nthreads, plot=opts.plot, verbose=opts.verbose)
 
             #Merge the two files into one (pairing unassembled reads)
             fq_clean = preclean_assembled(assembled_file + '.all_J.fastq', germ_assembled, q_score=opts.q_score, umi_len=opts.umi_len, spe=opts.species, verbose=opts.verbose,
@@ -669,6 +668,8 @@ def main():
             write_short(opts.input_V[0], assembled_file + '.all_J.fastq', fq_clean, umi_len=opts.umi_len, v_iden_dict=v_iden_dict, prefix=opts.prefix, out_dir=out_dir)
 
         else:
+            germ_assembled = germline(assembled_file + '.assembled.fastq', spe=opts.species, cores_num=opts.nthreads, plot=opts.plot, verbose=opts.verbose)
+
             fq_clean = preclean_assembled(assembled_file + '.assembled.fastq', germ_assembled, q_score=opts.q_score, umi_len=opts.umi_len, spe=opts.species, verbose=opts.verbose,
                                           misprime_correct=opts.mispriming, discard_germline=opts.keep_germline, fast=opts.fast)
 

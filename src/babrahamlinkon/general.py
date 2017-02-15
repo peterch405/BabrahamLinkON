@@ -288,25 +288,25 @@ class fastqHolder:
                                        ''.join(qname.split(' ')[1:]) + '\n' + seq + '\n' + thrd + '\n' + qual + '\n')
 
 
-    def write_demultiplex_umi_extract_assembled(self, jv_fastq, gene_list, out_path, br1, br2, umi_len):
+    def write_demultiplex_umi_extract_assembled(self, jv_fastq, gene_list, out_path, an1, an2, umi_len):
         '''Write everything into single fastq file and extract umi
         :param fastq: fastq to subset
         :param gene_list: what to subset by (J gene in split_gene)
         :param V_out_path: V out write path
         :param J_out_path: J out write path
-        :param br_1: barcode 1 GACTCGT
-        :param br_2: barcode 2 CTGCTCCT
+        :param an_1: barcode 1 GACTCGT
+        :param an_2: barcode 2 CTGCTCCT
         '''
         # umi_dict = defaultdict()
 
 
 
         low_qual_UMI = 0
-        br1_count = 0
-        br2_count = 0
+        an1_count = 0
+        an2_count = 0
         gene_count = defaultdict(int)
 
-        with file_open(jv_fastq) as jv_fq, open(out_path + '_' + br1, 'w') as br1_out_file, open(out_path + '_' + br2, 'w') as br2_out_file:
+        with file_open(jv_fastq) as jv_fq, open(out_path + '_' + an1, 'w') as an1_out_file, open(out_path + '_' + an2, 'w') as an2_out_file:
             for qname, seq, thrd, qual in fastq_parse(jv_fq):
                 for gene in gene_list: #J1 J2 J3 J4...
                     if qname.split(' ')[0][1:] in self.demultiplex[gene]:
@@ -330,20 +330,20 @@ class fastqHolder:
                             except KeyError:
                                 pass
                         #Remove UMI and barcode from seq (keeping it in read qname only)
-                        if br1 in gene:
-                            br1_out_file.write(qname.split(' ')[0] + '_' + gene + '_' + umi + ' ' +
+                        if an1 in gene:
+                            an1_out_file.write(qname.split(' ')[0] + '_' + gene + '_' + umi + ' ' +
                             ''.join(qname.split(' ')[1:]) + '\n' + seq[:-(7+umi_len)] + '\n' + thrd + '\n' + qual[:-(7+umi_len)] + '\n')
-                            br1_count += 1
+                            an1_count += 1
                             gene_count[gene] += 1
                         else:
-                            br2_out_file.write(qname.split(' ')[0] + '_' + gene + '_' + umi + ' ' +
+                            an2_out_file.write(qname.split(' ')[0] + '_' + gene + '_' + umi + ' ' +
                             ''.join(qname.split(' ')[1:]) + '\n' + seq[:-(8+umi_len)] + '\n' + thrd + '\n' + qual[:-(8+umi_len)] + '\n')
-                            br2_count += 1
+                            an2_count += 1
                             gene_count[gene] += 1
 
         # print('Low quality UMIs:', low_qual_UMI)
-        print(br1, 'reads written out:', br1_count)
-        print(br2, 'reads written out:', br2_count)
+        print(an1, 'reads written out:', an1_count)
+        print(an2, 'reads written out:', an2_count)
 
         for j in gene_count.keys():
             print('Number of', j, 'reads written out:', gene_count[j])
