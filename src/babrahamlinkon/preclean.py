@@ -635,7 +635,7 @@ def main():
                 print('Default directory', out_dir, 'already exists. Might overwrite files!')
 
 
-        logging.basicConfig(level=logging.DEBUG, filename=out_dir + '/' + prefix + '_preclean/' + prefix + '_preclean.log', filemode='a+',
+        logging.basicConfig(level=logging.DEBUG, filename=out_dir + '/' + prefix + '_preclean.log', filemode='a+',
                             format='%(asctime)-15s %(levelname)-8s %(message)s')
 
 
