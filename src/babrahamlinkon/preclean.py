@@ -634,10 +634,8 @@ def main():
             except FileExistsError:
                 print('Default directory', out_dir, 'already exists. Might overwrite files!')
 
-        fp_V_region = os.path.abspath(opts.input_V[0])
-        dir_path =  os.path.dirname(fp_V_region)
 
-        logging.basicConfig(level=logging.DEBUG, filename=dir_path + '/' + prefix + '_preclean/' + prefix + '_preclean.log', filemode='a+',
+        logging.basicConfig(level=logging.DEBUG, filename=out_dir + '/' + prefix + '_preclean/' + prefix + '_preclean.log', filemode='a+',
                             format='%(asctime)-15s %(levelname)-8s %(message)s')
 
 

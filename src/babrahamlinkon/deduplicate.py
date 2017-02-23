@@ -127,6 +127,7 @@ def consensus(list_of_lists):
     return consensus_seq
 
 
+
 def consensus_unequal(list_of_lists):
     '''
     :param list_of_lists: string split into individual letters
@@ -218,7 +219,7 @@ def kalign_msa(seq_counter_dict): #, umi=None
     #     return single_seq
 
 
-def consensus_difference(seq_counter_dict, msa=False):
+def consensus_difference(seq_counter_dict, msa=False, short=False):
     '''
     :param alignment: output from msa
     :return: number of differences between two umi group consensus sequences
@@ -257,12 +258,17 @@ def consensus_difference(seq_counter_dict, msa=False):
         cons_seq_1 = consensus_unequal(lst_lists_1)
         cons_seq_2 = consensus_unequal(lst_lists_2)
 
-        #Need to pad seq if length unequal!
-        len_diff = len(cons_seq_1) - len(cons_seq_2)
-        if len_diff < 0: #pad cons_seq_1
-            cons_seq_1 = cons_seq_1 + '-'*abs(len_diff)
-        elif len_diff > 0:
-            cons_seq_2 = cons_seq_2 + '-'*len_diff
+        if short: #need to trim sequence
+            min_len = min(len(cons_seq_1),len(cons_seq_1))
+            cons_seq_1 = cons_seq_1[:min_len]
+            cons_seq_2 = cons_seq_2[:min_len]
+        else:
+            #Need to pad seq if length unequal!
+            len_diff = len(cons_seq_1) - len(cons_seq_2)
+            if len_diff < 0: #pad cons_seq_1
+                cons_seq_1 = cons_seq_1 + '-'*abs(len_diff)
+            elif len_diff > 0:
+                cons_seq_2 = cons_seq_2 + '-'*len_diff
 
         assert len(cons_seq_1) == len(cons_seq_2), 'Sequences for hamming distance not same length!'
 
@@ -273,7 +279,7 @@ def consensus_difference(seq_counter_dict, msa=False):
 
 
 # def read_loss(alignment, differences=5):
-def read_loss(seq_counter_dict, differences=5, msa=False): #, umi=None
+def read_loss(seq_counter_dict, differences=5, msa=False, short=False): #, umi=None
     '''Read loss analysis
     :param alignment: fasta from msa function
     :param differences: number of differences from consensus allowed
@@ -342,8 +348,12 @@ def read_loss(seq_counter_dict, differences=5, msa=False): #, umi=None
             for seq in seqs.elements():
                 total += 1
 
+                if short: #trim sequence to shortest one
+                    min_len = min(len(seq),len(cons_seq))
+                    cons_seq = cons_seq[:min_len]
+                    seq = seq[:min_len]
                 #Need to pad seq if length unequal!
-                if len(seq) != len(cons_seq):
+                elif len(seq) != len(cons_seq):
                     len_diff = len(cons_seq) - len(seq)
                     if len_diff < 0: #pad cons_seq_1
                         cons_seq = cons_seq + '-'*abs(len_diff)
@@ -465,7 +475,7 @@ def merge_dict(in_dict):
 
 
 
-def resolve_clusters(bundle, clusters, counts, differences, gt_threshold, msa=False):
+def resolve_clusters(bundle, clusters, counts, differences, gt_threshold, msa=False, short=False):
     '''
     Which shared nodes belong to which head node
     '''
@@ -526,8 +536,8 @@ def resolve_clusters(bundle, clusters, counts, differences, gt_threshold, msa=Fa
                             diff_2 = consensus_difference(algn_2, msa=True)
 
                         else:
-                            diff_1 = consensus_difference(resolve_dict_1)
-                            diff_2 = consensus_difference(resolve_dict_2)
+                            diff_1 = consensus_difference(resolve_dict_1, short=short)
+                            diff_2 = consensus_difference(resolve_dict_2, short=short)
 
                         #which ever is lower asign to that
                         if diff_1 < diff_2:
@@ -564,7 +574,7 @@ def resolve_clusters(bundle, clusters, counts, differences, gt_threshold, msa=Fa
 ######## "reduce_clusters" methods ##########
 
 
-def reduce_clusters_single(bundle, clusters, counts, stats, mismtch, gt_threshold, msa=False):
+def reduce_clusters_single(bundle, clusters, counts, stats, mismtch, gt_threshold, msa=False, short=False):
     ''' collapse clusters down to the UMI which accounts for the cluster
     using the adjacency dictionary and return the list of final UMIs
     using consensus sequence'''
@@ -596,7 +606,7 @@ def reduce_clusters_single(bundle, clusters, counts, stats, mismtch, gt_threshol
             alignment = kalign_msa(out_dict)
             gt_ratio, consensus_seq = read_loss(alignment, differences=mismtch, msa=True) #umi=umi_cons
         else:
-            gt_ratio, consensus_seq = read_loss(out_dict, differences=mismtch) #umi=umi_cons
+            gt_ratio, consensus_seq = read_loss(out_dict, differences=mismtch, short=short) #umi=umi_cons
 
         if gt_ratio >= gt_threshold:
             #Parent umi = highest count umi which account for the cluster
@@ -718,7 +728,7 @@ def reduce_clusters_single(bundle, clusters, counts, stats, mismtch, gt_threshol
 ######### Call ################
 
 
-def run_dir_adj(bundle, threshold, stats, further_stats, mismatches, nprocs, gt_threshold, msa):
+def run_dir_adj(bundle, threshold, stats, further_stats, mismatches, nprocs, gt_threshold, msa, short):
     #threshold=1, stats=True, further_stats=True, mismatches=5
     umis = bundle.keys()
     # print(umis)
@@ -739,12 +749,12 @@ def run_dir_adj(bundle, threshold, stats, further_stats, mismatches, nprocs, gt_
     # print(len(clusters), sorted(clusters)[1:5])
     print('Resolving clusters')
     #gt_threshold implemented here too so will reduce the overall number of clusters
-    rclusters = resolve_clusters(bundle, clusters, counts, mismatches, gt_threshold, msa)
+    rclusters = resolve_clusters(bundle, clusters, counts, mismatches, gt_threshold, msa, short)
 
     print('Reducing clusters')
     # if nprocs == 1: #if no additional cores available
     reads, consensus, final_umis, umi_counts, low_gt, corrected, low_gt_corrected =\
-    reduce_clusters_single(bundle, rclusters, counts, stats, mismatches, gt_threshold, msa)
+    reduce_clusters_single(bundle, rclusters, counts, stats, mismatches, gt_threshold, msa, short)
 
 
     # print('Unique:', len(set(reads)), 'All:', len(reads))
@@ -784,7 +794,7 @@ def run_dir_adj(bundle, threshold, stats, further_stats, mismatches, nprocs, gt_
 
 
 
-def dir_adj_worker(bundle, threshold, stats, further_stats, mismatch, min_reads, nprocs, gt_threshold, msa, skip_umi_correction):
+def dir_adj_worker(bundle, threshold, stats, further_stats, mismatch, min_reads, nprocs, gt_threshold, msa, skip_umi_correction, short):
     ''' worker for dir_adj_bundle_parallel '''
 
     if skip_umi_correction:
@@ -806,7 +816,7 @@ def dir_adj_worker(bundle, threshold, stats, further_stats, mismatch, min_reads,
     else:
         reads, consensus, final_umis, umi_counts, low_gt, corrected, low_gt_corrected, topologies, nodes =\
         run_dir_adj(bundle, threshold=threshold, stats=stats, further_stats=further_stats,
-                    mismatches=mismatch, nprocs=nprocs, gt_threshold=gt_threshold, msa=msa)
+                    mismatches=mismatch, nprocs=nprocs, gt_threshold=gt_threshold, msa=msa, short=short)
     # print(reads, umis, umi_counts, topologies, nodes)
 
 
@@ -825,7 +835,7 @@ def dir_adj_worker(bundle, threshold, stats, further_stats, mismatch, min_reads,
 
 def dir_adj_bundle_parallel(reads_dict, low_umi_out, out, threshold, min_reads, mismatch,
                    stats, further_stats, threads, pdf_out, gt_threshold, nprocs, msa,
-                   skip_umi_correction, no_anchor=False):
+                   skip_umi_correction, no_anchor=False, short=False):
     '''
     :param reads_dict:
     :param min_reads: minimun number of reads required in a umi group [5]
@@ -834,7 +844,7 @@ def dir_adj_bundle_parallel(reads_dict, low_umi_out, out, threshold, min_reads, 
 
     #list of result stats
     dir_adj_results = Parallel(n_jobs=threads)(delayed(dir_adj_worker)(bundle, threshold, stats, further_stats,
-    mismatch, min_reads, nprocs, gt_threshold, msa, skip_umi_correction) for bundle in reads_dict.values())
+    mismatch, min_reads, nprocs, gt_threshold, msa, skip_umi_correction, short) for bundle in reads_dict.values())
 
     stats_pre_df_dict_all = {'UMI': [], 'counts': []}
     stats_post_df_dict = {'UMI': [], 'counts': []}
@@ -1077,7 +1087,7 @@ class deduplicate:
     def v_start_j_umi_dedup_assembled(self, threshold, min_reads, threads, mismatch, gt_threshold,
                                       ignore_umi=False, stats=False, ignore_j=False, ignore_v=False, skip_unclear=False,
                                       skip_mh=False, further_stats=False, msa=False, skip_umi_cor=False,
-                                      no_anchor=False):
+                                      no_anchor=False, short=False):
         '''Determine start position of v reads
         some elements inspired by umi_tools by tom smith cagt
 
@@ -1099,9 +1109,9 @@ class deduplicate:
         ########################
 
         if stats:
-            print('Unclear skiped:', unclear_skip_an1 + unclear_skip_an2)
+            print('Unclear skipped:', unclear_skip_an1 + unclear_skip_an2)
             all_unclear =  unclear_skip_an1 + unclear_skip_an2
-            logging.info('Unclear skiped:' +  str(all_unclear))
+            logging.info('Unclear skipped:' +  str(all_unclear))
             # set up arrays to hold stats data
             stats_pre_df_dict_all = {'UMI': [], 'counts': []}
             stats_post_df_dict_all = {'UMI': [], 'counts': []}
@@ -1145,7 +1155,7 @@ class deduplicate:
             dir_adj_bundle_parallel(reads_dict, low_umi_out, jv_out, threshold=threshold, min_reads=min_reads,
                            mismatch=mismatch, gt_threshold=gt_threshold,
                            stats=stats, further_stats=further_stats, threads=threads, pdf_out=pdf, nprocs=nprocs, msa=msa,
-                           skip_umi_correction=skip_umi_cor, no_anchor=no_anchor)
+                           skip_umi_correction=skip_umi_cor, no_anchor=no_anchor, short=short)
 
             #stats
             if stats:
@@ -1242,6 +1252,7 @@ def parse_args():
     # parser.add_argument('--verbose', action='store_true', help='Print detailed progress')
     parser.add_argument('--out', dest='out_dir', type=str, help='Output directory, default: creates Deduplicated in main directory')
     parser.add_argument('--no_anchor', action='store_true', help='No anchor sequence present')
+    parser.add_argument('--short', action='store_true', help='Short sequences present')
 
     parser.add_argument('--ignore_umi', action='store_true', help='Deduplicate without using UMI')
     parser.add_argument('--ignore_j', action='store_true', help='Deduplicate without using J end identity')
@@ -1298,7 +1309,7 @@ def main():
                                         further_stats=opts.further_stats, ignore_umi=opts.ignore_umi,
                                         ignore_j=opts.ignore_j, ignore_v=opts.ignore_v, skip_unclear=opts.skip_unclear,
                                         skip_mh=opts.skip_mh, msa=opts.msa, skip_umi_cor=opts.skip_umi_correction,
-                                        no_anchor=opts.no_anchor)
+                                        no_anchor=opts.no_anchor, short=opts.short)
 
 
 if __name__ == "__main__":

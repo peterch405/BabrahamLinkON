@@ -75,7 +75,21 @@ def lev_adj_list_adjacency(umis, counts, threshold=1):
     return adj_list
 
 
-def read_changeo_out(tab_file, out, prefix, plot=False, retain_nam=False, minimal=False):
+def change_v_call(row):
+    count = 0
+    if row['V_SCORE'] <= 50:
+        count += 1
+        v_gene = row['SEQUENCE_ID'].split('_')[-3].upper() #would normally be the barcode!
+        #replace v gene call with bowtie alignment call
+
+        if len(v_gene) < 1:
+            return np.NaN
+    else:
+        v_gene = row['V_CALL']
+    return v_gene
+
+
+def read_changeo_out(tab_file, out, prefix, plot=False, retain_nam=False, minimal=False, short=False):
 
     igblast_out = pd.DataFrame()
     df_list = []
@@ -108,9 +122,20 @@ def read_changeo_out(tab_file, out, prefix, plot=False, retain_nam=False, minima
             my_plot = plt.axvline(35, linestyle='dashed', linewidth=2).get_figure()
             pdf_out.savefig(my_plot)
 
-    #Filter out low quality scores
-    igblast_out_hs = igblast_out[(igblast_out['V_SCORE'] > 50) & (igblast_out['J_SCORE'] > 35)]
-    # len(igblast_out_hs)
+    #if low quality replace by bowtie call in qname
+    if short:
+        # HWI-1KL136:214:D1MR5ACXX:5:1103:17395:138047_J4_Ighv13-2_GTGTCTAC_11
+
+        igblast_out_v = igblast_out.apply(change_v_call, axis=1)
+        igblast_out['V_CALL'] = igblast_out_v
+        #drop low scoring V genes that don't have bowtie idenitity
+        igblast_out_hsv = igblast_out.dropna(subset = ['V_CALL'])
+        #drop low quality J calls
+        igblast_out_hs = igblast_out_hsv[(igblast_out_hsv['J_SCORE'] > 35)]
+    else:
+        #Filter out low quality scores
+        igblast_out_hs = igblast_out[(igblast_out['V_SCORE'] > 50) & (igblast_out['J_SCORE'] > 35)]
+
 
     #Filter mutiple different V calls
     # igblast_out_hs['V_CALL'].str.split('(,|\*)').str[0]
@@ -136,6 +161,7 @@ def read_changeo_out(tab_file, out, prefix, plot=False, retain_nam=False, minima
     # len(functional)
     # len(non_functional)
 
+    #If not cdr3 present drop record
     igblast_out_hs_cln = igblast_out_hs.dropna(subset = ['CDR3_IMGT'])
     # functional_cln = functional.dropna(subset = ['CDR3_IMGT'])
     # non_functional_cln = non_functional.dropna(subset = ['CDR3_IMGT'])
@@ -233,6 +259,7 @@ def parse_args():
     parser.add_argument('--only_v', action='store_true', help='Use only V idenity for clone assembly')
     parser.add_argument('--full_name', action='store_true', help='Retain full name of first V and J genes')
     parser.add_argument('--minimal', action='store_true', help='Work with and output only a minimal table')
+    parser.add_argument('--short', action='store_true', help='Analysing short sequences')
 
     opts = parser.parse_args()
 
@@ -256,7 +283,7 @@ def main():
 
     # print('out_dir', out_dir, opts.out_dir)
     # files = glob.glob('/media/chovanec/My_Passport/Dan_VDJ-seq_cycles_Jan17/results/lane5279*')
-    igblast_cln = read_changeo_out(files, out_dir, prefix, plot=opts.plot, retain_nam=opts.full_name, minimal=opts.minimal)
+    igblast_cln = read_changeo_out(files, out_dir, prefix, plot=opts.plot, retain_nam=opts.full_name, minimal=opts.minimal, short=opts.short)
     # igblast_cln = read_changeo_out(files, out_dir, prefix)
 
     clonotype_dict = make_bundle(igblast_cln, only_v=opts.only_v)
