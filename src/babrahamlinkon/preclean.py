@@ -658,7 +658,7 @@ def main():
 
             #Merge the two files into one (pairing unassembled reads)
             fq_clean = preclean_assembled(assembled_file + '.all_J.fastq', germ_assembled, q_score=opts.q_score, umi_len=opts.umi_len, spe=opts.species, verbose=opts.verbose,
-                                          misprime_correct=opts.mispriming, discard_germline=opts.keep_germline, fast=opts.fast)
+                                          misprime_correct=opts.mispriming, discard_germline=opts.keep_germline, fast=opts.fast, short=opts.short)
             #get identity of V end using bowtie2 alignment
             v_iden_dict = v_end_identity(opts.ref_path, opts.input_V[0], cores_num=opts.nthreads, spe=opts.species)
 
