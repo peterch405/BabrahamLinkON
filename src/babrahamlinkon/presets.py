@@ -49,13 +49,16 @@ class prs:
                     source ~/.bashrc'")
             raise Exception('BOWTIE2_INDEXES enviromental variable not set!')
 
-        if self.name == 'mmu' or self.name == 'mouse' or self.name == 'mus musculus':
-            return 'mm10'
-        elif self.name == 'hsa' or self.name == 'human' or self.name == 'homo sapien':
-            # return 'GCA_000001405.15_GRCh38_no_alt_analysis_set.fna.bowtie_index'
-            return 'Homo_sapiens.GRCh37'
+        if not os.environ.get('BOWTIE2_REF'):
+            if self.name == 'mmu' or self.name == 'mouse' or self.name == 'mus musculus':
+                return 'mm10'
+            elif self.name == 'hsa' or self.name == 'human' or self.name == 'homo sapien':
+                # return 'GCA_000001405.15_GRCh38_no_alt_analysis_set.fna.bowtie_index'
+                return 'Homo_sapiens.GRCh37'
+            else:
+                print('Under construction, use mmu for now')
         else:
-            print('Under construction, use mmu for now')
+            return os.environ.get('BOWTIE2_REF')
 
     ## Germline identification ##
 
