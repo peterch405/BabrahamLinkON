@@ -182,14 +182,7 @@ def germline(J_region, cores_num, spe='mmu', plot=False, write=False, verbose=Tr
     return fq_data
 
 
-def check_qual(umi_qual, q_score=30):
-    for val in umi_qual:
-        phred = ord(val)-33
-        assert phred <= 41 and phred >= 0, 'Phred score out side of range 0-41'
-        if phred < q_score:
-            return True
-        else:
-            return False
+
 
 
 
@@ -268,8 +261,9 @@ def preclean_assembled(jv_region, fq_dict_germ, q_score, umi_len, spe='mmu', ver
             #Demultiplex will make sure the last 6 bases are actually the UMI!
             if not short:
                 umi_qual = qual[-umi_len:]
-                if check_qual(umi_qual, q_score=q_score):
+                if general.check_qual(umi_qual, q_score=q_score):
                     low_qual_UMI += 1
+                    fq_dict_germ.gene_split['other_J'].add(title.split(' ')[0][1:])
                     continue
 
             first_filter += 1
@@ -331,7 +325,8 @@ def preclean_assembled(jv_region, fq_dict_germ, q_score, umi_len, spe='mmu', ver
     logging.info('Number of total mispriming other JV reads:' + str(other_J))
     logging.info('Number of reads passing first filter:' + str(first_filter))
     logging.info('Number of low quality reads:' + str(low_qual_seq))
-    logging.info('Number of low quality UMIs:' + str(low_qual_UMI))
+    if not short:
+        logging.info('Number of low quality UMIs:' + str(low_qual_UMI))
     logging.info('Number of germline reads removed:' + str(germ_count))
 
     return fq_dict_germ
@@ -360,8 +355,7 @@ def demultiplex_assembled(jv_region, fq_dict_pcln, umi_len, anchor_1='GACTCGT', 
 
 
     with general.file_open(fp_jv_region) as jvr:
-        lines = jvr.read().splitlines() #REVIEW: don't need to do this
-        for item in general.fastq_parse(lines):
+        for item in general.fastq_parse(jvr):
             title = item[0]
             seq = item[1]
             thrd = item[2]
@@ -446,7 +440,7 @@ def write_assembled(jv_region, fq_dict_demult, umi_len, prefix=None, out_dir=Non
 
 
 
-def write_short(V_region, jv_region, fq_dict_pcln, umi_len, v_iden_dict, prefix=None, out_dir=None):
+def write_short(V_region, jv_region, fq_dict_pcln, umi_len, v_iden_dict, prefix=None, out_dir=None, q_score=30):
     '''Write out short reads
     :param umi_len: how many bases to use from V read as the umi
     :param V_region: path to v end fastq
@@ -466,9 +460,16 @@ def write_short(V_region, jv_region, fq_dict_pcln, umi_len, v_iden_dict, prefix=
     #write out, get umi from v end
     for key in out_files:
         if 'germline' in key or 'other' in key:
-            fq_dict_pcln.write_preclean_short(fp_v_region, fp_jv_region, key, out_dir + '/' + prefix_jv + '_' + key, umi_len, v_iden_dict, merge=False)
+            low_qual_UMI_n = fq_dict_pcln.write_preclean_short(fp_v_region, fp_jv_region, key,
+                                              out_dir + '/' + prefix_jv + '_' + key,
+                                              umi_len, v_iden_dict, merge=False, q_score=0)
     #else write everything else in the same file
-    fq_dict_pcln.write_preclean_short(fp_v_region, fp_jv_region, list(out_files), out_dir + '/' + prefix_jv + '_' + 'all_jv', umi_len, v_iden_dict, merge=True)
+    low_qual_UMI = fq_dict_pcln.write_preclean_short(fp_v_region, fp_jv_region, list(out_files),
+                                                     out_dir + '/' + prefix_jv + '_' + 'all_jv',
+                                                     umi_len, v_iden_dict, merge=True, q_score=q_score)
+
+    print('Number of low quality UMIs:', low_qual_UMI)
+    logging.info('Number of low quality UMIs:' + str(low_qual_UMI))
 
 
 
@@ -663,7 +664,7 @@ def main():
             v_iden_dict = v_end_identity(opts.ref_path, opts.input_V[0], cores_num=opts.nthreads, spe=opts.species)
 
             #Old short reads don't have any anchor (short reads with anchor ignore for now)
-            write_short(opts.input_V[0], assembled_file + '.all_J.fastq', fq_clean, umi_len=opts.umi_len, v_iden_dict=v_iden_dict, prefix=opts.prefix, out_dir=out_dir)
+            write_short(opts.input_V[0], assembled_file + '.all_J.fastq', fq_clean, umi_len=opts.umi_len, v_iden_dict=v_iden_dict, prefix=opts.prefix, out_dir=out_dir, q_score=opts.q_score)
 
         else:
             germ_assembled = germline(assembled_file + '.assembled.fastq', spe=opts.species, cores_num=opts.nthreads, plot=opts.plot, verbose=opts.verbose)

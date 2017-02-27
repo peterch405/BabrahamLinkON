@@ -170,11 +170,19 @@ def reverse_string(my_str):
     return ''.join(let for let in my_str.upper()[::-1])
 
 
+def check_qual(umi_qual, q_score=30):
+    for val in umi_qual:
+        phred = ord(val)-33
+        assert phred <= 41 and phred >= 0, 'Phred score out side of range 0-41'
+        if phred < q_score:
+            return True
+        else:
+            return False
 
 
-#########################
+################################################################################
 ###### Data holder ######
-#########################
+################################################################################
 
 
 class fastqHolder:
@@ -250,7 +258,7 @@ class fastqHolder:
                                    ''.join(qname.split(' ')[1:]) + '\n' + seq + '\n' + thrd + '\n' + qual + '\n')
 
 
-    def write_preclean_short(self, fastq_path_v, fastq_path_jv, genes, out_path, umi_len, v_iden_dict, merge):
+    def write_preclean_short(self, fastq_path_v, fastq_path_jv, genes, out_path, umi_len, v_iden_dict, merge, q_score):
         '''Write fastq file
         :param fastq: fastq to subset
         :param gene: what to subset by (J gene in split_gene)
@@ -258,11 +266,22 @@ class fastqHolder:
         '''
 
         umi_dict = defaultdict()
+        rec_skip = set()
+        low_qual_UMI = 0
         if merge:
             with file_open(fastq_path_jv) as fq, open(out_path, 'w') as out_file, file_open(fastq_path_v) as v_fq:
                 for qname, seq, thrd, qual in fastq_parse(v_fq):
-                    umi_dict[qname.split(' ')[0]] = seq[-umi_len:]
+                    #check qual of umi_len
+                    umi_qual = qual[-umi_len:]
+                    if check_qual(umi_qual, q_score):
+                        #poor quality skip record
+                        low_qual_UMI += 1
+                        rec_skip.add(qname.split(' ')[0][1:])
+                    else:
+                        umi_dict[qname.split(' ')[0]] = seq[-umi_len:]
                 for qname, seq, thrd, qual in fastq_parse(fq):
+                    if qname.split(' ')[0][1:] in rec_skip:
+                        continue
                     try:
                         v_iden_out = v_iden_dict[qname.split(' ')[0][1:]]
                     except KeyError:
@@ -281,11 +300,21 @@ class fastqHolder:
             open(out_path, 'w') as out_file, \
             file_open(fastq_path_v) as v_fq:
                 for qname, seq, thrd, qual in fastq_parse(v_fq):
-                    umi_dict[qname.split(' ')[0]] = seq[-umi_len:]
+                    #check qual of umi_len
+                    umi_qual = qual[-umi_len:]
+                    if check_qual(umi_qual, q_score):
+                        #poor quality skip record
+                        low_qual_UMI += 1
+                        rec_skip.add(qname.split(' ')[0][1:])
+                    else:
+                        umi_dict[qname.split(' ')[0]] = seq[-umi_len:]
                 for qname, seq, thrd, qual in fastq_parse(fq):
+                    if qname.split(' ')[0][1:] in rec_skip:
+                        continue
                     if qname.split(' ')[0][1:] in self.gene_split[genes]:
                         out_file.write(qname.split(' ')[0] + '_' + genes + '_' + umi_dict[qname.split(' ')[0]] + ' ' +
                                        ''.join(qname.split(' ')[1:]) + '\n' + seq + '\n' + thrd + '\n' + qual + '\n')
+        return low_qual_UMI
 
 
     def write_demultiplex_umi_extract_assembled(self, jv_fastq, gene_list, out_path, an1, an2, umi_len):
@@ -358,9 +387,9 @@ class fastqHolder:
 
 
 
-########################################
+################################################################################
 ###### J alignment for mispriming ######
-########################################
+################################################################################
 
 class SSW_align:
     '''Align reads using StripedSmithWaterman from scikit-bio
@@ -665,9 +694,9 @@ class SSW_align:
 
 
 
-#####################
+################################################################################
 ###### Bowtie2 ######
-#####################
+################################################################################
 
 class bowtie2:
     """Call bowtie2-align on single read data
@@ -729,7 +758,8 @@ class bowtie2:
         samtools_bam = shlex.split('samtools view -bS -q ' + str(samtools_mapq) + ' -') #default = 0
 
         bowtie2_out = subprocess.Popen(bowtie2_args, stdout=subprocess.PIPE)
-        samtools_out = subprocess.Popen(samtools_bam, stdin=bowtie2_out.stdout, stdout=open(self.tmp_prefix + '.bam', 'wb')).communicate() #avoid communicate
+        samtools_out = subprocess.Popen(samtools_bam, stdin=bowtie2_out.stdout,
+                                        stdout=open(self.tmp_prefix + '.bam', 'wb')).communicate() #avoid communicate
 
         #If bowtie returns error, throw exception
         # out, err = bowtie2_out.communicate()
@@ -739,7 +769,8 @@ class bowtie2:
         bowtie2_out.stdout.close()
 
         #Sort and index bam file
-        samtools_sort = ['samtools', 'sort', '-O', 'bam', '-o', self.tmp_prefix + '_sorted.bam', '-T tmp', self.tmp_prefix + '.bam']
+        samtools_sort = ['samtools', 'sort', '-O', 'bam', '-o', self.tmp_prefix + '_sorted.bam',
+                         '-T tmp', self.tmp_prefix + '.bam']
         samtools_index = ['samtools', 'index', self.tmp_prefix + '_sorted.bam']
 
         subprocess.call(samtools_sort)
