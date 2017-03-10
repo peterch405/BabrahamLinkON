@@ -259,7 +259,7 @@ def consensus_difference(seq_counter_dict, msa=False, short=False):
         cons_seq_2 = consensus_unequal(lst_lists_2)
 
         if short: #need to trim sequence
-            min_len = min(len(cons_seq_1),len(cons_seq_1))
+            min_len = min(len(cons_seq_1),len(cons_seq_2))
             cons_seq_1 = cons_seq_1[:min_len]
             cons_seq_2 = cons_seq_2[:min_len]
         else:
@@ -360,7 +360,7 @@ def read_loss(seq_counter_dict, differences=5, msa=False, short=False): #, umi=N
                     elif len_diff > 0:
                         seq = seq + '-'*len_diff
 
-                # assert len(seq) == len(cons_seq), 'Length of sequences into hamming distance unequal'
+                assert len(seq) == len(cons_seq), 'Length of sequences into hamming distance unequal'
 
                 consensus_diff = edit_distance(seq.encode('utf-8'), cons_seq.encode('utf-8')) #how many mismatches present
                 # if consensus_diff > 5:
@@ -967,7 +967,7 @@ def aggregateStatsDF(stats_df):
 
 
 
-def make_bundle(fastq, ignore_umi, ignore_j, ignore_v, skip_unclear, skip_mh, no_anchor=False):
+def make_bundle(fastq, ignore_umi, ignore_j, ignore_v, skip_unclear, skip_mh, no_anchor=False, short=False):
     '''bundle reads
     '''
     unclear_skip = 0
@@ -994,7 +994,11 @@ def make_bundle(fastq, ignore_umi, ignore_j, ignore_v, skip_unclear, skip_mh, no
             else:
                 anchor = qname.split(' ')[0].split('_')[-2]
 
-            v_seq = seq[-8:]
+            if short:
+                #trim all to 60bp and take 8bp from there
+                v_seq = seq[:50][-7:]
+            else:
+                v_seq = seq[-8:]
 
             if skip_unclear:
                 if 'unclear' in qname:
@@ -1094,7 +1098,7 @@ class deduplicate:
         '''
         if no_anchor:
             reads_dict, unclear_skip_an1 = make_bundle(self.jv_fastq_an1, ignore_umi=ignore_umi, ignore_j=ignore_j, ignore_v=ignore_v,
-                                                           skip_unclear=skip_unclear, skip_mh=skip_mh, no_anchor=no_anchor)
+                                                           skip_unclear=skip_unclear, skip_mh=skip_mh, no_anchor=no_anchor, short=short)
             unclear_skip_an2 = 0
         else:
 

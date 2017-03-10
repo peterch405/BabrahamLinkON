@@ -228,8 +228,7 @@ def preclean_assembled(jv_region, fq_dict_germ, q_score, umi_len, spe='mmu', ver
     first_filter = 0
     low_qual_UMI = 0
     with general.file_open(fp_jv_region) as jvr:
-        lines = jvr.read().splitlines()
-        for item in general.fastq_parse(lines):
+        for item in general.fastq_parse(jvr):
             title = item[0]
             seq = item[1]
             thrd = item[2]

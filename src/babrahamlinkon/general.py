@@ -12,6 +12,7 @@ import tempfile
 import shutil
 import shlex
 from babrahamlinkon import presets
+from itertools import groupby
 
 try:
     from skbio.alignment import StripedSmithWaterman #put into setup.py install
