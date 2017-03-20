@@ -14,15 +14,16 @@ import argparse
 import itertools
 import pandas as pd
 import numpy as np
-from babrahamlinkon import general, presets
-# from skbio import DNA, TabularMSA
-import multiprocessing
-import math
 
 import matplotlib
 matplotlib.use('pdf')
 from matplotlib.backends.backend_pdf import PdfPages
 import matplotlib.pyplot as plt
+
+from babrahamlinkon import general, presets
+# from skbio import DNA, TabularMSA
+import multiprocessing
+import math
 
 import itertools
 from joblib import Parallel, delayed
