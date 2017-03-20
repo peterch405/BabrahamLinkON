@@ -1,6 +1,8 @@
 #!/usr/bin/env python3
 
 from collections import defaultdict, Counter
+import matplotlib
+matplotlib.use('pdf')
 import matplotlib.pyplot as plt
 from matplotlib.backends.backend_pdf import PdfPages
 import pandas as pd
