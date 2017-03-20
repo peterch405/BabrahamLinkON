@@ -13,6 +13,8 @@ import shutil
 import shlex
 from babrahamlinkon import presets
 from itertools import groupby
+import tempfile
+
 
 try:
     from skbio.alignment import StripedSmithWaterman #put into setup.py install
@@ -769,9 +771,12 @@ class bowtie2:
 
         bowtie2_out.stdout.close()
 
+        #unique temp name
+        tf = tempfile.NamedTemporaryFile()
+
         #Sort and index bam file
         samtools_sort = ['samtools', 'sort', '-O', 'bam', '-o', self.tmp_prefix + '_sorted.bam',
-                         '-T tmp', self.tmp_prefix + '.bam']
+                         '-T', os.path.basename(tf.name), self.tmp_prefix + '.bam']
         samtools_index = ['samtools', 'index', self.tmp_prefix + '_sorted.bam']
 
         subprocess.call(samtools_sort)
