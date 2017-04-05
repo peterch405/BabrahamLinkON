@@ -23,9 +23,6 @@ except:
     sys.exit()
 
 
-# import seaborn as sns
-# import matplotlib.pyplot as plt
-
 
 def file_open(filename):
     """

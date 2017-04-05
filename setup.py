@@ -5,6 +5,9 @@ import sys
 from setuptools import setup, find_packages
 import subprocess
 
+if sys.version_info.major != 3:
+    raise RuntimeError('BabrahamLinkON requires Python 3')
+
 try:
     import Cython
 except ImportError:
@@ -15,7 +18,7 @@ except ImportError:
 try:
     subprocess.check_output(['kalign', '-q'])
 except OSError:
-    raise RuntimeError('kalign not found; put directory in $PATH\n')
+    print('kalign not found, some options won\'t work\n')
 
 # check bowtie2 and samtools is accessible
 try:
@@ -24,12 +27,14 @@ try:
 except OSError:
     raise RuntimeError('bowtie2/samtools not found; put directory in $PATH\n')
 
+try:
+    subprocess.check_output(['MakeDb.py', '-h'])
+except OSError:
+    print('MakeDb.py from Changeo not found. Is changeo installed? (pip install changeo)\nSome options won\'t work')
 
 
 from Cython.Build import cythonize
 
-if sys.version_info.major != 3:
-    raise RuntimeError('BabrahamLinkON requires Python 3')
 
 
 setup(name='BabrahamLinkON',
@@ -37,9 +42,11 @@ setup(name='BabrahamLinkON',
       description='BabrahamLinkON pipeline for preprocessing and analysing VDJ-seq data',
       author='Peter Chovanec',
       author_email='peter.chovanec@babraham.ac.uk',
-      package_dir={'': 'src'},
       packages=['babrahamlinkon'],
-      package_data={'babrahamlinkon': ['plot_igh.R', 'plot_v_usage.Rmd']},
+      package_dir={'babrahamlinkon': 'babrahamlinkon'},
+    #   include_package_data=True,
+    #   package_data={'babrahamlinkon': ['plot_igh.R', 'plot_v_usage.Rmd']},
+      package_data={'babrahamlinkon': ['resources/IgBlast_database/*']},
       install_requires=[
           'numpy>=1.11.0',
           'pandas>=0.18.1',
@@ -47,11 +54,17 @@ setup(name='BabrahamLinkON',
           'python-Levenshtein>=0.12.0',
           'pysam>=0.9.1.3',
           'joblib>=0.9.3'],
-      scripts=['src/babrahamlinkon/deduplicate.py',
-               'src/babrahamlinkon/preclean.py',
-            #    'src/babrahamlinkon/run_mixcr.py',
-            #    'src/babrahamlinkon/germline_mispriming.py',
-               'src/babrahamlinkon/presets.py',
-               'src/babrahamlinkon/assemble_clones.py'],
-      ext_modules=cythonize('src/babrahamlinkon/_dedup_umi.pyx')
+      scripts=['babrahamlinkon/deduplicate.py',
+               'babrahamlinkon/preclean.py',
+            #    'src/babrahamlinkon/presets.py',
+               'babrahamlinkon/assemble_clones.py'],
+      classifiers = [
+		'Environment :: Console',
+		'Intended Audience :: Science/Research',
+		'License :: ',
+		'Natural Language :: English',
+         'Operating System :: OS Independent',
+		'Programming Language :: Python :: 3',
+		'Topic :: Scientific/Engineering :: Bio-Informatics'],
+      ext_modules=cythonize('babrahamlinkon/_dedup_umi.pyx')
 )

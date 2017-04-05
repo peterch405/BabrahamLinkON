@@ -1,0 +1,8 @@
+# from . import general
+# from . import presets
+# from . import preclean
+# from . import deduplicate
+# from . import assemble_clones
+__all__ = ['general', 'presets', 'preclean', 'deduplicate', 'assemble_clones']
+
+__version__ = "0.0.1"

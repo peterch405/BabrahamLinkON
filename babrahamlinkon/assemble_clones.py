@@ -1,8 +1,10 @@
 #!/usr/bin/env python3
 
 from collections import defaultdict, Counter
-import matplotlib
-matplotlib.use('pdf')
+
+#Do not hard code matplotlib backend, use export MPLBACKEND=pdf instead if running on headless node
+# import matplotlib
+# matplotlib.use('pdf')
 import matplotlib.pyplot as plt
 from matplotlib.backends.backend_pdf import PdfPages
 import pandas as pd
