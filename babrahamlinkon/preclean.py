@@ -9,9 +9,11 @@ import argparse
 import Levenshtein
 import argparse
 import glob
-from babrahamlinkon import general, presets
+from babrahamlinkon import general, presets, bowtie2_wrapper, igblast_wrapper
 from collections import defaultdict
 import logging
+import shutil
+import tempfile
 
 
 
@@ -99,7 +101,7 @@ def assemble(V_region, J_region, out_dir, threads=1, prefix=None, short=False):
     # fp_V_region = os.path.abspath(V_region)
     #
     # #Align with bowtie2
-    # run_bowtie2 = general.bowtie2()
+    # run_bowtie2 = bowtie2_wrapper.bowtie2()
     # run_bowtie2.align_single(fastq=fp_V_region, nthreads=cores_num, spe=spe, verbose=verbose)
     #
     # if plot:
@@ -152,7 +154,7 @@ def germline(J_region, cores_num, spe='mmu', plot=False, write=False, verbose=Tr
     fp_J_region = os.path.abspath(J_region)
 
     #Don't need to align V reads, if germline present will get discarded in deduplicaiton DJ V seperation
-    run_bowtie2 = general.bowtie2()
+    run_bowtie2 = bowtie2_wrapper.bowtie2()
     run_bowtie2.align_single(fastq=fp_J_region, nthreads=cores_num, trim5=str(shortest_J), spe=spe, verbose=verbose)
 
     if plot:
@@ -183,9 +185,7 @@ def germline(J_region, cores_num, spe='mmu', plot=False, write=False, verbose=Tr
 
 
 
-
-
-
+os.environ.get('BOWTIE2_REF')
 def preclean_assembled(jv_region, fq_dict_germ, q_score, umi_len, spe='mmu', verbose = True,
                        misprime_correct=True, discard_germline=True, fast=False, short=False):
     '''Seperate out J reads and clean up low quality/unknown reads
@@ -439,7 +439,7 @@ def write_assembled(jv_region, fq_dict_demult, umi_len, prefix=None, out_dir=Non
 
 
 
-def write_short(V_region, jv_region, fq_dict_pcln, umi_len, v_iden_dict, prefix=None, out_dir=None, q_score=30):
+def write_short(V_region, jv_region, fq_dict_pcln, v_iden_out, umi_len, prefix=None, out_dir=None, q_score=30):
     '''Write out short reads
     :param umi_len: how many bases to use from V read as the umi
     :param V_region: path to v end fastq
@@ -460,12 +460,12 @@ def write_short(V_region, jv_region, fq_dict_pcln, umi_len, v_iden_dict, prefix=
     for key in out_files:
         if 'germline' in key or 'other' in key:
             low_qual_UMI_n = fq_dict_pcln.write_preclean_short(fp_v_region, fp_jv_region, key,
-                                              out_dir + '/' + prefix_jv + '_' + key,
-                                              umi_len, v_iden_dict, merge=False, q_score=0)
+                                              out_dir + '/' + prefix_jv + '_' + key, v_iden_out,
+                                              umi_len, merge=False, q_score=0)
     #else write everything else in the same file
     low_qual_UMI = fq_dict_pcln.write_preclean_short(fp_v_region, fp_jv_region, list(out_files),
                                                      out_dir + '/' + prefix_jv + '_' + 'all_jv',
-                                                     umi_len, v_iden_dict, merge=True, q_score=q_score)
+                                                     v_iden_out, umi_len, merge=True, q_score=q_score)
 
     print('Number of low quality UMIs:', low_qual_UMI)
     logging.info('Number of low quality UMIs:' + str(low_qual_UMI))
@@ -497,7 +497,7 @@ def gemline_removed_qc(V_region, out_dir, spe='mmu', prefix=None, cores_num=8, v
     for name in glob.glob(out_dir + '/*J[0-9]_*'):
         print('Processing', name)
 
-        run_bowtie2 = general.bowtie2()
+        run_bowtie2 = bowtie2_wrapper.bowtie2()
         run_bowtie2.align_single(fastq=name, nthreads=cores_num, trim5=str(shortest_J), spe=spe, verbose=verbose)
 
         run_bowtie2.plot(plot_region=germ[0] + ':' + str(germ[1]) + '-' + str(germ[2]), spe=spe)
@@ -532,7 +532,7 @@ def v_end_identity(igh_ref, V_region, cores_num, spe='mmu'):
             v_bins[start_pos[i] + '_' + str(int(start_pos[i])+2000)] = v_genes[start_pos[i]]
 
     #Align V end with bowtie2 and put idenity of V into qname
-    run_bowtie2 = general.bowtie2()
+    run_bowtie2 = bowtie2_wrapper.bowtie2()
     run_bowtie2.align_single(fastq=V_region, nthreads=cores_num, spe=spe, verbose=True)
 
     #fetch only within the IGH
@@ -557,6 +557,47 @@ def v_end_identity(igh_ref, V_region, cores_num, spe='mmu'):
                     v_iden_dict[read.qname] = v_bins[key]
 
     return v_iden_dict
+
+
+#
+# def v_identity_igblast(V_region, cores_num, spe='mmu'):
+#
+#     #fastq to fasta
+#     fasta = ''
+#     for record in general.fastq_to_fasta_iter(V_region):
+#         fasta += record
+#
+#     #make tmp directory with igblast run files
+#     tmp_dir = tempfile.mkdtemp()
+#     tmp_fmt = os.path.join(tmp_dir, "igblast.fmt7")
+#
+#     #need to write out fasta for changeo (find alternative which accepts stdin?)
+#     with open(tmp_dir + '/igblast.fasta', 'w') as fa_out:
+#         fa_out.write(fasta)
+#
+#     igblast_wrapper.run_igblast(tmp_dir + '/igblast.fasta', tmp_fmt, 10000, spe, cores_num, aux_file=None, additional_flags=['-num_alignments_V', '1'])
+#     igblast_wrapper.parse_igblast(tmp_fmt, tmp_dir + '/igblast.fasta', spe)
+#     #make v_identity dict key=qname value=idenity
+#
+#     #need to find the output of changeo
+#     tmp_tab = glob.glob(tmp_dir + '/*.tab')
+#
+#     v_iden_dict = defaultdict()
+#     with open(tmp_tab[0], 'r') as tab_file:
+#         header = tab_file.readline()
+#
+#         for line in tab_file:
+#             sp_line = line.rstrip('\n').split('\t')
+#             SEQUENCE_ID = sp_line[0]
+#             V_CALL = sp_line[7]
+#             V_SCORE = sp_line[37]
+#
+#             v_iden_dict[SEQUENCE_ID] = V_CALL + '.' + V_SCORE
+#
+#     #Delete temporary files
+#     shutil.rmtree(tmp_dir)
+#
+#     return v_iden_dict
 
 
 
@@ -661,9 +702,11 @@ def main():
                                           misprime_correct=opts.mispriming, discard_germline=opts.keep_germline, fast=opts.fast, short=opts.short)
             #get identity of V end using bowtie2 alignment
             v_iden_dict = v_end_identity(opts.ref_path, opts.input_V[0], cores_num=opts.nthreads, spe=opts.species)
+            #get identity of V end using igblast
+            # v_iden_dict = v_identity_igblast(opts.input_V[0], cores_num=opts.nthreads, spe=opts.species)
 
             #Old short reads don't have any anchor (short reads with anchor ignore for now)
-            write_short(opts.input_V[0], assembled_file + '.all_J.fastq', fq_clean, umi_len=opts.umi_len, v_iden_dict=v_iden_dict, prefix=opts.prefix, out_dir=out_dir, q_score=opts.q_score)
+            write_short(opts.input_V[0], assembled_file + '.all_J.fastq', fq_clean, v_iden_dict, umi_len=opts.umi_len, prefix=opts.prefix, out_dir=out_dir, q_score=opts.q_score)
 
         else:
             germ_assembled = germline(assembled_file + '.assembled.fastq', spe=opts.species, cores_num=opts.nthreads, plot=opts.plot, verbose=opts.verbose)
