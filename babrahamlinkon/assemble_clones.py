@@ -97,7 +97,7 @@ def change_v_call(row):
 
 
 
-def v_identity_igblast(V_fastq, fasta, cores_num, spe='mmu'):
+def v_identity_igblast(V_fastq, fasta, cores_num, spe, aux):
     '''
     :param V_fastq: original fastq
     :param fasta: deduplicate.py fasta output
@@ -129,7 +129,7 @@ def v_identity_igblast(V_fastq, fasta, cores_num, spe='mmu'):
     with open(tmp_dir + '/igblast.fasta', 'w') as fa_out:
         fa_out.write(fasta)
 
-    igblast_wrapper.run_igblast(tmp_dir + '/igblast.fasta', tmp_fmt, 10000, spe, cores_num, aux_file=None, additional_flags=['-num_alignments_V', '1'])
+    igblast_wrapper.run_igblast(tmp_dir + '/igblast.fasta', tmp_fmt, 10000, spe, cores_num, aux_file=aux, additional_flags=['-num_alignments_V', '1'])
     igblast_wrapper.parse_igblast(tmp_fmt, tmp_dir + '/igblast.fasta', spe)
     #make v_identity dict key=qname value=idenity
 
@@ -152,7 +152,7 @@ def v_identity_igblast(V_fastq, fasta, cores_num, spe='mmu'):
 #     return [V_END_IDENTITY, V_END_SCORE]
 
 def read_changeo_out(tab_file, out, prefix, fasta, v_fastq=None, plot=False, retain_nam=False,
-                     minimal=False, short=False, cores_num=1, spe='mmu'):
+                     minimal=False, short=False, cores_num=1, spe='mmu', aux=None):
     '''
     :param retain_nam: keep full name of V and J calls
     '''
@@ -200,7 +200,8 @@ def read_changeo_out(tab_file, out, prefix, fasta, v_fastq=None, plot=False, ret
         if v_fastq == None:
             raise Exception('Short option requires the V end fastq file')
 
-        v_end_calls = v_identity_igblast(v_fastq, fasta, cores_num, spe)
+        #run igblast on the v end
+        v_end_calls = v_identity_igblast(v_fastq, fasta, cores_num, spe, aux)
 
         #merge data fragments
         igblast_out_m = pd.merge(igblast_out, v_end_calls, how='left', on=['SEQUENCE_ID'])
@@ -339,13 +340,15 @@ def parse_args():
     parser.add_argument('-fq', '--v_fastq', dest='v_fastq', type=str, help='V end fastq file')
     parser.add_argument('--plot', action='store_true', help='Plot V and J scores with cutoff')
     parser.add_argument('--out', dest='out_dir', type=str, help='Output directory, default: creates Deduplicated in main directory')
-    parser.add_argument('--threshold', dest='thres', type=int, default=1, help='Number of differences allowed between CDR3 sequences')
+    parser.add_argument('--threshold', dest='thres', type=int, default=1, help='Number of differences allowed between CDR3 sequences, default: 1')
     parser.add_argument('--only_v', action='store_true', help='Use only V idenity and CDR3 for clone assembly')
     parser.add_argument('--full_name', action='store_true', help='Retain full name of first V and J genes')
     parser.add_argument('--minimal', action='store_true', help='Work with and output only a minimal table')
     parser.add_argument('--short', action='store_true', help='Analysing short sequences')
     parser.add_argument('--cores', dest='nthreads', default=1, type=int, help='Number of cores to use, default: 1')
     parser.add_argument('--species', dest='species', default='mmu', type=str, help='Which species (mmu hsa), default: mmu')
+    parser.add_argument('--aux', dest='aux', type=str, default=None, help='aux file for igblast')
+
 
     opts = parser.parse_args()
 
@@ -374,7 +377,7 @@ def main():
     tmp_fmt = os.path.join(tmp_dir, "igblast.fmt7")
 
 
-    igblast_wrapper.run_igblast(opts.fasta, tmp_fmt, 10000, opts.species, opts.nthreads, aux_file=None)
+    igblast_wrapper.run_igblast(opts.fasta, tmp_fmt, 10000, opts.species, opts.nthreads, aux_file=opts.aux)
     igblast_wrapper.parse_igblast(tmp_fmt, opts.fasta, opts.species)
 
     #need to find the output of changeo
@@ -382,7 +385,7 @@ def main():
 
     igblast_cln = read_changeo_out(tmp_tab, out_dir, prefix, opts.fasta, v_fastq=opts.v_fastq, plot=opts.plot,
                                    retain_nam=opts.full_name, minimal=opts.minimal, short=opts.short, cores_num=opts.nthreads,
-                                   spe=opts.species)
+                                   spe=opts.species, aux=opts.aux)
     # igblast_cln = read_changeo_out(files, out_dir, prefix)
 
     clonotype_dict = make_bundle(igblast_cln, only_v=opts.only_v)

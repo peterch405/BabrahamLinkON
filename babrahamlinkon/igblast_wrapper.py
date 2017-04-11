@@ -82,14 +82,17 @@ def run_igblast(fasta, out_fmt, splice_size, spe, nprocs, aux_file=None, additio
     :param additional_flags: a list of additional flags to pass to igblast
     '''
 
+    DATA_PATH = pkg_resources.resource_filename('babrahamlinkon', 'resources/IgBlast_database/')
     #try locating the aux files for igblast
     if spe == 'mmu' and aux_file == None:
-        mouse_aux = subprocess.check_output(['locate', '-br', 'mouse_gl.aux$'], universal_newlines=True)
-        aux_file = mouse_aux.split('\n')[0]
+        #won't work on some systems
+        # mouse_aux = subprocess.check_output(['locate', '-br', 'mouse_gl.aux$'], universal_newlines=True)
+        # aux_file = mouse_aux.split('\n')[0]
+        aux_file = DATA_PATH + 'optional_file/mouse_gl.aux'
     elif spe == 'hsa' and aux_file == None:
-        human_aux = subprocess.check_output(['locate', '-br', 'human_gl.aux$'], universal_newlines=True)
-        aux_file = human_aux.split('\n')[0]
-
+        # human_aux = subprocess.check_output(['locate', '-br', 'human_gl.aux$'], universal_newlines=True)
+        # aux_file = human_aux.split('\n')[0]
+        aux_file = DATA_PATH + 'optional_file/human_gl.aux'
 
     results = Parallel(n_jobs=nprocs)(delayed(igblast_worker)(chunk, spe, aux_file, additional_flags) for chunk in splice_fasta(fasta, 10000))
 

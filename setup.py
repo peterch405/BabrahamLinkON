@@ -4,6 +4,7 @@
 import sys
 from setuptools import setup, find_packages
 import subprocess
+import re
 
 if sys.version_info.major != 3:
     raise RuntimeError('BabrahamLinkON requires Python 3')
@@ -31,6 +32,17 @@ try:
     subprocess.check_output(['MakeDb.py', '-h'])
 except OSError:
     print('MakeDb.py from Changeo not found. Is changeo installed? (pip install changeo)\nSome options won\'t work')
+
+
+#check igblast and version_info
+try:
+    version = subprocess.check_output(['igblastn', '-version'])
+    version = version.decode('utf-8').split('\n')[1]
+    major, minor, micro = re.split(',| ', version)[3].split('.')
+    if int(major) < 1 and int(minor) < 5:
+        raise Exception('IgBlast version 1.5.0 or higher required')
+except OSError:
+    print('IgBlast not found. Some scripts won\'t work')
 
 
 from Cython.Build import cythonize
