@@ -16,6 +16,7 @@ import argparse
 import glob
 import tempfile
 import shutil
+import logging
 
 # %matplotlib inline
 # %config InlineBackend.figure_format = 'svg'
@@ -111,6 +112,7 @@ def v_identity_igblast(V_fastq, fasta, cores_num, spe, aux):
 
     #fastq to fasta
     fasta = ''
+    reads_fasta = 0
     with general.file_open(V_fastq) as fq:
         for item in general.fastq_parse(fq):
             title = item[0]
@@ -118,6 +120,7 @@ def v_identity_igblast(V_fastq, fasta, cores_num, spe, aux):
 
             try:
                 fasta += '>' + subset_reads[title.split(' ')[0][1:]] + '\n' + seq + '\n'
+                reads_fasta += 1
             except:
                 pass
 
@@ -145,6 +148,9 @@ def v_identity_igblast(V_fastq, fasta, cores_num, spe, aux):
     return sub_df
 
 #
+# v_identity_igblast('/media/chovanec/My_Passport/Old_vdj_seq_data/Deduplicated_all/A1BC/lane1_A2BC_TGACCA_L001_R1_val_1.fq.gz',
+# '/media/chovanec/My_Passport/Old_vdj_seq_data/Deduplicated_all/A1BC/lane1_A2BC_TGACCA_L001_R1_val_1_dedup.fasta', 7, 'mmu', aux=None)
+#
 #
 # def add_v_call(row):
 #     V_END = row['SEQUENCE_ID'].split('_')[-3]
@@ -167,7 +173,6 @@ def read_changeo_out(tab_file, out, prefix, fasta, v_fastq=None, plot=False, ret
         df_list.append(df)
     igblast_out = pd.concat(df_list)
     igblast_out.reset_index(drop=True, inplace=True)
-    # len(igblast_out)
 
     if plot:
         with PdfPages(out + '/' + prefix + '_score_plots.pdf') as pdf_out:
@@ -202,7 +207,7 @@ def read_changeo_out(tab_file, out, prefix, fasta, v_fastq=None, plot=False, ret
 
         #run igblast on the v end
         v_end_calls = v_identity_igblast(v_fastq, fasta, cores_num, spe, aux)
-
+        logging.info('igblast_out', len(igblast_out), 'v_end_calls', len(v_end_calls))
         #merge data fragments
         igblast_out_m = pd.merge(igblast_out, v_end_calls, how='left', on=['SEQUENCE_ID'])
 
@@ -371,7 +376,10 @@ def main():
         out_dir = opts.out_dir
 
 
-    #TODO:run igblast using igblast_wrapper
+    logging.basicConfig(level=logging.DEBUG, filename=out_dir +'/' + prefix + '_assembled_clones.log', filemode='a+',
+                        format='%(asctime)-15s %(levelname)-8s %(message)s')
+
+
     #make tmp directory with igblast run files
     tmp_dir = tempfile.mkdtemp()
     tmp_fmt = os.path.join(tmp_dir, "igblast.fmt7")
@@ -398,6 +406,8 @@ def main():
     else:
         write_out(ig_blast_asm, out_dir + '/' + prefix + '_assembled_clones.tab')
 
+    #delete tmp dir
+    shutil.rmtree(tmp_dir)
 
 if __name__ == "__main__":
     main()

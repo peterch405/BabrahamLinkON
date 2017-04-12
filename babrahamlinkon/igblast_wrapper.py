@@ -94,10 +94,12 @@ def run_igblast(fasta, out_fmt, splice_size, spe, nprocs, aux_file=None, additio
         # aux_file = human_aux.split('\n')[0]
         aux_file = DATA_PATH + 'optional_file/human_gl.aux'
 
+    #returns a list of all the results
     results = Parallel(n_jobs=nprocs)(delayed(igblast_worker)(chunk, spe, aux_file, additional_flags) for chunk in splice_fasta(fasta, 10000))
 
     with open(out_fmt, 'w') as out_file:
-        out_file.write(results[0])
+        for item in range(len(results)):
+            out_file.write(results[item])
 
 
 
