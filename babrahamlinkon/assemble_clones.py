@@ -207,7 +207,7 @@ def read_changeo_out(tab_file, out, prefix, fasta, v_fastq=None, plot=False, ret
 
         #run igblast on the v end
         v_end_calls = v_identity_igblast(v_fastq, fasta, cores_num, spe, aux)
-        logging.info('igblast_out', len(igblast_out), 'v_end_calls', len(v_end_calls))
+        
         #merge data fragments
         igblast_out_m = pd.merge(igblast_out, v_end_calls, how='left', on=['SEQUENCE_ID'])
 
