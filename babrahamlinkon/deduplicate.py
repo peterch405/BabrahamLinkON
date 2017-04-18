@@ -940,7 +940,7 @@ def deduplicate_bundle_parallel(reads_dict, low_umi_out, out, threshold, min_rea
             pdf_out.savefig(my_plot)
             plt.close('all')
 
-        num_input_all += dir_adj_results[bundle][9] #num_input
+        num_input_all += dir_adj_results[bundle][7] #num_input
 
         #remove low umi counts 1-5
         indx = 0
@@ -970,8 +970,8 @@ def deduplicate_bundle_parallel(reads_dict, low_umi_out, out, threshold, min_rea
             # stats_pre_df_dict['counts'].extend([bundle[UMI]['count'] for UMI in bundle]) #umi counts
             #
             # pre_average_distance = get_average_umi_distance(bundle.keys()) #v_seq + umi
-            stats_pre_df_dict_all['UMI'].extend(dir_adj_results[bundle][10]['UMI']) #stats_pre_df_dict umi + read
-            stats_pre_df_dict_all['counts'].extend(dir_adj_results[bundle][10]['counts']) #stats_pre_df_dict umi counts
+            stats_pre_df_dict_all['UMI'].extend(dir_adj_results[bundle][8]['UMI']) #stats_pre_df_dict umi + read
+            stats_pre_df_dict_all['counts'].extend(dir_adj_results[bundle][8]['counts']) #stats_pre_df_dict umi counts
 
             # pre_cluster_stats.append(pre_average_distance)
 
