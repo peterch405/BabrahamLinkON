@@ -207,8 +207,8 @@ def make_bundle(fastq, ignore_umi, ignore_j, ignore_v, skip_unclear, skip_mh, no
                 anchor = qname.split(' ')[0].split('_')[-2]
 
             if short:
-                #trim all to 60bp and take 8bp from there
-                v_seq = seq[:50][-7:]
+                #Only J seq present, trim all to 60bp and take 8bp from there
+                v_seq = seq[:50][-6:]
             else:
                 v_seq = seq[-8:]
 
@@ -221,7 +221,10 @@ def make_bundle(fastq, ignore_umi, ignore_j, ignore_v, skip_unclear, skip_mh, no
                     unclear_skip += 1
                     continue
 
-            j_idn = qname.split('_')[-3]
+            if anchor:
+                j_idn = qname.split('_')[-4]
+            else:
+                j_idn = qname.split('_')[-3]
 
 
 
@@ -235,6 +238,7 @@ def make_bundle(fastq, ignore_umi, ignore_j, ignore_v, skip_unclear, skip_mh, no
             else:
                 dedup_seq = v_seq + umi
 
+        
             try:
                 reads_dict[key][dedup_seq]['count'] += 1
                 reads_dict[key][dedup_seq]['seq'].update([seq]) #add all the seqs for consensus
@@ -1232,6 +1236,9 @@ def main():
     opts = parse_args()
 
     if opts.no_anchor:
+        an1 = ''
+        an2 = ''
+    elif opts.short:
         an1 = ''
         an2 = ''
     else:

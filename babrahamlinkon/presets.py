@@ -4,6 +4,7 @@ import os
 ###### Presets ######
 #####################
 
+#TODO: use https://docs.python.org/3/library/configparser.html ?
 
 class prs:
     '''Which species to be analysed
