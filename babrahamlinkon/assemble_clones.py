@@ -18,6 +18,7 @@ import tempfile
 import shutil
 import logging
 
+
 # %matplotlib inline
 # %config InlineBackend.figure_format = 'svg'
 # '/media/chovanec/My_Passport/Dan_VDJ-seq_cycles_new/J_merged_1c_Deduplicated_test/J_merged_1c_dedup.0.fasta_db-pass.tab'
@@ -76,7 +77,7 @@ def lev_adj_list_adjacency(umis, counts, threshold=1):
         a1 = adj_list[umi]
         for j in range(i+1,len(umis)):
             umi2 = umis[j] #dict_keys object doesn't support indexing
-            if Levenshtein.distance(umi, umi2) == threshold:
+            if Levenshtein.distance(umi, umi2) <= threshold:
                 adj_list[umi].append(umi2)
 
     return adj_list
@@ -174,6 +175,24 @@ def read_changeo_out(tab_file, out, prefix, fasta, v_fastq=None, plot=False, ret
     igblast_out = pd.concat(df_list)
     igblast_out.reset_index(drop=True, inplace=True)
 
+    if short:
+        # HWI-1KL136:214:D1MR5ACXX:5:1103:17395:138047_J4_Ighv13-2_GTGTCTAC_11
+
+        # igblast_out_v = igblast_out.apply(change_v_call, axis=1)
+        # igblast_out['V_CALL'] = igblast_out_v
+        # v_iden, v_score = igblast_out.apply(add_v_call, axis=1)
+        # igblast_out['V_END_CALL'] = v_iden
+        # igblast_out['V_END_SCORE'] = v_score
+        if v_fastq == None:
+            raise Exception('Short option requires the V end fastq file')
+
+        #run igblast on the v end
+        v_end_calls = v_identity_igblast(v_fastq, fasta, cores_num, spe, aux)
+        # logging.info('igblast_out', len(igblast_out), 'v_end_calls', len(v_end_calls))
+        #merge data fragments
+        igblast_out_m = pd.merge(igblast_out, v_end_calls, how='left', on=['SEQUENCE_ID'])
+
+
     if plot:
         with PdfPages(out + '/' + prefix + '_score_plots.pdf') as pdf_out:
         #Plot V and J scores
@@ -193,23 +212,16 @@ def read_changeo_out(tab_file, out, prefix, fasta, v_fastq=None, plot=False, ret
             my_plot = plt.axvline(35, linestyle='dashed', linewidth=2).get_figure()
             pdf_out.savefig(my_plot)
 
+            labels, values = zip(*Counter(v_end_calls['V_SCORE_VEND']).items())
+            non_dedup_values = tuple(l*v for l, v in zip(labels, values))
+
+            plt.figure()
+            plt.bar(labels, non_dedup_values)
+            my_plot = plt.axvline(35, linestyle='dashed', linewidth=2).get_figure()
+            pdf_out.savefig(my_plot)
+
     #if low quality replace by bowtie call in qname
     if short:
-        # HWI-1KL136:214:D1MR5ACXX:5:1103:17395:138047_J4_Ighv13-2_GTGTCTAC_11
-
-        # igblast_out_v = igblast_out.apply(change_v_call, axis=1)
-        # igblast_out['V_CALL'] = igblast_out_v
-        # v_iden, v_score = igblast_out.apply(add_v_call, axis=1)
-        # igblast_out['V_END_CALL'] = v_iden
-        # igblast_out['V_END_SCORE'] = v_score
-        if v_fastq == None:
-            raise Exception('Short option requires the V end fastq file')
-
-        #run igblast on the v end
-        v_end_calls = v_identity_igblast(v_fastq, fasta, cores_num, spe, aux)
-        
-        #merge data fragments
-        igblast_out_m = pd.merge(igblast_out, v_end_calls, how='left', on=['SEQUENCE_ID'])
 
         #drop low scoring V genes that don't have idenitity
         igblast_out_na = igblast_out_m.dropna(subset = ['V_CALL', 'V_CALL_VEND'], how='all')

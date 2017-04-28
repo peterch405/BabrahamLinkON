@@ -1,2 +1,6 @@
-# pyBabrahamLinkON
-BabrahamLinkON implementaion in python
+# BabrahamLinkON
+Analysis pipeline for VDJ-seq
+
+
+conda install igblast
+
