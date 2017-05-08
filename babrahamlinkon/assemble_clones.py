@@ -10,14 +10,15 @@ from matplotlib.backends.backend_pdf import PdfPages
 import pandas as pd
 import numpy as np
 import Levenshtein
-from babrahamlinkon import deduplicate, general, igblast_wrapper
+from babrahamlinkon import deduplicate, general, igblast_wrapper, umi_correction
 import os
 import argparse
 import glob
 import tempfile
 import shutil
 import logging
-
+import pyximport
+from babrahamlinkon._dedup_umi import edit_distance
 
 # %matplotlib inline
 # %config InlineBackend.figure_format = 'svg'
@@ -68,7 +69,7 @@ def ambigious_calls(item, full_name=False):
 #     return adj_list
 
 
-def lev_adj_list_adjacency(umis, counts, threshold=1):
+def adj_list_adjacency(umis, counts, threshold=1):
     ''' identify all umis within the levenshtein distance threshold'''
 
     #should be 50% faster
@@ -77,12 +78,18 @@ def lev_adj_list_adjacency(umis, counts, threshold=1):
         a1 = adj_list[umi]
         for j in range(i+1,len(umis)):
             umi2 = umis[j] #dict_keys object doesn't support indexing
-            if Levenshtein.distance(umi, umi2) <= threshold:
-                adj_list[umi].append(umi2)
+            # if Levenshtein.distance(umi, umi2) <= threshold:
+            if len(umi) == len(umi2):
+                if edit_distance(umi.encode('utf-8'), umi2.encode('utf-8')) <= threshold:
+                    adj_list[umi].append(umi2)
 
     return adj_list
+#
+# Levenshtein.distance('GGGTTTGCTTAC', 'GGTTTGCTTAC')
+# Levenshtein.distance('GTTTGCTTAC', 'GGTTTGCTTAC')
+# Levenshtein.distance('TTTGCTTAC', 'GTTTGCTTAC')
 
-
+abs(-5)
 
 def change_v_call(row):
     count = 0
@@ -212,13 +219,14 @@ def read_changeo_out(tab_file, out, prefix, fasta, v_fastq=None, plot=False, ret
             my_plot = plt.axvline(35, linestyle='dashed', linewidth=2).get_figure()
             pdf_out.savefig(my_plot)
 
-            labels, values = zip(*Counter(v_end_calls['V_SCORE_VEND']).items())
-            non_dedup_values = tuple(l*v for l, v in zip(labels, values))
+            if short:
+                labels, values = zip(*Counter(v_end_calls['V_SCORE_VEND']).items())
+                non_dedup_values = tuple(l*v for l, v in zip(labels, values))
 
-            plt.figure()
-            plt.bar(labels, non_dedup_values)
-            my_plot = plt.axvline(35, linestyle='dashed', linewidth=2).get_figure()
-            pdf_out.savefig(my_plot)
+                plt.figure()
+                plt.bar(labels, non_dedup_values)
+                my_plot = plt.axvline(35, linestyle='dashed', linewidth=2).get_figure()
+                pdf_out.savefig(my_plot)
 
     #if low quality replace by bowtie call in qname
     if short:
@@ -313,13 +321,13 @@ def assemble_colonotype(pd_data_frame, bundles, threshold):
         # len_umis = [len(x) for x in umis]
         # assert max(len_umis) == min(len_umis), ('not all umis are the same length(!):  %d - %d' % (min(len_umis), max(len_umis)))
 
-        counts = {umi: bundle[umi]['count'] for umi in umis} #If two UMI's mergered, count will be taken only from the larger UMI group
+        counts = {umi: bundle[umi]['count'] for umi in umis} #If two UMI's merged, count will be taken only from the larger UMI group
         # print('Getting directional adjacency list')
-        adj_list = lev_adj_list_adjacency(list(umis), counts, threshold)
+        adj_list = adj_list_adjacency(list(umis), counts, threshold)
 
         # print(len(adj_list), sorted(adj_list)[1:5])
         # print('Getting connected components')
-        clusters = deduplicate.get_connected_components_adjacency(umis, adj_list, counts)
+        clusters = umi_correction.get_connected_components_adjacency(umis, adj_list, counts)
         # print(clusters)
         #Assign clonotypes
         cluster_count = 0

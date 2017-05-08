@@ -7,11 +7,10 @@ from pathlib import Path
 import subprocess
 import shutil
 import re
-import collections
+from collections import defaultdict, Counter
 import fileinput
 import shlex
 import argparse
-import itertools
 import pandas as pd
 import numpy as np
 #Do not hard code matplotlib backend, use export MPLBACKEND=pdf instead if running on headless node
@@ -20,7 +19,7 @@ import numpy as np
 from matplotlib.backends.backend_pdf import PdfPages
 import matplotlib.pyplot as plt
 
-from babrahamlinkon import general, presets
+from babrahamlinkon import general, presets, umi_correction
 # from skbio import DNA, TabularMSA
 import multiprocessing
 import math
@@ -32,146 +31,9 @@ import logging
 # import warnings
 import operator
 import Levenshtein
-from copy import deepcopy
 
 import pyximport
-
-
-
-################################################################################
-#Functions from UMI_tools to do UMI error corrections (some modifications)
-################################################################################
-
-'''
-directional-adjacency
-adapted from:
-https://github.com/CGATOxford/UMI-tools/blob/master/umi_tools/dedup.py
-
-The MIT License (MIT)
-
-Copyright (c) 2015 CGAT
-
-Permission is hereby granted, free of charge, to any person obtaining a copy
-of this software and associated documentation files (the "Software"), to deal
-in the Software without restriction, including without limitation the rights
-to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-copies of the Software, and to permit persons to whom the Software is
-furnished to do so, subject to the following conditions:
-
-The above copyright notice and this permission notice shall be included in all
-copies or substantial portions of the Software.
-
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-SOFTWARE.
-'''
-
 from babrahamlinkon._dedup_umi import edit_distance
-
-
-def breadth_first_search(node, adj_list):
-    searched = set()
-    found = set()
-    queue = set()
-    queue.update((node,))
-    found.update((node,))
-
-    while len(queue)>0:
-        node=(list(queue))[0]
-
-        found.update(adj_list[node])
-        queue.update(adj_list[node])
-
-        searched.update((node,))
-        queue.difference_update(searched)
-
-    return found
-
-
-######## "get_best" methods ##########
-
-def get_best_higher_counts(cluster, counts):
-    ''' return the UMI with the highest counts'''
-    count = 0
-
-    if len(cluster) == 1:
-        return list(cluster)[0]
-    else:
-
-        sorted_nodes = sorted(cluster, key=lambda x: counts[x],
-                              reverse=True)
-        return sorted_nodes[0]
-
-
-
-######## "get_adj_list" methods ##########
-
-
-def ham_adj_list_directional_adjacency(umis, counts, threshold=1):
-    ''' identify all umis within the hamming distance threshold (1 is best)
-    and where the counts of the first umi is > (2 * second umi counts)-1
-    will have duplicates'''
-
-    # return {umi: [umi2 for umi2 in umis if
-    #               edit_distance(umi.encode('utf-8'),
-    #                             umi2.encode('utf-8')) == threshold and
-    #               counts[umi] >= (counts[umi2]*2)-1] for umi in umis}
-
-    #should be 50% faster
-    adj_list = collections.defaultdict(list)
-    for i,umi in enumerate(umis):
-        a1 = adj_list[umi]
-        c1 = counts[umi]
-        for j in range(i+1,len(umis)):
-            umi2 = umis[j] #dict_keys object doesn't support indexing
-            if edit_distance(umi.encode('utf-8'), umi2.encode('utf-8')) == threshold:
-                c2 = counts[umi2]
-                if c1 >= (c2*2)-1:
-                    adj_list[umi].append(umi2)
-                if c2 >= (c1*2)-1:
-                    adj_list[umi2].append(umi)
-    return adj_list
-
-######## "get_connected_components" methods ##########
-
-def get_connected_components_adjacency(umis, graph, counts):
-    ''' find the connected UMIs within an adjacency dictionary'''
-
-    found = set() #change to sets
-    components = list()
-
-    for node in sorted(graph, key=lambda x: counts[x], reverse=True):
-        if node not in found:
-            component = breadth_first_search(node, graph)
-            found.update(component)
-            components.append(component)
-
-    return components
-
-
-######### Stats ################
-
-def aggregateStatsDF(stats_df):
-    ''' return a data from with aggregated counts per UMI'''
-
-    agg_df_dict = {}
-
-    agg_df_dict['total_counts'] = stats_df.pivot_table(
-        columns="UMI", values="counts", aggfunc=np.sum)
-
-    agg_df_dict['median_counts'] = stats_df.pivot_table(
-        columns="UMI", values="counts", aggfunc=np.median)
-
-    agg_df_dict['times_observed'] = stats_df.pivot_table(
-        columns="UMI", values="counts", aggfunc=len)
-
-    return pd.DataFrame(agg_df_dict)
-
-
 
 
 ################################################################################
@@ -179,12 +41,12 @@ def aggregateStatsDF(stats_df):
 ################################################################################
 
 
-def make_bundle(fastq, ignore_umi, ignore_j, ignore_v, skip_unclear, skip_mh, no_anchor=False, short=False):
+def make_bundle(fastq, v_len, ignore_umi, ignore_j, ignore_v, skip_unclear, skip_mh, no_anchor=False, short=False):
     '''bundle reads
     '''
     unclear_skip = 0
     #Deduplication without alignment
-    reads_dict = collections.defaultdict(lambda: collections.defaultdict(dict))
+    reads_dict = defaultdict(lambda: defaultdict(dict))
 
 
     with general.file_open(fastq) as jv_in:
@@ -208,9 +70,9 @@ def make_bundle(fastq, ignore_umi, ignore_j, ignore_v, skip_unclear, skip_mh, no
 
             if short:
                 #Only J seq present, trim all to 60bp and take 8bp from there
-                v_seq = seq[:50][-6:]
+                v_seq = seq[:50][-v_len:]
             else:
-                v_seq = seq[-8:]
+                v_seq = seq[-v_len:]
 
             if skip_unclear:
                 if 'unclear' in qname:
@@ -221,11 +83,10 @@ def make_bundle(fastq, ignore_umi, ignore_j, ignore_v, skip_unclear, skip_mh, no
                     unclear_skip += 1
                     continue
 
-            if anchor:
+            if short and anchor:
                 j_idn = qname.split('_')[-4]
             else:
                 j_idn = qname.split('_')[-3]
-
 
 
             if ignore_j:
@@ -238,7 +99,6 @@ def make_bundle(fastq, ignore_umi, ignore_j, ignore_v, skip_unclear, skip_mh, no
             else:
                 dedup_seq = v_seq + umi
 
-        
             try:
                 reads_dict[key][dedup_seq]['count'] += 1
                 reads_dict[key][dedup_seq]['seq'].update([seq]) #add all the seqs for consensus
@@ -246,7 +106,7 @@ def make_bundle(fastq, ignore_umi, ignore_j, ignore_v, skip_unclear, skip_mh, no
             except KeyError:
                 reads_dict[key][dedup_seq]['count'] = 1
                 reads_dict[key][dedup_seq]['read'] = qname.split(' ')[0] + ' ' + v_seq #put v_seq into qname for stats
-                reads_dict[key][dedup_seq]['seq'] = collections.Counter([seq]) #add all the seqs for consensus
+                reads_dict[key][dedup_seq]['seq'] = Counter([seq]) #add all the seqs for consensus
 
 
     return (reads_dict, unclear_skip)
@@ -271,7 +131,7 @@ def consensus(list_of_lists):
     consensus_seq = ''
     # count = 0
     for pos in zip(*list_of_lists):
-        base_counts = collections.Counter(pos)
+        base_counts = Counter(pos)
         most_freq = base_counts.most_common(2)
         if len(most_freq) > 1:
             if most_freq[0][1] == most_freq[1][1]:
@@ -298,7 +158,7 @@ def consensus_unequal(list_of_lists):
     consensus_seq = ''
     # count = 0
     for pos in itertools.zip_longest(*list_of_lists):
-        base_counts = collections.Counter(pos)
+        base_counts = Counter(pos)
         most_freq = base_counts.most_common(2)
         if len(most_freq) > 1:
             if most_freq[0][1] == most_freq[1][1]:
@@ -371,7 +231,7 @@ def consensus_difference(seq_counter_dict, msa=False, short=False):
     '''
 
     if msa:
-        seq_dict = collections.defaultdict(list)
+        seq_dict = defaultdict(list)
 
         for item in general.fasta_parse(seq_counter_dict):
             qname = item[0]
@@ -423,13 +283,15 @@ def consensus_difference(seq_counter_dict, msa=False, short=False):
 
 
 
+
+
 def read_loss(seq_counter_dict, differences=5, msa=False, short=False): #, umi=None
     '''Read loss analysis
     :param alignment: fasta from msa function
     :param differences: number of differences from consensus allowed
     '''
     if msa:
-        seq_dict = collections.defaultdict(list)
+        seq_dict = defaultdict(list)
 
         for item in general.fasta_parse(seq_counter_dict):
             qname = item[0]
@@ -484,9 +346,10 @@ def read_loss(seq_counter_dict, differences=5, msa=False, short=False): #, umi=N
         if cons_seq.count('N') > differences: #5
             return(0, cons_seq)
 
+
         good = 0
         total = 0
-        diffs = len(cons_seq)
+        diffs = cons_seq.count('N')+2 #some wiggle room
         best_seq = ''
         for umi, seqs in seq_counter_dict.items():
             for seq in seqs.elements():
@@ -494,22 +357,25 @@ def read_loss(seq_counter_dict, differences=5, msa=False, short=False): #, umi=N
 
                 if short: #trim sequence to shortest one
                     min_len = min(len(seq),len(cons_seq))
-                    cons_seq = cons_seq[:min_len]
+                    cons_seq_el = cons_seq[:min_len]
                     seq = seq[:min_len]
+
                 #Need to pad seq if length unequal!
                 elif len(seq) != len(cons_seq):
                     len_diff = len(cons_seq) - len(seq)
                     if len_diff < 0: #pad cons_seq_1
-                        cons_seq = cons_seq + '-'*abs(len_diff)
+                        cons_seq_el = cons_seq + '-'*abs(len_diff)
                     elif len_diff > 0:
                         seq = seq + '-'*len_diff
+                        cons_seq_el = cons_seq
 
-                assert len(seq) == len(cons_seq), 'Length of sequences into hamming distance unequal'
+                assert len(seq) == len(cons_seq_el), 'Length of sequences into hamming distance unequal'
 
-                consensus_diff = edit_distance(seq.encode('utf-8'), cons_seq.encode('utf-8')) #how many mismatches present
+                consensus_diff = edit_distance(seq.encode('utf-8'), cons_seq_el.encode('utf-8')) #how many mismatches present
                 # if consensus_diff > 5:
                     # print('seq', seq, 'cons', cons_seq)
                 # consensus_diff = Levenshtein.distance(seq, cons_seq)
+                #replace possible N's in consensus sequence with best seq
                 if consensus_diff < diffs: #need only if many N's in cons_seq
                     diffs = consensus_diff
                     best_seq = str(seq)
@@ -532,128 +398,19 @@ def read_loss(seq_counter_dict, differences=5, msa=False, short=False): #, umi=N
         return (good/total, cons_seq)
 
 
+import pickle
 
-def merge_dict(in_dict):
-    #Messes up in_dict, need to make a deepcopy
-    k_v = [(set([k]), v) for k, v in in_dict.items()]
-    merged = 1
-    while merged:
-        merged = 0
-        results = []
-        while k_v:
-            common, rest = k_v[0], k_v[1:]
-            k_v = []
-            for x in rest:
-                if x[1].isdisjoint(common[1]): #sets are disjoint only if their intersection is the empty set
-                    k_v.append((x[0], x[1])) #don't share values with other sets
-                else:
-                    merged = 1
-                    common[1].update(x[1])
-                    common[0].update(x[0])
-            results.append(common)
-        k_v = results
-    #return only keys (shared keys)
-    return [tp[0] for tp in k_v]
-
-
-
-def resolve_clusters(bundle, clusters, counts, differences, gt_threshold, msa=False, short=False):
-    '''
-    Which shared nodes belong to which head node (not required if not doing UMI error correction)
-    '''
-    single_components = []
-    network_dict = collections.defaultdict(set)
-    cont_comp = 0
-
-    for comp in clusters:
-        if len(comp) == 1: #not a cluster
-            single_components.append(comp)
-        else:
-            cont_comp += len(comp)
-            ordered_network = sorted(comp, key=lambda x: counts[x], reverse=True)
-            network_dict[ordered_network[0]] = set(ordered_network[1:])
-
-
-    #TODO: change so don't need to make copy
-    shared_list = merge_dict(deepcopy(network_dict))
-
-
-    connect_comp = []
-    added_key = set()
-    duplicates_removed = 0
-    head_node_removed = 0
-    single_share = 0
-    umbigous = 0
-
-
-    remove_dict = collections.defaultdict(set)
-    #Process shared one at a time (create subset of network_dict)
-    for shared in shared_list:
-        #get all the networks that share components
-        #skip next part if head node not sharing item with other head nodes
-        if len(shared) > 1:
-
-            remove_dict = collections.defaultdict(set)
-
-            for head_1, head_2 in itertools.combinations(list(shared),2):
-
-                shared_values = network_dict[head_1].intersection(network_dict[head_2])
-
-                if len(shared_values) > 0: #head nodes need to share values
-
-                    to_1 = 0
-                    to_2 = 0
-                    for item in shared_values:
-
-                        resolve_dict_1 = {head_1:bundle[head_1]['seq'], item:bundle[item]['seq']}
-                        resolve_dict_2 = {head_2:bundle[head_2]['seq'], item:bundle[item]['seq']}
-
-                        if msa:
-                            #Align head 1 and value
-                            algn_1 = kalign_msa(resolve_dict_1)
-                            diff_1 = consensus_difference(algn_1, msa=True)
-
-                            #Align head 2 and value
-                            algn_2 = kalign_msa(resolve_dict_2)
-                            diff_2 = consensus_difference(algn_2, msa=True)
-
-                        else:
-                            diff_1 = consensus_difference(resolve_dict_1, short=short)
-                            diff_2 = consensus_difference(resolve_dict_2, short=short)
-
-                        #which ever is lower asign to that
-                        if diff_1 < diff_2:
-                            remove_dict[head_2].update([item])
-                        elif diff_1 > diff_2:
-                            remove_dict[head_1].update([item])
-                        elif diff_1 == diff_2: #remove from both
-                            umbigous += 1
-                            remove_dict[head_2].update([item])
-                            remove_dict[head_1].update([item])
-
-                        else:
-                            print('Something else')
-
-            for key, value in remove_dict.items():
-                network_dict[key].difference_update(value)
-        else:
-            single_share += 1
-
-
-    for key, value in network_dict.items():
-        if key not in added_key:
-
-            node = set([key]).union(value)
-            connect_comp.append(node)
-        else:
-            duplicates_removed +=1
-
-    out_components = single_components + connect_comp
-
-    return out_components
-
-
-
+#
+# def rcs_check(func):
+#     def func_wrapper(bundle, clusters, counts, stats, mismtch, gt_threshold, msa, short):
+#         count = len(glob.glob('/media/chovanec/My_Passport/test/ratio_file*'))
+#         with open('/media/chovanec/My_Passport/test/ratio_file' + str(count) + '.pkl', 'wb') as out_pkl:
+#             reads, consensus, final_umis, umi_counts, low_gt, corrected, low_gt_corrected, gt_list = func(bundle, clusters, counts, stats, mismtch, gt_threshold, msa=False, short=False)
+#             pickle.dump(gt_list, out_pkl)
+#         return reads, consensus, final_umis, umi_counts, low_gt, corrected, low_gt_corrected
+#     return func_wrapper
+#
+# @rcs_check
 def reduce_clusters_single(bundle, clusters, counts, stats, mismtch, gt_threshold, msa=False, short=False):
     ''' collapse clusters down to the UMI which accounts for the cluster
     and return the list of final UMIs using consensus sequence'''
@@ -667,7 +424,9 @@ def reduce_clusters_single(bundle, clusters, counts, stats, mismtch, gt_threshol
     low_gt_corrected = 0
     total = 0
 
-    parent_umi_dict = collections.defaultdict()
+    gt_list = []
+
+    parent_umi_dict = defaultdict()
 
     for cluster in clusters:
         total += 1
@@ -686,12 +445,12 @@ def reduce_clusters_single(bundle, clusters, counts, stats, mismtch, gt_threshol
             gt_ratio, consensus_seq = read_loss(alignment, differences=mismtch, msa=True) #umi=umi_cons
         else:
             gt_ratio, consensus_seq = read_loss(out_dict, differences=mismtch, short=short) #umi=umi_cons
-
+        gt_list.append(gt_ratio)
         if gt_ratio >= gt_threshold:
             #Parent umi = highest count umi which account for the cluster
-            parent_umi = get_best_higher_counts(cluster, counts)
+            parent_umi = umi_correction.get_best_higher_counts(cluster, counts)
             reads.append(bundle[parent_umi]['read'])
-            consensus.append(consensus_seq.replace('-', ''))
+            consensus.append(consensus_seq.replace('-', '')) #remove padding
             final_umis.append(parent_umi)
             #Number of UMI's in the cluster (how many have been collapsed)
             umi_counts.append(sum([counts[x] for x in cluster]))
@@ -704,7 +463,7 @@ def reduce_clusters_single(bundle, clusters, counts, stats, mismtch, gt_threshol
     assert len(set(reads)) == len(reads), 'Not all reads unique!'
 
     #list of reads, final umi's used, list of umi counts within clusters
-    return reads, consensus, final_umis, umi_counts, low_gt, corrected, low_gt_corrected
+    return reads, consensus, final_umis, umi_counts, low_gt, corrected, low_gt_corrected#, gt_list
 
 
 
@@ -743,7 +502,7 @@ def reduce_clusters_single(bundle, clusters, counts, stats, mismtch, gt_threshol
 #
 #             if gt_ratio >= gt_threshold:
 #                 #Parent umi = highest count umi which account for the cluster
-#                 parent_umi = get_best_higher_counts(cluster, counts)
+#                 parent_umi = umi_correction.get_best_higher_counts(cluster, counts)
 #                 #get name from highest count but use consensus seq
 #                 inter_results['reads'].append(bundle[parent_umi]['read'])
 #                 inter_results['consensus'].append(consensus_seq.replace('-', ''))
@@ -803,77 +562,48 @@ def reduce_clusters_single(bundle, clusters, counts, stats, mismtch, gt_threshol
 #
 
 
-################################################################################
-# UMI error correction using directional adjaceny method
-################################################################################
-
-
-def run_dir_adj(bundle, threshold, stats, mismatches, nprocs, gt_threshold, msa, short):
-    #threshold=1, stats=True, further_stats=True, mismatches=5
-    umis = bundle.keys()
-    # print(umis)
-    # print(sorted(umis)[1:5])
-    len_umis = [len(x) for x in umis]
-    assert max(len_umis) == min(len_umis), (
-        "not all umis are the same length(!):  %d - %d" % (
-            min(len_umis), max(len_umis)))
-
-    counts = {umi: bundle[umi]['count'] for umi in umis} #If two UMI's mergered, count will be taken only from the larger UMI group
-    print('Getting directional adjacency list')
-    adj_list = ham_adj_list_directional_adjacency(list(umis), counts, threshold)
-    # print(len(adj_list), sorted(adj_list)[1:5])
-    print('Getting connected components')
-    clusters = get_connected_components_adjacency(umis, adj_list, counts)
-
-
-    # print(len(clusters), sorted(clusters)[1:5])
-    print('Resolving clusters')
-    #gt_threshold implemented here too so will reduce the overall number of clusters
-    rclusters = resolve_clusters(bundle, clusters, counts, mismatches, gt_threshold, msa, short)
-
-    print('Reducing clusters')
-    # if nprocs == 1: #if no additional cores available
-    reads, consensus, final_umis, umi_counts, low_gt, corrected, low_gt_corrected =\
-    reduce_clusters_single(bundle, rclusters, counts, stats, mismatches, gt_threshold, msa, short)
-
-
-    # print('Unique:', len(set(reads)), 'All:', len(reads))
-    #TODO: http://stackoverflow.com/questions/6974695/python-process-pool-non-daemonic/8963618#8963618
-    # reads, consensus, final_umis, umi_counts, low_gt, corrected, low_gt_corrected =\
-    # reduce_clusters_single_parallel(bundle, rclusters, counts, nprocs, stats, mismatches, gt_threshold)
-
-    # (bundle, clusters, counts, stats, mismtch)
-
-    return reads, consensus, final_umis, umi_counts, low_gt, corrected, low_gt_corrected
-
 
 ################################################################################
 #Deduplication in parallel
 ################################################################################
 
-
-def deduplication_worker(bundle, threshold, stats, mismatch, min_reads, nprocs, gt_threshold, msa, skip_umi_correction, short):
+def deduplication_worker_umi(bundle, threshold, stats, mismatch, min_reads, nprocs, gt_threshold, msa, short):
     ''' worker for deduplicate_bundle_parallel '''
 
-    if skip_umi_correction:
-        #reduce bundle
-        umis = bundle.keys()
+    reads, consensus, final_umis, umi_counts, low_gt, corrected, low_gt_corrected =\
+    umi_correction.run_dir_adj(bundle, threshold=threshold, stats=stats, mismatches=mismatch,
+                nprocs=nprocs, gt_threshold=gt_threshold, msa=msa, short=short)
 
-        #clusters need to be a list of sets
-        clusters = []
-        for key in bundle.keys():
-            clusters.append(set([key]))
 
-        counts = {umi: bundle[umi]['count'] for umi in umis}
-        # bundle, clusters, counts, stats, mismtch, gt_threshold, msa=False
+    num_input = sum([bundle[umi]['count'] for umi in bundle])
+    # collect pre-dudupe stats
+    stats_pre_df_dict = {'UMI': [], 'counts': []}
+    # pre_average_distance = ''
+    if stats:
+        stats_pre_df_dict['UMI'].extend(bundle) #umi + read
+        stats_pre_df_dict['counts'].extend([bundle[UMI]['count'] for UMI in bundle]) #umi counts
 
-        reads, consensus, final_umis, umi_counts, low_gt, corrected, low_gt_corrected =\
-        reduce_clusters_single(bundle, clusters, counts, stats, mismatch, gt_threshold, msa)
-    else:
-        reads, consensus, final_umis, umi_counts, low_gt, corrected, low_gt_corrected =\
-        run_dir_adj(bundle, threshold=threshold, stats=stats, mismatches=mismatch,
-                    nprocs=nprocs, gt_threshold=gt_threshold, msa=msa, short=short)
+        # pre_average_distance = get_average_umi_distance(bundle.keys()) #v_seq + umi
 
+    return [reads, consensus, final_umis, umi_counts, low_gt, corrected, low_gt_corrected, num_input, stats_pre_df_dict] #, pre_average_distance]
+
+
+def deduplication_worker(bundle, threshold, stats, mismatch, min_reads, nprocs, gt_threshold, msa, short):
+    ''' worker for deduplicate_bundle_parallel without umi correction'''
+
+    #reduce bundle
+    umis = bundle.keys()
+
+    #clusters need to be a list of sets
+    clusters = []
+    for key in bundle.keys():
+        clusters.append(set([key]))
+
+    counts = {umi: bundle[umi]['count'] for umi in umis}
+    # bundle, clusters, counts, stats, mismtch, gt_threshold, msa=False
+
+    reads, consensus, final_umis, umi_counts, low_gt, corrected, low_gt_corrected =\
+    reduce_clusters_single(bundle, clusters, counts, stats, mismatch, gt_threshold, msa, short)
 
 
     num_input = sum([bundle[umi]['count'] for umi in bundle])
@@ -897,10 +627,14 @@ def deduplicate_bundle_parallel(reads_dict, low_umi_out, out, threshold, min_rea
     :param min_reads: minimun number of reads required in a umi group [5]
     '''
 
+    if skip_umi_correction:
+        #list of result stats
+        dir_adj_results = Parallel(n_jobs=threads)(delayed(deduplication_worker)(bundle, threshold, stats,
+        mismatch, min_reads, nprocs, gt_threshold, msa, short) for bundle in reads_dict.values())
+    else:
+        dir_adj_results = Parallel(n_jobs=threads)(delayed(deduplication_worker_umi)(bundle, threshold, stats,
+        mismatch, min_reads, nprocs, gt_threshold, msa, short) for bundle in reads_dict.values())
 
-    #list of result stats
-    dir_adj_results = Parallel(n_jobs=threads)(delayed(deduplication_worker)(bundle, threshold, stats,
-    mismatch, min_reads, nprocs, gt_threshold, msa, skip_umi_correction, short) for bundle in reads_dict.values())
 
     stats_pre_df_dict_all = {'UMI': [], 'counts': []}
     stats_post_df_dict = {'UMI': [], 'counts': []}
@@ -922,7 +656,7 @@ def deduplicate_bundle_parallel(reads_dict, low_umi_out, out, threshold, min_rea
         # topologies, nodes, num_input, stats_pre_df_dict, pre_average_distance = results
         # print('Unique:', len(set(dir_adj_results[bundle][0])), 'All:', len(dir_adj_results[bundle][0]))
         #umi_counts
-        labels, values = zip(*collections.Counter(dir_adj_results[bundle][3]).items()) #*-operator to unpack the arguments out of a list or tuple
+        labels, values = zip(*Counter(dir_adj_results[bundle][3]).items()) #*-operator to unpack the arguments out of a list or tuple
         non_dedup_values = tuple(l*v for l, v in zip(labels, values))
 
         if min_reads != None:
@@ -991,7 +725,23 @@ def deduplicate_bundle_parallel(reads_dict, low_umi_out, out, threshold, min_rea
     num_input_all, num_output, low_gt_reads, corrected_reads, low_gt_corrected_reads, low_umi_count]
 
 
+######### Stats ################
 
+def aggregateStatsDF(stats_df):
+    ''' return a data from with aggregated counts per UMI'''
+
+    agg_df_dict = {}
+
+    agg_df_dict['total_counts'] = stats_df.pivot_table(
+        columns="UMI", values="counts", aggfunc=np.sum)
+
+    agg_df_dict['median_counts'] = stats_df.pivot_table(
+        columns="UMI", values="counts", aggfunc=np.median)
+
+    agg_df_dict['times_observed'] = stats_df.pivot_table(
+        columns="UMI", values="counts", aggfunc=len)
+
+    return pd.DataFrame(agg_df_dict)
 
 
 ################################################################################
@@ -1049,23 +799,25 @@ class deduplicate:
 
 
 
-    def v_start_j_umi_dedup_assembled(self, threshold, min_reads, threads, mismatch, gt_threshold,
-                                      ignore_umi=False, stats=False, ignore_j=False, ignore_v=False, skip_unclear=False,
+    def v_start_j_umi_dedup_assembled(self, threshold, min_reads, threads, mismatch, gt_threshold, v_len,
+                                      stats=False, ignore_umi=False, ignore_j=False, ignore_v=False, skip_unclear=False,
                                       skip_mh=False, msa=False, skip_umi_cor=False, no_anchor=False, short=False):
         '''Determine start position of v reads
         some elements inspired by umi_tools by tom smith cagt
 
         '''
         if no_anchor:
-            reads_dict, unclear_skip_an1 = make_bundle(self.jv_fastq_an1, ignore_umi=ignore_umi, ignore_j=ignore_j, ignore_v=ignore_v,
+            reads_dict, unclear_skip_an1 = make_bundle(self.jv_fastq_an1, v_len=v_len, ignore_umi=ignore_umi, ignore_j=ignore_j, ignore_v=ignore_v,
                                                            skip_unclear=skip_unclear, skip_mh=skip_mh, no_anchor=no_anchor, short=short)
             unclear_skip_an2 = 0
         else:
 
-            reads_dict_an1, unclear_skip_an1 = make_bundle(self.jv_fastq_an1, ignore_umi=ignore_umi, ignore_j=ignore_j, ignore_v=ignore_v,
-                                                           skip_unclear=skip_unclear, skip_mh=skip_mh)
-            reads_dict_an2, unclear_skip_an2 = make_bundle(self.jv_fastq_an2, ignore_umi=ignore_umi, ignore_j=ignore_j, ignore_v=ignore_v,
-                                                           skip_unclear=skip_unclear, skip_mh=skip_mh)
+            reads_dict_an1, unclear_skip_an1 = make_bundle(self.jv_fastq_an1, v_len=v_len, ignore_umi=ignore_umi,
+                                                           ignore_j=ignore_j, ignore_v=ignore_v,
+                                                           skip_unclear=skip_unclear, skip_mh=skip_mh, short=short)
+            reads_dict_an2, unclear_skip_an2 = make_bundle(self.jv_fastq_an2, v_len=v_len, ignore_umi=ignore_umi,
+                                                           ignore_j=ignore_j, ignore_v=ignore_v,
+                                                           skip_unclear=skip_unclear, skip_mh=skip_mh, short=short)
 
             # merge the two dict_keys
             reads_dict = {**reads_dict_an1, **reads_dict_an2}
@@ -1155,7 +907,7 @@ class deduplicate:
             stats_pre_df = pd.DataFrame(stats_pre_df_dict_all)
             stats_post_df = pd.DataFrame(stats_post_df_dict_all)
 
-            # print(pd.DataFrame.from_dict(collections.Counter(stats_post_df_dict['counts']), orient='index').reset_index())
+            # print(pd.DataFrame.from_dict(Counter(stats_post_df_dict['counts']), orient='index').reset_index())
 
             # generate histograms of counts per UMI at each position
             UMI_counts_df_pre = pd.DataFrame(stats_pre_df.pivot_table(
@@ -1210,6 +962,7 @@ def parse_args():
     parser.add_argument('--ignore_umi', action='store_true', help='Deduplicate without using UMI')
     parser.add_argument('--ignore_j', action='store_true', help='Deduplicate without using J end identity')
     parser.add_argument('--ignore_v', action='store_true', help='Deduplicate without using 8bp V end')
+    parser.add_argument('--v_len', dest='v_len', type=int, default=6, help='Length V end sequence to add to the UMI')
 
     parser.add_argument('--skip_umi_correction', action='store_true', help='Skip correcting errors that might be present in UMI')
 
@@ -1255,7 +1008,7 @@ def main():
     logging.info(opts)
     print('Starting deduplication')
     dedup.v_start_j_umi_dedup_assembled(threshold=opts.threshold, min_reads=opts.minreads, threads=opts.nthreads,
-                                        mismatch=opts.mismatch, gt_threshold=opts.gtratio, stats=opts.stats,
+                                        mismatch=opts.mismatch, gt_threshold=opts.gtratio, v_len=opts.v_len, stats=opts.stats,
                                         ignore_umi=opts.ignore_umi, ignore_j=opts.ignore_j, ignore_v=opts.ignore_v,
                                         skip_unclear=opts.skip_unclear, skip_mh=opts.skip_mh, msa=opts.msa,
                                         skip_umi_cor=opts.skip_umi_correction,
