@@ -42,7 +42,7 @@ from babrahamlinkon._dedup_umi import edit_distance
 ################################################################################
 
 
-def make_bundle(fastq, v_len, ignore_umi, ignore_j, ignore_v, skip_unclear, skip_mh, no_anchor=False, short=False):
+def make_bundle(fastq, v_len, j_len, ignore_umi, ignore_j, ignore_v, skip_unclear, skip_mh, no_anchor=False, short=False):
     '''bundle reads
     '''
     unclear_skip = 0
@@ -70,7 +70,7 @@ def make_bundle(fastq, v_len, ignore_umi, ignore_j, ignore_v, skip_unclear, skip
                 anchor = qname.split(' ')[0].split('_')[-2]
 
             if short:
-                #Only J seq present, trim all to 60bp and take 8bp from there
+                #Only J seq present, trim all to 50bp and take 8bp from there
                 v_seq = seq[:50][-v_len:]
             else:
                 v_seq = seq[-v_len:]
@@ -95,8 +95,13 @@ def make_bundle(fastq, v_len, ignore_umi, ignore_j, ignore_v, skip_unclear, skip
             else:
                 key = j_idn + anchor
 
+
+
             if ignore_v:
                 dedup_seq = umi
+            elif j_len: #if more than 0
+                j_seq = seq[:50][-j_len:]
+                dedup_seq = j_seq + v_seq + umi
             else:
                 dedup_seq = v_seq + umi
 
@@ -836,7 +841,7 @@ class deduplicate:
 
 
 
-    def v_start_j_umi_dedup_assembled(self, threshold, min_reads, threads, mismatch, gt_threshold, v_len,
+    def v_start_j_umi_dedup_assembled(self, threshold, min_reads, threads, mismatch, gt_threshold, v_len, j_len,
                                       stats=False, ignore_umi=False, ignore_j=False, ignore_v=False, skip_unclear=False,
                                       skip_mh=False, msa=False, skip_umi_cor=False, no_anchor=False, short=False):
         '''Determine start position of v reads
@@ -844,15 +849,15 @@ class deduplicate:
 
         '''
         if no_anchor:
-            reads_dict, unclear_skip_an1 = make_bundle(self.jv_fastq_an1, v_len=v_len, ignore_umi=ignore_umi, ignore_j=ignore_j, ignore_v=ignore_v,
+            reads_dict, unclear_skip_an1 = make_bundle(self.jv_fastq_an1, v_len=v_len, j_len=j_len, ignore_umi=ignore_umi, ignore_j=ignore_j, ignore_v=ignore_v,
                                                            skip_unclear=skip_unclear, skip_mh=skip_mh, no_anchor=no_anchor, short=short)
             unclear_skip_an2 = 0
         else:
 
-            reads_dict_an1, unclear_skip_an1 = make_bundle(self.jv_fastq_an1, v_len=v_len, ignore_umi=ignore_umi,
+            reads_dict_an1, unclear_skip_an1 = make_bundle(self.jv_fastq_an1, v_len=v_len, j_len=j_len, ignore_umi=ignore_umi,
                                                            ignore_j=ignore_j, ignore_v=ignore_v,
                                                            skip_unclear=skip_unclear, skip_mh=skip_mh, short=short)
-            reads_dict_an2, unclear_skip_an2 = make_bundle(self.jv_fastq_an2, v_len=v_len, ignore_umi=ignore_umi,
+            reads_dict_an2, unclear_skip_an2 = make_bundle(self.jv_fastq_an2, v_len=v_len, j_len=j_len, ignore_umi=ignore_umi,
                                                            ignore_j=ignore_j, ignore_v=ignore_v,
                                                            skip_unclear=skip_unclear, skip_mh=skip_mh, short=short)
 
@@ -1007,6 +1012,7 @@ def parse_args():
     parser.add_argument('--ignore_j', action='store_true', help='Deduplicate without using J end identity')
     parser.add_argument('--ignore_v', action='store_true', help='Deduplicate without using 8bp V end')
     parser.add_argument('--v_len', dest='v_len', type=int, default=0, help='Length V end sequence to add to the UMI [0]')
+    parser.add_argument('--j_len', dest='j_len', type=int, default=0, help='Length of J end sequence, 50bp into read (-), to add to the UMI (for short UMIs) [0]')
 
     parser.add_argument('--skip_umi_correction', action='store_true', help='Skip correcting errors that might be present in UMI')
 
@@ -1017,7 +1023,7 @@ def parse_args():
     # parser.add_argument('--assembled', action='store_true', help='Assembled reads are being provided as input (from PEAR) [False]')
     parser.add_argument('--mismatch', dest='mismatch', type=int, default=5, help='Number of mismatches allowed in consensus sequence comparison [5]')
     parser.add_argument('--threshold', dest='threshold', type=int, default=1, help='Number of mismatches allowed in UMI [1]')
-    parser.add_argument('--min_reads', dest='minreads', type=int, default=5, help='Minimum number of reads in UMI group [5]')
+    parser.add_argument('--min_reads', dest='minreads', type=int, default=5, help='Minimum number of reads in UMI group, if less than or equal to [5] then discard')
     parser.add_argument('--gt_ratio', dest='gtratio', type=float, default=1, help='Ratio of good to total reads to mark UMI group as early PCR error 0-1 [1]')
     parser.add_argument('--msa', dest='msa', action='store_true', help='Use msa to derive consensus sequence (Slow) [False]')
 
@@ -1066,7 +1072,8 @@ def main():
         logging.info(opts)
         print('Starting deduplication')
         dedup.v_start_j_umi_dedup_assembled(threshold=opts.threshold, min_reads=opts.minreads, threads=opts.nthreads,
-                                            mismatch=opts.mismatch, gt_threshold=opts.gtratio, v_len=opts.v_len, stats=opts.stats,
+                                            mismatch=opts.mismatch, gt_threshold=opts.gtratio, v_len=opts.v_len, j_len=opts.j_len,
+                                            stats=opts.stats,
                                             ignore_umi=opts.ignore_umi, ignore_j=opts.ignore_j, ignore_v=opts.ignore_v,
                                             skip_unclear=opts.skip_unclear, skip_mh=opts.skip_mh, msa=opts.msa,
                                             skip_umi_cor=opts.skip_umi_correction,
