@@ -294,7 +294,7 @@ def run_dir_adj(bundle, threshold, stats, mismatches, nprocs, gt_threshold, msa,
 
     print('Reducing clusters')
     # if nprocs == 1: #if no additional cores available
-    reads, consensus, final_umis, umi_counts, low_gt, corrected, low_gt_corrected =\
+    reads, consensus, final_umis, umi_counts, low_gt, corrected, low_gt_corrected, cons_dffs =\
     deduplicate.reduce_clusters_single(bundle, rclusters, counts, stats, mismatches, gt_threshold, msa, short)
 
 
@@ -305,4 +305,4 @@ def run_dir_adj(bundle, threshold, stats, mismatches, nprocs, gt_threshold, msa,
 
     # (bundle, clusters, counts, stats, mismtch)
 
-    return reads, consensus, final_umis, umi_counts, low_gt, corrected, low_gt_corrected
+    return reads, consensus, final_umis, umi_counts, low_gt, corrected, low_gt_corrected, cons_dffs

@@ -70,7 +70,7 @@ def ambigious_calls(item, full_name=False):
 
 
 def adj_list_adjacency(umis, counts, threshold=1):
-    ''' identify all umis within the levenshtein distance threshold'''
+    ''' identify all umis within the hamming distance threshold'''
 
     #should be 50% faster
     adj_list = defaultdict(list)
@@ -89,7 +89,6 @@ def adj_list_adjacency(umis, counts, threshold=1):
 # Levenshtein.distance('GTTTGCTTAC', 'GGTTTGCTTAC')
 # Levenshtein.distance('TTTGCTTAC', 'GTTTGCTTAC')
 
-abs(-5)
 
 def change_v_call(row):
     count = 0
@@ -280,7 +279,10 @@ def read_changeo_out(tab_file, out, prefix, fasta, v_fastq=None, plot=False, ret
 # functional_cln.SEQUENCE_ID[functional_cln.SEQUENCE_ID == 'HWI-M02293:218:000000000-AKGG1:1:1101:8139:9569_J3_CTGCTCCT_AGCGGA_5'].index.tolist()[0]
 
 def make_bundle(pd_data_frame, only_v=False):
-    '''Make dictionary of V-CRD3-J (bundle)'''
+    '''Make dictionary of V-CRD3-J (bundle)
+    Distinquish between same recombination happening multiple times and clonal expansion
+    by including the junction sequence V-CDR3+Junction-J
+    '''
     clonotype_dict = defaultdict(lambda: defaultdict(dict))
 
     assert 'V_CALL' in pd_data_frame.columns and 'J_CALL' in pd_data_frame.columns \
@@ -294,14 +296,17 @@ def make_bundle(pd_data_frame, only_v=False):
             v_j = pd_data_frame['V_CALL'][line] + '_' + pd_data_frame['J_CALL'][line]
 
         cdr3 = pd_data_frame['CDR3_IMGT'][line]
+        #seperate group based on sequence length as well as V and J
+        v_j_len = v_j + '_' + str(len(cdr3))
+
         try:
-            clonotype_dict[v_j][cdr3]['qname'].append(pd_data_frame['SEQUENCE_ID'][line])
-            clonotype_dict[v_j][cdr3]['read'].update([pd_data_frame['SEQUENCE_INPUT'][line]])
-            clonotype_dict[v_j][cdr3]['count'] += 1
+            clonotype_dict[v_j_len][cdr3]['qname'].append(pd_data_frame['SEQUENCE_ID'][line])
+            clonotype_dict[v_j_len][cdr3]['read'].update([pd_data_frame['SEQUENCE_INPUT'][line]])
+            clonotype_dict[v_j_len][cdr3]['count'] += 1
         except KeyError:
-            clonotype_dict[v_j][cdr3]['qname'] = [pd_data_frame['SEQUENCE_ID'][line]]
-            clonotype_dict[v_j][cdr3]['read'] = Counter([pd_data_frame['SEQUENCE_INPUT'][line]])
-            clonotype_dict[v_j][cdr3]['count'] = 1
+            clonotype_dict[v_j_len][cdr3]['qname'] = [pd_data_frame['SEQUENCE_ID'][line]]
+            clonotype_dict[v_j_len][cdr3]['read'] = Counter([pd_data_frame['SEQUENCE_INPUT'][line]])
+            clonotype_dict[v_j_len][cdr3]['count'] = 1
 
     return clonotype_dict
 
