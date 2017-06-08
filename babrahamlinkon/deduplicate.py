@@ -96,12 +96,11 @@ def make_bundle(fastq, v_len, j_len, ignore_umi, ignore_j, ignore_v, skip_unclea
                 key = j_idn + anchor
 
 
-
             if ignore_v:
                 dedup_seq = umi
             elif j_len: #if more than 0
                 j_seq = seq[:50][-j_len:]
-                dedup_seq = j_seq + v_seq + umi
+                dedup_seq = j_seq + umi
             else:
                 dedup_seq = v_seq + umi
 
