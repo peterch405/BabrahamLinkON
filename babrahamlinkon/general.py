@@ -177,10 +177,12 @@ def reverse_string(my_str):
 
 
 def check_qual(umi_qual, q_score=30):
+    score = []
     for val in umi_qual:
         phred = ord(val)-33
         assert phred <= 41 and phred >= 0, 'Phred score out side of range 0-41'
         if phred < q_score:
-            return True
+            score.append(True)
         else:
-            return False
+            score.append(False)
+    return any(score)

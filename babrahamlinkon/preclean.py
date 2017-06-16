@@ -38,7 +38,7 @@ def assemble(V_region, J_region, out_dir, threads=1, prefix=None, short=False):
 
     logging.info('Subprocess: "' + ' '.join(pear_assemble) + '"')
 
-    #TODO: do similar logging for bowtie?
+
     try:
         command_line_process = subprocess.Popen(
             pear_assemble,

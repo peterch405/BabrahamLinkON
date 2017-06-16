@@ -71,9 +71,11 @@ def make_bundle(fastq, v_len, j_len, ignore_umi, ignore_j, ignore_v, skip_unclea
 
             if short:
                 #Only J seq present, trim all to 50bp and take 8bp from there
-                v_seq = seq[:50][-v_len:]
+                if v_len > 0:
+                    v_seq = seq[:50][-v_len:]
             else:
-                v_seq = seq[-v_len:]
+                if v_len > 0:
+                    v_seq = seq[-v_len:]
 
             if skip_unclear:
                 if 'unclear' in qname:
@@ -98,20 +100,21 @@ def make_bundle(fastq, v_len, j_len, ignore_umi, ignore_j, ignore_v, skip_unclea
 
             if ignore_v:
                 dedup_seq = umi
-            elif j_len: #if more than 0
+            elif int(j_len) > 0: #if more than 0
                 j_seq = seq[:50][-j_len:]
                 dedup_seq = j_seq + umi
             else:
                 dedup_seq = v_seq + umi
 
             #TODO: include quality for consensus
+
             try:
                 reads_dict[key][dedup_seq]['count'] += 1
                 reads_dict[key][dedup_seq]['seq'].update([seq]) #add all the seqs for consensus
 
             except KeyError:
                 reads_dict[key][dedup_seq]['count'] = 1
-                reads_dict[key][dedup_seq]['read'] = qname.split(' ')[0] + ' ' + v_seq #put v_seq into qname for stats
+                reads_dict[key][dedup_seq]['read'] = qname.split(' ')[0] #+ ' ' + v_seq #put v_seq into qname for stats
                 reads_dict[key][dedup_seq]['seq'] = Counter([seq]) #add all the seqs for consensus
 
 
@@ -750,7 +753,7 @@ def deduplicate_bundle_parallel(reads_dict, low_umi_out, out, threshold, min_rea
 
             # collect post-dudupe stats
             #v_seq + umi
-            post_cluster_umis = [qname.split(' ')[-1] for qname in dir_adj_results[bundle][0]] #reads are just qnames
+            # post_cluster_umis = [qname.split(' ')[-1] for qname in dir_adj_results[bundle][0]] #reads are just qnames
             stats_post_df_dict['UMI'].extend(dir_adj_results[bundle][2]) #final_umis
             stats_post_df_dict['counts'].extend(dir_adj_results[bundle][3]) #umi_counts
 
@@ -1008,6 +1011,7 @@ def parse_args():
     parser.add_argument('--short', action='store_true', help='Short sequences present')
 
     parser.add_argument('--ignore_umi', action='store_true', help='Deduplicate without using UMI')
+    #TODO: make using these default
     parser.add_argument('--ignore_j', action='store_true', help='Deduplicate without using J end identity')
     parser.add_argument('--ignore_v', action='store_true', help='Deduplicate without using 8bp V end')
     parser.add_argument('--v_len', dest='v_len', type=int, default=0, help='Length V end sequence to add to the UMI [0]')
