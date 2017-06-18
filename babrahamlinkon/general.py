@@ -177,6 +177,7 @@ def reverse_string(my_str):
 
 
 def check_qual(umi_qual, q_score=30):
+    '''returns true if quality low'''
     score = []
     for val in umi_qual:
         phred = ord(val)-33

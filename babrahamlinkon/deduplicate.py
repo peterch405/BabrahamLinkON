@@ -49,7 +49,7 @@ def make_bundle(fastq, v_len, j_len, ignore_umi, ignore_j, ignore_v, skip_unclea
     #Deduplication without alignment
     reads_dict = defaultdict(lambda: defaultdict(dict))
 
-
+    low_qual = 0
     with general.file_open(fastq) as jv_in:
         # lines = jv_in.read().splitlines()
         for item in general.fastq_parse(jv_in):
@@ -72,10 +72,25 @@ def make_bundle(fastq, v_len, j_len, ignore_umi, ignore_j, ignore_v, skip_unclea
             if short:
                 #Only J seq present, trim all to 50bp and take 8bp from there
                 if v_len > 0:
+
+                    v_qual = qual[:50][-v_len:]
+                    if general.check_qual(v_qual, 20):
+                        low_qual += 1
+                        continue
+
                     v_seq = seq[:50][-v_len:]
+
             else:
                 if v_len > 0:
+
+                    v_qual = qual[-v_len:]
+                    if general.check_qual(v_qual, 20):
+                        low_qual += 1
+                        continue
+
                     v_seq = seq[-v_len:]
+
+
 
             if skip_unclear:
                 if 'unclear' in qname:
@@ -101,7 +116,15 @@ def make_bundle(fastq, v_len, j_len, ignore_umi, ignore_j, ignore_v, skip_unclea
             if ignore_v:
                 dedup_seq = umi
             elif int(j_len) > 0: #if more than 0
+
+                #check quality of J UMI
+                j_qual = qual[:50][-j_len:]
+                if general.check_qual(j_qual, 20):
+                    low_qual += 1
+                    continue
+
                 j_seq = seq[:50][-j_len:]
+
                 dedup_seq = j_seq + umi
             else:
                 dedup_seq = v_seq + umi
@@ -118,7 +141,7 @@ def make_bundle(fastq, v_len, j_len, ignore_umi, ignore_j, ignore_v, skip_unclea
                 reads_dict[key][dedup_seq]['seq'] = Counter([seq]) #add all the seqs for consensus
 
 
-    return (reads_dict, unclear_skip)
+    return (reads_dict, unclear_skip, low_qual)
 
 
 
@@ -851,15 +874,17 @@ class deduplicate:
 
         '''
         if no_anchor:
-            reads_dict, unclear_skip_an1 = make_bundle(self.jv_fastq_an1, v_len=v_len, j_len=j_len, ignore_umi=ignore_umi, ignore_j=ignore_j, ignore_v=ignore_v,
-                                                           skip_unclear=skip_unclear, skip_mh=skip_mh, no_anchor=no_anchor, short=short)
+            reads_dict, unclear_skip_an1, low_qual_an1 = make_bundle(self.jv_fastq_an1, v_len=v_len, j_len=j_len, ignore_umi=ignore_umi,
+                                                            ignore_j=ignore_j, ignore_v=ignore_v,
+                                                            skip_unclear=skip_unclear, skip_mh=skip_mh, no_anchor=no_anchor, short=short)
             unclear_skip_an2 = 0
+            low_qual_an2 = 0
         else:
 
-            reads_dict_an1, unclear_skip_an1 = make_bundle(self.jv_fastq_an1, v_len=v_len, j_len=j_len, ignore_umi=ignore_umi,
+            reads_dict_an1, unclear_skip_an1, low_qual_an1 = make_bundle(self.jv_fastq_an1, v_len=v_len, j_len=j_len, ignore_umi=ignore_umi,
                                                            ignore_j=ignore_j, ignore_v=ignore_v,
                                                            skip_unclear=skip_unclear, skip_mh=skip_mh, short=short)
-            reads_dict_an2, unclear_skip_an2 = make_bundle(self.jv_fastq_an2, v_len=v_len, j_len=j_len, ignore_umi=ignore_umi,
+            reads_dict_an2, unclear_skip_an2, low_qual_an2 = make_bundle(self.jv_fastq_an2, v_len=v_len, j_len=j_len, ignore_umi=ignore_umi,
                                                            ignore_j=ignore_j, ignore_v=ignore_v,
                                                            skip_unclear=skip_unclear, skip_mh=skip_mh, short=short)
 
@@ -872,6 +897,9 @@ class deduplicate:
             print('Unclear skipped:', unclear_skip_an1 + unclear_skip_an2)
             all_unclear =  unclear_skip_an1 + unclear_skip_an2
             logging.info('Unclear skipped:' +  str(all_unclear))
+            print('Unclear skipped:', low_qual_an1 + low_qual_an2)
+            all_low_qual =  low_qual_an1 + low_qual_an2
+            logging.info('Unclear skipped:' +  str(all_low_qual))
             # set up arrays to hold stats data
             stats_pre_df_dict_all = {'UMI': [], 'counts': []}
             stats_post_df_dict_all = {'UMI': [], 'counts': []}
