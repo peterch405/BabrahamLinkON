@@ -387,7 +387,7 @@ def read_loss(seq_counter_dict, differences=5, msa=False, short=False): #, umi=N
 
         good = 0
         total = 0
-        diffs = cons_seq.count('N')+2 #some wiggle room
+        diffs = len(cons_seq)
         best_seq = ''
         diffs_from_cons = []
         for umi, seqs in seq_counter_dict.items():
@@ -435,8 +435,11 @@ def read_loss(seq_counter_dict, differences=5, msa=False, short=False): #, umi=N
             else:
                 new_str += cons_str
         #0 bad 1 good
+
+        assert len(new_str) == 0, "new str is empty"
         return (good/total, new_str, diffs_from_cons)
     else:
+        assert len(cons_seq) > 0, "cons str is empty"
         return (good/total, cons_seq, diffs_from_cons)
 
 
@@ -897,9 +900,9 @@ class deduplicate:
             print('Unclear skipped:', unclear_skip_an1 + unclear_skip_an2)
             all_unclear =  unclear_skip_an1 + unclear_skip_an2
             logging.info('Unclear skipped:' +  str(all_unclear))
-            print('Unclear skipped:', low_qual_an1 + low_qual_an2)
+            print('Low quality UMI:', low_qual_an1 + low_qual_an2)
             all_low_qual =  low_qual_an1 + low_qual_an2
-            logging.info('Unclear skipped:' +  str(all_low_qual))
+            logging.info('Low quality UMI:' +  str(all_low_qual))
             # set up arrays to hold stats data
             stats_pre_df_dict_all = {'UMI': [], 'counts': []}
             stats_post_df_dict_all = {'UMI': [], 'counts': []}
@@ -1113,7 +1116,6 @@ def main():
 
 
 #TODO: do a collision measure like in presto, could perhaps remove collision UMIs distance-to-nearest plot
-#TODO: could speeed up UMI correction if first doing hierarchical clustering?
 
 if __name__ == "__main__":
     main()
