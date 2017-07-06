@@ -24,8 +24,8 @@ def splice_fasta(fasta_path, chunk_size):
     if fasta_chunk: #if not empty
         yield fasta_chunk
 
-
-def igblast_worker(fasta, spe, aux_file, additional_flags):
+#TODO:They fixed num_threads in version > 1.5, could test this later
+def igblast_worker(fasta, spe, custom_ref, aux_file, additional_flags):
 
     #if fasta string - stdin else file in
     if fasta.startswith('>'):
@@ -36,18 +36,32 @@ def igblast_worker(fasta, spe, aux_file, additional_flags):
     DATA_PATH = pkg_resources.resource_filename('babrahamlinkon', 'resources/IgBlast_database/')
 
     if spe == 'mmu':
-        cmd = ['igblastn',
-            '-germline_db_V', DATA_PATH + 'Mus_musculus_IGHV',
-            '-germline_db_D', DATA_PATH + 'Mus_musculus_IGHD',
-            '-germline_db_J', DATA_PATH + 'Mus_musculus_IGHJ',
-            '-auxiliary_data', aux_file,
-            '-domain_system', 'imgt',
-            '-ig_seqtype', 'Ig' ,
-            '-organism', 'mouse',
-            '-num_threads', '1',
-            '-outfmt', '7 std qseq sseq btop',
-            '-query', fasta_input, '-out', '-',
-            ]
+        if custom_ref:
+            cmd = ['igblastn',
+                '-germline_db_V', DATA_PATH + 'Mus_musculus_IGHV_AEC',
+                '-germline_db_D', DATA_PATH + 'Mus_musculus_IGHD_AEC',
+                '-germline_db_J', DATA_PATH + 'Mus_musculus_IGHJ_AEC',
+                '-auxiliary_data', aux_file,
+                '-domain_system', 'imgt',
+                '-ig_seqtype', 'Ig' ,
+                '-organism', 'mouse',
+                '-num_threads', '1',
+                '-outfmt', '7 std qseq sseq btop',
+                '-query', fasta_input, '-out', '-',
+                ]
+        else:
+            cmd = ['igblastn',
+                '-germline_db_V', DATA_PATH + 'Mus_musculus_IGHV',
+                '-germline_db_D', DATA_PATH + 'Mus_musculus_IGHD',
+                '-germline_db_J', DATA_PATH + 'Mus_musculus_IGHJ',
+                '-auxiliary_data', aux_file,
+                '-domain_system', 'imgt',
+                '-ig_seqtype', 'Ig' ,
+                '-organism', 'mouse',
+                '-num_threads', '1',
+                '-outfmt', '7 std qseq sseq btop',
+                '-query', fasta_input, '-out', '-',
+                ]
         if additional_flags is not None:
             cmd = cmd + additional_flags
     elif spe == 'hsa':
@@ -72,7 +86,7 @@ def igblast_worker(fasta, spe, aux_file, additional_flags):
 
 
 
-def run_igblast(fasta, out_fmt, splice_size, spe, nprocs, aux_file=None, additional_flags=None):
+def run_igblast(fasta, out_fmt, splice_size, spe, nprocs, custom_ref, aux_file=None, additional_flags=None):
     '''Run IgBlast in parallel
     :param fasta: fasta file path
     :param out_fmt: out path for fmt7 file
@@ -95,7 +109,7 @@ def run_igblast(fasta, out_fmt, splice_size, spe, nprocs, aux_file=None, additio
         aux_file = DATA_PATH + 'optional_file/human_gl.aux'
 
     #returns a list of all the results
-    results = Parallel(n_jobs=nprocs)(delayed(igblast_worker)(chunk, spe, aux_file, additional_flags) for chunk in splice_fasta(fasta, 10000))
+    results = Parallel(n_jobs=nprocs)(delayed(igblast_worker)(chunk, spe, custom_ref, aux_file, additional_flags) for chunk in splice_fasta(fasta, 10000))
 
     with open(out_fmt, 'w') as out_file:
         for item in range(len(results)):
@@ -103,19 +117,24 @@ def run_igblast(fasta, out_fmt, splice_size, spe, nprocs, aux_file=None, additio
 
 
 
-def parse_igblast(fmt, fasta, spe):
+def parse_igblast(fmt, fasta, spe, custom_ref):
     '''run changeo MakeDb.py
     '''
     DATA_PATH = pkg_resources.resource_filename('babrahamlinkon', 'resources/IgBlast_database/')
 
     if spe == 'mmu':
-        cmd = ['MakeDb.py', 'igblast', '-i', fmt, '-s', fasta,
-        	'-r', DATA_PATH + 'Mus_musculus_IGH[JDV].fasta',
-        	'--regions', '--scores', '--partial']
+        if custom_ref:
+            cmd = ['MakeDb.py', 'igblast', '-i', fmt, '-s', fasta,
+            	'-r', DATA_PATH + 'Mus_musculus_IGH[JDV]_AEC.fasta',
+            	'--regions', '--scores', '--cdr3', '--partial']
+        else:
+            cmd = ['MakeDb.py', 'igblast', '-i', fmt, '-s', fasta,
+            	'-r', DATA_PATH + 'Mus_musculus_IGH[JDV].fasta',
+            	'--regions', '--scores', '--cdr3', '--partial']
     elif spe == 'hsa':
         cmd = ['MakeDb.py', 'igblast', '-i', fmt, '-s', fasta,
         	'-r', DATA_PATH + 'Homo_sapiens_IGH[JDV].fasta',
-        	'--regions', '--scores', '--partial']
+        	'--regions', '--scores', '--cdr3', '--partial']
 
 
 

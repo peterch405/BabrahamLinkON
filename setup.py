@@ -31,7 +31,8 @@ except OSError:
 try:
     subprocess.check_output(['MakeDb.py', '-h'])
 except OSError:
-    print('MakeDb.py from Changeo not found. Is changeo installed? (pip install changeo)\nSome options won\'t work')
+    print('MakeDb.py from Changeo not found. Is changeo installed? (pip install changeo, \
+    https://bitbucket.org/kleinstein/changeo/downloads/)\nSome options won\'t work')
 
 
 #check igblast and version_info
@@ -58,7 +59,7 @@ setup(name='BabrahamLinkON',
       package_dir={'babrahamlinkon': 'babrahamlinkon'},
     #   include_package_data=True,
     #   package_data={'babrahamlinkon': ['plot_igh.R', 'plot_v_usage.Rmd']},
-      package_data={'babrahamlinkon': ['resources/IgBlast_database/Mus*', 'resources/IgBlast_database/Homo*', 
+      package_data={'babrahamlinkon': ['resources/IgBlast_database/Mus*', 'resources/IgBlast_database/Homo*',
                                        'resources/IgBlast_database/optional_file/*']},
       install_requires=[
           'numpy>=1.11.0',

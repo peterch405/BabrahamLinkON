@@ -105,7 +105,7 @@ def change_v_call(row):
 
 
 
-def v_identity_igblast(V_fastq, fasta, cores_num, spe, aux):
+def v_identity_igblast(V_fastq, fasta, custom_ref, cores_num, spe, aux):
     '''
     :param V_fastq: original fastq
     :param fasta: deduplicate.py fasta output
@@ -139,8 +139,8 @@ def v_identity_igblast(V_fastq, fasta, cores_num, spe, aux):
     with open(tmp_dir + '/igblast.fasta', 'w') as fa_out:
         fa_out.write(fasta)
 
-    igblast_wrapper.run_igblast(tmp_dir + '/igblast.fasta', tmp_fmt, 10000, spe, cores_num, aux_file=aux, additional_flags=['-num_alignments_V', '1'])
-    igblast_wrapper.parse_igblast(tmp_fmt, tmp_dir + '/igblast.fasta', spe)
+    igblast_wrapper.run_igblast(tmp_dir + '/igblast.fasta', tmp_fmt, 10000, spe, custom_ref, cores_num, aux_file=aux, additional_flags=['-num_alignments_V', '1'])
+    igblast_wrapper.parse_igblast(tmp_fmt, tmp_dir + '/igblast.fasta', spe, custom_ref)
     #make v_identity dict key=qname value=idenity
 
     #need to find the output of changeo
@@ -165,7 +165,7 @@ def v_identity_igblast(V_fastq, fasta, cores_num, spe, aux):
 #     return [V_END_IDENTITY, V_END_SCORE]
 
 def read_changeo_out(tab_file, out, prefix, fasta, v_fastq=None, plot=False, retain_nam=False,
-                     minimal=False, short=False, cores_num=1, spe='mmu', aux=None):
+                     minimal=False, short=False, cores_num=1, spe='mmu', aux=None, custom_ref=False):
     '''
     :param retain_nam: keep full name of V and J calls
     '''
@@ -193,7 +193,7 @@ def read_changeo_out(tab_file, out, prefix, fasta, v_fastq=None, plot=False, ret
             raise Exception('Short option requires the V end fastq file')
 
         #run igblast on the v end
-        v_end_calls = v_identity_igblast(v_fastq, fasta, cores_num, spe, aux)
+        v_end_calls = v_identity_igblast(v_fastq, fasta, custom_ref, cores_num, spe, aux)
         # logging.info('igblast_out', len(igblast_out), 'v_end_calls', len(v_end_calls))
         #merge data fragments
         igblast_out_m = pd.merge(igblast_out, v_end_calls, how='left', on=['SEQUENCE_ID'])
@@ -378,7 +378,7 @@ def parse_args():
     parser.add_argument('--cores', dest='nthreads', default=1, type=int, help='Number of cores to use, default: 1')
     parser.add_argument('--species', dest='species', default='mmu', type=str, help='Which species (mmu hsa), default: mmu')
     parser.add_argument('--aux', dest='aux', type=str, default=None, help='aux file for igblast')
-
+    parser.add_argument('--custom_ref', dest='custom_ref', action='store_true', help='Use AEC custom reference for igblast')
 
     opts = parser.parse_args()
 
@@ -410,15 +410,15 @@ def main():
     tmp_fmt = os.path.join(tmp_dir, "igblast.fmt7")
 
 
-    igblast_wrapper.run_igblast(opts.fasta, tmp_fmt, 10000, opts.species, opts.nthreads, aux_file=opts.aux)
-    igblast_wrapper.parse_igblast(tmp_fmt, opts.fasta, opts.species)
+    igblast_wrapper.run_igblast(opts.fasta, tmp_fmt, 10000, opts.species, opts.nthreads, opts.custom_ref, aux_file=opts.aux)
+    igblast_wrapper.parse_igblast(tmp_fmt, opts.fasta, opts.species, opts.custom_ref)
 
     #need to find the output of changeo
     tmp_tab = glob.glob(tmp_dir + '/*.tab')
 
     igblast_cln = read_changeo_out(tmp_tab, out_dir, prefix, opts.fasta, v_fastq=opts.v_fastq, plot=opts.plot,
                                    retain_nam=opts.full_name, minimal=opts.minimal, short=opts.short, cores_num=opts.nthreads,
-                                   spe=opts.species, aux=opts.aux)
+                                   spe=opts.species, aux=opts.aux, custom_ref=opts.custom_ref)
     # igblast_cln = read_changeo_out(files, out_dir, prefix)
 
     clonotype_dict = make_bundle(igblast_cln, only_v=opts.only_v)

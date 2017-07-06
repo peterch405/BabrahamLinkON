@@ -840,13 +840,14 @@ def parse_args():
 
     # group = parser.add_mutually_exclusive_group(required=True)
     #TODO:haven't tested multiple files in a long time!
+    #TODO:remove files not required for deduplication like output from PEAR
     parser.add_argument('-v', '--V_r1', dest='input_V', type=str, metavar='v.fastq', nargs='+', help='Input fastq file(s) with V end sequences')
     parser.add_argument('-j', '--J_r2', dest='input_J', type=str, metavar='j.fastq', nargs='+', help='Input fastq file(s) with J end sequences')
     # parser.add_argument('-jv', '--jv', dest='input_jv', type=str, metavar='jv.fastq', nargs='+', help='Input fastq file(s) from PEAR with J (forward) end and V (reverse) end sequences')
 
     parser.add_argument('--species', dest='species', default='mmu', type=str, help='Which species (mmu hsa), default: mmu')
-    #TODO:remove fast option, not really useful anymore
-    parser.add_argument('--fast', action='store_true', help='Perform fast inaccurate J identification (not recommended if deduplicating using J)')
+
+    parser.add_argument('--fast', action='store_true', help='Perform fast inaccurate J identification')
     parser.add_argument('--mispriming', action='store_true', help='Perform mispriming correction (not compatible with --fast)')
     parser.add_argument('--prefix', dest='prefix', type=str, metavar='N', nargs='+', help='Prefix of the output file (need to provide one for each input)')
     parser.add_argument('--out', dest='out_dir', type=str, help='Output direcotry')
