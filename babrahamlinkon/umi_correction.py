@@ -126,6 +126,70 @@ def get_connected_components_adjacency(umis, graph, counts):
 
 ################################################################################
 
+
+def consensus_difference(seq_counter_dict, no_msa=True, short=False):
+    '''Resolve if umi in multiple networks, check head node to see where it fits best
+    :param alignment: output from msa
+    :return: number of differences between two umi group consensus sequences
+    '''
+
+    if no_msa:
+
+        cntr_1, cntr_2 = list(seq_counter_dict.values())
+
+        lst_lists_1 = [list(item) for item in cntr_1.elements()]
+        lst_lists_2 = [list(item) for item in cntr_2.elements()]
+
+        cons_seq_1 = deduplicate.consensus_unequal(lst_lists_1)
+        cons_seq_2 = deduplicate.consensus_unequal(lst_lists_2)
+
+        if short: #need to trim sequence
+            min_len = min(len(cons_seq_1),len(cons_seq_2))
+            cons_seq_1 = cons_seq_1[:min_len]
+            cons_seq_2 = cons_seq_2[:min_len]
+        else:
+            #Need to pad seq if length unequal!
+            len_diff = len(cons_seq_1) - len(cons_seq_2)
+            if len_diff < 0: #pad cons_seq_1
+                cons_seq_1 = cons_seq_1 + '-'*abs(len_diff)
+            elif len_diff > 0:
+                cons_seq_2 = cons_seq_2 + '-'*len_diff
+
+        assert len(cons_seq_1) == len(cons_seq_2), 'Sequences for hamming distance not same length!'
+
+
+    else:
+
+        seq_dict = defaultdict(list)
+
+        for item in general.fasta_parse(seq_counter_dict):
+            qname = item[0]
+            seq = item[1]
+
+            freq = int(qname.split('_')[-1]) #freq saved in name
+            #split fasta into umi groups (head and child)
+            umi = qname.split('_')[-2]
+            for i in range(freq):
+                seq_dict[umi].append(seq)
+
+        assert len(seq_dict.values()) == 2, 'More than two groups'
+
+        lst_1, lst_2 = list(seq_dict.values())
+
+        lst_lists_1 = [list(item) for item in lst_1]
+        lst_lists_2 = [list(item) for item in lst_2]
+
+        #without quality should be sufficient here
+        cons_seq_1 = deduplicate.consensus(lst_lists_1)
+        cons_seq_2 = deduplicate.consensus(lst_lists_2)
+
+
+    num_diffs = edit_distance(cons_seq_1.encode('utf-8'), cons_seq_2.encode('utf-8'))
+
+    return num_diffs
+
+
+
 def merge_dict(in_dict):
     #Messes up in_dict, need to make a deepcopy
     k_v = [(set([k]), v) for k, v in in_dict.items()]
@@ -166,7 +230,7 @@ def merge_dict(in_dict):
 #
 #
 # @loop_writer
-def resolve_clusters(bundle, clusters, counts, differences, gt_threshold, msa=False, short=False):
+def resolve_clusters(bundle, clusters, counts, differences, gt_threshold, no_msa=False, short=False):
     '''
     Which shared nodes belong to which head node (not required if not doing UMI error correction)
     '''
@@ -217,18 +281,21 @@ def resolve_clusters(bundle, clusters, counts, differences, gt_threshold, msa=Fa
                         resolve_dict_1 = {head_1:bundle[head_1]['seq'], item:bundle[item]['seq']}
                         resolve_dict_2 = {head_2:bundle[head_2]['seq'], item:bundle[item]['seq']}
 
-                        if msa:
+                        if no_msa:
+
+                            diff_1 = consensus_difference(resolve_dict_1, short=short)
+                            diff_2 = consensus_difference(resolve_dict_2, short=short)
+
+                        else:
+
                             #Align head 1 and value
                             algn_1 = deduplicate.kalign_msa(resolve_dict_1)
-                            diff_1 = deduplicate.consensus_difference(algn_1, msa=True)
+                            diff_1 = consensus_difference(algn_1, no_msa=False)
 
                             #Align head 2 and value
                             algn_2 = deduplicate.kalign_msa(resolve_dict_2)
-                            diff_2 = deduplicate.consensus_difference(algn_2, msa=True)
+                            diff_2 = consensus_difference(algn_2, no_msa=False)
 
-                        else:
-                            diff_1 = deduplicate.consensus_difference(resolve_dict_1, short=short)
-                            diff_2 = deduplicate.consensus_difference(resolve_dict_2, short=short)
 
                         #which ever is lower asign to that
                         if diff_1 < diff_2:
@@ -268,7 +335,7 @@ def resolve_clusters(bundle, clusters, counts, differences, gt_threshold, msa=Fa
 
 
 
-def run_dir_adj(bundle, threshold, stats, mismatches, nprocs, gt_threshold, msa, short):
+def run_dir_adj(bundle, threshold, stats, mismatches, nprocs, gt_threshold, qual_dict, no_msa, short, cons_no_qual):
     #threshold=1, stats=True, further_stats=True, mismatches=5
     umis = bundle.keys()
     # print(umis)
@@ -289,13 +356,13 @@ def run_dir_adj(bundle, threshold, stats, mismatches, nprocs, gt_threshold, msa,
     # print(len(clusters), sorted(clusters)[1:5])
     print('Resolving clusters')
     #gt_threshold implemented here too so will reduce the overall number of clusters
-    rclusters = resolve_clusters(bundle, clusters, counts, mismatches, gt_threshold, msa, short)
+    rclusters = resolve_clusters(bundle, clusters, counts, mismatches, gt_threshold, no_msa, short)
 
 
     print('Reducing clusters')
     # if nprocs == 1: #if no additional cores available
-    reads, consensus, final_umis, umi_counts, low_gt, corrected, low_gt_corrected, cons_dffs =\
-    deduplicate.reduce_clusters_single(bundle, rclusters, counts, stats, mismatches, gt_threshold, msa, short)
+    reads, consensus_seqs, consensus_quals, final_umis, umi_counts, low_gt, corrected, low_gt_corrected, cons_dffs =\
+    deduplicate.reduce_clusters_single(bundle, rclusters, counts, stats, mismatches, gt_threshold, qual_dict, no_msa, short, cons_no_qual)
 
 
     # print('Unique:', len(set(reads)), 'All:', len(reads))
@@ -305,4 +372,4 @@ def run_dir_adj(bundle, threshold, stats, mismatches, nprocs, gt_threshold, msa,
 
     # (bundle, clusters, counts, stats, mismtch)
 
-    return reads, consensus, final_umis, umi_counts, low_gt, corrected, low_gt_corrected, cons_dffs
+    return reads, consensus_seqs, consensus_quals, final_umis, umi_counts, low_gt, corrected, low_gt_corrected, cons_dffs

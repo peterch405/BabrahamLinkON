@@ -42,12 +42,13 @@ from babrahamlinkon._dedup_umi import edit_distance
 ################################################################################
 
 
-def make_bundle(fastq, v_len, j_len, ignore_umi, ignore_j, ignore_v, skip_unclear, skip_mh, no_anchor=False, short=False):
+def make_bundle(fastq, v_len, j_len, ignore_umi, use_j, use_v, skip_unclear, keep_mh, no_anchor=False, short=False):
     '''bundle reads
     '''
     unclear_skip = 0
     #Deduplication without alignment
     reads_dict = defaultdict(lambda: defaultdict(dict))
+    qual_dict = defaultdict(list)
 
     low_qual = 0
     with general.file_open(fastq) as jv_in:
@@ -96,7 +97,7 @@ def make_bundle(fastq, v_len, j_len, ignore_umi, ignore_j, ignore_v, skip_unclea
                 if 'unclear' in qname:
                     unclear_skip += 1
                     continue
-            elif skip_mh:
+            elif not keep_mh:
                 if 'unclear' in qname and '-mh_' in qname:
                     unclear_skip += 1
                     continue
@@ -107,14 +108,15 @@ def make_bundle(fastq, v_len, j_len, ignore_umi, ignore_j, ignore_v, skip_unclea
                 j_idn = qname.split('_')[-3]
 
 
-            if ignore_j:
-                key = anchor
-            else:
+            if use_j:
                 key = j_idn + anchor
+            else:
+                key = anchor
 
 
-            if ignore_v:
-                dedup_seq = umi
+
+            if use_v:
+                dedup_seq = v_seq + umi
             elif int(j_len) > 0: #if more than 0
 
                 #check quality of J UMI
@@ -127,9 +129,11 @@ def make_bundle(fastq, v_len, j_len, ignore_umi, ignore_j, ignore_v, skip_unclea
 
                 dedup_seq = j_seq + umi
             else:
-                dedup_seq = v_seq + umi
+                dedup_seq = umi
 
             #TODO: include quality for consensus
+            #create dictionary of sequence and quality...
+            qual_dict[seq].append(qual)
 
             try:
                 reads_dict[key][dedup_seq]['count'] += 1
@@ -140,16 +144,110 @@ def make_bundle(fastq, v_len, j_len, ignore_umi, ignore_j, ignore_v, skip_unclea
                 reads_dict[key][dedup_seq]['read'] = qname.split(' ')[0] #+ ' ' + v_seq #put v_seq into qname for stats
                 reads_dict[key][dedup_seq]['seq'] = Counter([seq]) #add all the seqs for consensus
 
+        #if same sequence has 2 quals take highest
 
-    return (reads_dict, unclear_skip, low_qual)
+        for k,v in qual_dict.items():
+            if len(v) > 1:
+                qual_lofls = [list(item) for item in v]
+                qual_dict[k] = [qual_highest(qual_lofls)]
 
+    return (reads_dict, unclear_skip, low_qual, qual_dict)
+
+
+
+
+def qual_highest(quals_list_of_lists):
+    '''if two identical sequences, take highest quality'''
+    max_qual = ''
+    for pos in zip(*quals_list_of_lists):
+        phred = [ord(q)-33 for q in pos]
+        max_qual += chr(max(phred)+33)
+
+    return max_qual
 
 
 ################################################################################
 #consensus and read loss
 ################################################################################
 
-#TODO: use quality as an additional metric to resolve ambigious bases (highest quality base prevail)?
+
+def consensus_qual(seqs, qual_dict):
+    '''
+    :param list_of_lists: string split into individual letters
+                          [['C', 'A', 'C', 'A', 'T', 'A', 'T', 'A'],
+                          ['G', 'A', 'T', 'A', 'T', 'A', 'T', 'A'],
+                          ['G', 'A', 'T', 'A', 'T', 'A', 'T', 'A']]
+    If base ambigous return N
+    Else return most frequent base
+    '''
+
+    quals = [qual_dict.get(seq) for seq in seqs]
+
+    # print(seqs, quals)
+    #make a list of lists for each position of seq and qual
+
+    lofls_seqs = [list(item) for item in seqs]
+    lof_quals = list(itertools.chain(*quals)) #unlist nested list
+    lofls_quals = [list(item) for item in lof_quals]
+    # print('lofls_quals', lofls_quals)
+
+    pos_quals = []
+    for pos in zip(*lofls_quals):
+        pos_quals.append(pos)
+    # print('pos_quals', pos_quals)
+
+    bp_pos = 0
+    consensus_seq = ''
+    consensus_q = ''
+    for pos in zip(*lofls_seqs):
+        base_counts = Counter(pos)
+        most_freq = base_counts.most_common(2)
+        if len(most_freq) > 1:
+            if most_freq[0][1] == most_freq[1][1]:
+                #get positions of the top two bases
+                frst = [i for i, x in enumerate(pos) if x == most_freq[0][0]]
+                scnd = [i for i, x in enumerate(pos) if x == most_freq[1][0]]
+                #get the max score for each of them
+                frst_max = max([ord(pos_quals[bp_pos][i])-33 for i in frst])
+                scnd_max = max([ord(pos_quals[bp_pos][i])-33 for i in scnd])
+
+                #take nt with highest phred score, if both have same score return N
+                if frst_max == scnd_max:
+                    consensus_seq += 'N' #ambigous base
+                    consensus_q += chr(frst_max+33)
+                elif frst_max > scnd_max:
+                    consensus_seq += most_freq[0][0]
+                    consensus_q += chr(frst_max+33)
+                else:
+                    consensus_seq += most_freq[1][0]
+                    consensus_q += chr(scnd_max+33)
+            else:
+                consensus_seq += most_freq[0][0]
+                position_of_cons = [i for i, x in enumerate(pos) if x == most_freq[0][0]]
+                phred_max = max([ord(pos_quals[bp_pos][i])-33 for i in position_of_cons])
+                consensus_q += chr(phred_max+33)
+
+        else:
+            consensus_seq += most_freq[0][0]
+            position_of_cons = [i for i, x in enumerate(pos) if x == most_freq[0][0]]
+
+            phred_max = max([ord(pos_quals[bp_pos][i])-33 for i in position_of_cons])
+            consensus_q += chr(phred_max+33)
+
+        bp_pos += 1
+
+    return (consensus_seq, consensus_q)
+
+
+
+
+# seqs = ['ATCGATA', 'CTGGATA']
+# qual_dict = {'ATCGATA':'@><@JAA', 'CTGGATA':'KA""@>>'}
+#
+# consensus_qual(seqs, qual_dict)
+
+
+
 def consensus(list_of_lists):
     '''
     :param list_of_lists: string split into individual letters
@@ -209,10 +307,10 @@ def consensus_unequal(list_of_lists):
 
 
 
-def kalign_msa(seq_counter_dict): #, umi=None
-    '''Read loss analysis
-    :param dict seq_counter: dict of Counter object with sequences
-    :param differences: number of differences from consensus allowed
+def kalign_msa(seq_counter_dict, qual_dict): #, umi=None
+    '''Multiple sequence alignment for read loss analysis
+    :param dict seq_counter_dict: dict of Counter object with sequences
+    :param qual_dict: perserve fq quality of aligned reads
     '''
     #Only aligning single copy of a duplicate sequence and then subsequently
     #multiplying the output alignment by Counter
@@ -220,21 +318,35 @@ def kalign_msa(seq_counter_dict): #, umi=None
     #Convert Counter into fasta input for kalign
     #Need to sort beacuse of Instability in progressive multiple sequence alignment algorithms?
     seq_fasta = ''
+    seq_qual = defaultdict(list)
+    out_qual = defaultdict(list)
     count = 0
     reads = 0
     for umi, cntr in sorted(seq_counter_dict.items(), key=operator.itemgetter(0)):
         for seq, freq in sorted(cntr.items(), key=lambda x:x[0]):
             seq_fasta = seq_fasta + '>' + str(count) + '_' + umi + '_' + str(freq) + '\n' + seq + '\n'
+            seq_qual['>' + str(count) + '_' + umi + '_' + str(freq)].append(qual_dict.get(seq))
             count += 1  #how many different reads
             reads += freq #how many total reads
 
+    #collapse qual for same reads
+    for k,v in seq_qual.items():
+        if len(v) > 1:
+            qual_lofls = [list(item) for item in v]
+            print('qual_lofls', qual_lofls)
+            seq_qual[k] = [qual_highest(qual_lofls)]
 
     #Can't get consensus from single sequence, return single sequence
     if count == 1:
+
         assert len(list(seq_counter_dict.values())) == 1, 'Not a single sequence'
         seq_out= re.sub('\n', '', seq_fasta)
         seq_out = list(filter(None, re.split('(>\d+_[A-Z]+_\d+)', seq_out)))
-        return seq_out
+
+        out_seq_qual = seq_qual.get(seq_out[0])[0]
+        out_qual[seq_out[1]].extend(out_seq_qual)
+
+        return (seq_out, out_qual)
 
     #Multiple sequence alignment
     #http://msa.sbc.su.se/cgi-bin/msa.cgi
@@ -252,124 +364,56 @@ def kalign_msa(seq_counter_dict): #, umi=None
     alignment = list(filter(None, re.split('(>\d+_[A-Z]+_\d+)', alignment)))
 
     # assert len(alignment) == count*2, 'Alignment output fewer reads'
-    return alignment
+
+    #fill spaces in quality if alignment introduced -
+
+    for item in general.fasta_parse(alignment):
+        qname = item[0]
+        seq = item[1]
+
+        qual = seq_qual.get(qname)[0]
+
+        new_qual = add_at_hypens(seq, qual[0], '#')
+        out_qual[seq].append(new_qual)
+
+    return (alignment, out_qual)
+#
+# qual_dict = {'ATATGAGATAA':'AAAAAAAAAAA'}
+# seq_counter_dict = {'ATCGATAT':Counter(['ATATGAGATAA', 'ATATGAGATAA','ATATGAGATAA'])}
+# align, qual_d = kalign_msa(seq_counter_dict, qual_dict)
+
+# qual_dict.get('ATATGAGATAA')
+#
+# for item in general.fasta_parse(['>0_ATCGATAT_3', 'ATATGAGATAA']):
+#     qname = item[0]
+#     seq = item[1]
 
 
-
-def consensus_difference(seq_counter_dict, msa=False, short=False):
+def add_at_hypens(hypen_str, str_add, sym_to_add):
+    '''add_at_hypens('ATATGAGATA-A', '>>>>>>>>>>>', '#')
+    produces '>>>>>>>>>>#>'
     '''
-    :param alignment: output from msa
-    :return: number of differences between two umi group consensus sequences
-    '''
-
-    if msa:
-        seq_dict = defaultdict(list)
-
-        for item in general.fasta_parse(seq_counter_dict):
-            qname = item[0]
-            seq = item[1]
-
-            freq = int(qname.split('_')[-1]) #freq saved in name
-            #split fasta into umi groups (head and child)
-            umi = qname.split('_')[-2]
-            for i in range(freq):
-                seq_dict[umi].append(seq)
-
-        assert len(seq_dict.values()) == 2, 'More than two groups'
-
-        lst_1, lst_2 = list(seq_dict.values())
-
-        lst_lists_1 = [list(item) for item in lst_1]
-        lst_lists_2 = [list(item) for item in lst_2]
-
-        cons_seq_1 = consensus(lst_lists_1)
-        cons_seq_2 = consensus(lst_lists_2)
-
-    else:
-
-        cntr_1, cntr_2 = list(seq_counter_dict.values())
-
-        lst_lists_1 = [list(item) for item in cntr_1.elements()]
-        lst_lists_2 = [list(item) for item in cntr_2.elements()]
-
-        cons_seq_1 = consensus_unequal(lst_lists_1)
-        cons_seq_2 = consensus_unequal(lst_lists_2)
-
-        if short: #need to trim sequence
-            min_len = min(len(cons_seq_1),len(cons_seq_2))
-            cons_seq_1 = cons_seq_1[:min_len]
-            cons_seq_2 = cons_seq_2[:min_len]
+    fill_pos = [i for i, x in enumerate(hypen_str) if x == '-']
+    count = 0
+    added = 0
+    new_str = ''
+    for p in range(len(str_add)+len(fill_pos)):
+        if count in fill_pos:
+            new_str += sym_to_add
+            added += 1
         else:
-            #Need to pad seq if length unequal!
-            len_diff = len(cons_seq_1) - len(cons_seq_2)
-            if len_diff < 0: #pad cons_seq_1
-                cons_seq_1 = cons_seq_1 + '-'*abs(len_diff)
-            elif len_diff > 0:
-                cons_seq_2 = cons_seq_2 + '-'*len_diff
+            new_str += str_add[p-added]
+        count += 1
+    return new_str
 
-        assert len(cons_seq_1) == len(cons_seq_2), 'Sequences for hamming distance not same length!'
-
-    num_diffs = edit_distance(cons_seq_1.encode('utf-8'), cons_seq_2.encode('utf-8'))
-
-    return num_diffs
+# add_at_hypens('ATATGAGATA-A', 'AAAAAAAAAAA', '#')
 
 
-
-
-
-def read_loss(seq_counter_dict, differences=5, msa=False, short=False): #, umi=None
+def read_loss(seq_counter_dict, qual_dict, differences=5, no_msa=False, short=False, cons_no_qual=False): #, umi=None
     '''Read loss analysis
-    :param alignment: fasta from msa function
     :param differences: number of differences from consensus allowed
     '''
-    if msa:
-        seq_dict = defaultdict(list)
-
-        for item in general.fasta_parse(seq_counter_dict):
-            qname = item[0]
-            seq = item[1]
-
-            freq = int(qname.split('_')[-1]) #freq saved in name
-            for i in range(freq):
-                seq_dict[qname+str(i)] = seq #each seq has unique key
-
-        #all values in list of lists
-        seq_list_lsts = [list(item) for item in seq_dict.values()]
-
-        cons_seq = consensus(seq_list_lsts)
-
-        #Skip poor consensus (i.e. if building consensus from only two different seqs)
-        if cons_seq.count('N') > differences: #5
-            return(0, cons_seq, '0')
-        if len(cons_seq) < 25:
-            return(0, cons_seq, '0')
-
-        good = 0
-        total = 0
-        diffs = len(cons_seq)
-        best_seq = ''
-        diffs_from_cons = []
-
-        for item in general.fasta_parse(seq_counter_dict):
-            qname = item[0]
-            seq = item[1]
-
-            freq = int(qname.split('_')[-1])
-            total += 1
-
-            assert len(seq) == len(cons_seq), 'Length of sequences into hamming distance unequal'
-            #TODO: make the trimming more robust?
-            consensus_diff = edit_distance(seq[25:].encode('utf-8'), cons_seq[25:].encode('utf-8')) #how many mismatches present
-            diffs_from_cons.append(','.join([str(consensus_diff)]*freq))
-
-            if consensus_diff < diffs: #need only if many N's in cons_seq
-                diffs = consensus_diff
-                best_seq = str(seq)
-            if consensus_diff <= differences:
-                good += 1
-
-
-    else:
+    if no_msa:
 
         list_of_lists = []
         for umi, seqs in seq_counter_dict.items():
@@ -377,13 +421,15 @@ def read_loss(seq_counter_dict, differences=5, msa=False, short=False): #, umi=N
                 list_of_lists.append(list(seq))
 
         # cons_seq = consensus(seq_list_lsts)
+        cons_no_qual = True
         cons_seq = consensus_unequal(list_of_lists)
+        cons_qual = ''
 
         #Skip poor consensus (i.e. if building consensus from only two different seqs)
         if cons_seq.count('N') > differences: #5
-            return(0, cons_seq, '0')
+            return(0, cons_seq, cons_qual, '0')
         if len(cons_seq) < 25:
-            return(0, cons_seq, '0')
+            return(0, cons_seq, cons_qual, '0')
 
         good = 0
         total = 0
@@ -424,23 +470,109 @@ def read_loss(seq_counter_dict, differences=5, msa=False, short=False): #, umi=N
                 if consensus_diff <= differences:
                     good += 1
 
-    #replace N's in cons_seq by values in best_seq
-    if 'N' in cons_seq:
-        new_str = ''
-        for best_str, cons_str in zip(list(best_seq), list(cons_seq)):
-            if best_str == cons_str:
-                new_str += best_str
-            elif cons_str == 'N':
-                new_str += best_str
-            else:
-                new_str += cons_str
-        #0 bad 1 good
+    else: #perform msa (default)
 
-        assert len(new_str) == 0, "new str is empty"
-        return (good/total, new_str, diffs_from_cons)
+        seq_dict = defaultdict(list)
+
+        for item in general.fasta_parse(seq_counter_dict):
+            qname = item[0]
+            seq = item[1]
+
+            freq = int(qname.split('_')[-1]) #freq saved in name
+            for i in range(freq):
+                seq_dict[qname+str(i)] = seq #each seq has unique key
+
+        #all values in list of lists
+
+        if cons_no_qual:
+            seq_list_lsts = [list(item) for item in seq_dict.values()]
+            cons_seq = consensus(seq_list_lsts)
+            cons_qual = ''
+        else:
+            cons_seq, cons_qual = consensus_qual(list(seq_dict.values()), qual_dict)
+
+        #Skip poor consensus (i.e. if building consensus from only two different seqs)
+        if cons_seq.count('N') > differences: #5
+            return(0, cons_seq, cons_qual, '0')
+        if len(cons_seq) < 25:
+            return(0, cons_seq, cons_qual, '0')
+
+        good = 0
+        total = 0
+        diffs = len(cons_seq)
+        best_seq = ''
+        diffs_from_cons = []
+
+        for item in general.fasta_parse(seq_counter_dict):
+            qname = item[0]
+            seq = item[1]
+
+            freq = int(qname.split('_')[-1])
+            total += 1
+
+            assert len(seq) == len(cons_seq), 'Length of sequences into hamming distance unequal'
+            #TODO: make the trimming more robust?
+            consensus_diff = edit_distance(seq[25:].encode('utf-8'), cons_seq[25:].encode('utf-8')) #how many mismatches present
+            diffs_from_cons.append(','.join([str(consensus_diff)]*freq))
+            #best_seq is the seq with fewest differences from consensus seq
+            if consensus_diff < diffs: #need only if many N's in cons_seq
+                diffs = consensus_diff
+                best_seq = str(seq)
+            if consensus_diff <= differences:
+                good += 1
+
+
+    #replace N's in cons_seq by values in best_seq
+    if cons_no_qual:
+
+        if 'N' in cons_seq:
+            new_str = ''
+            #REVIEW:will zip to shortest str (might result in shorter consensus)
+            for best_str, cons_str in zip(list(best_seq), list(cons_seq)):
+                if best_str == cons_str:
+                    new_str += best_str
+                elif cons_str == 'N':
+                    new_str += best_str
+                else:
+                    new_str += cons_str
+            #0 bad 1 good
+
+            assert len(new_str) > 0, "new str is empty"
+            return (good/total, new_str, '', diffs_from_cons)
+        else:
+            assert len(cons_seq) > 0, "consensus str is empty"
+            return (good/total, cons_seq, '', diffs_from_cons)
+
     else:
-        assert len(cons_seq) > 0, "cons str is empty"
-        return (good/total, cons_seq, diffs_from_cons)
+        if 'N' in cons_seq:
+            best_qual = qual_dict.get(best_seq)
+
+            assert len(best_seq) == len(best_qual[0]), 'Sequence length doesn\'t match quality length'
+            assert len(cons_seq) == len(cons_qual), 'Sequence length doesn\'t match quality length'
+
+            new_str = ''
+            new_qual = ''
+            pos = 0
+            for best_str, cons_str in zip(list(best_seq), list(cons_seq)):
+                if best_str == cons_str:
+                    new_str += cons_str
+                    new_qual += cons_qual[pos]
+                elif cons_str == 'N':
+                    new_str += best_str
+                    new_qual += best_qual[0][pos]
+                else:
+                    new_str += cons_str
+                    new_qual += cons_qual[pos]
+                pos += 1
+            #0 bad 1 good
+            if new_str == '':
+                print('cons', cons_seq, 'best', best_seq)
+            # assert new_str != '', "new str is empty"
+            assert len(new_str) > 0, "new str is empty"
+            return (good/total, new_str, new_qual, diffs_from_cons)
+        else:
+            assert len(cons_seq) > 0, "consensus str is empty"
+            return (good/total, cons_seq, cons_qual, diffs_from_cons)
 
 
 # import pickle
@@ -456,12 +588,14 @@ def read_loss(seq_counter_dict, differences=5, msa=False, short=False): #, umi=N
 #     return func_wrapper
 #
 # @rcs_check
-def reduce_clusters_single(bundle, clusters, counts, stats, mismtch, gt_threshold, msa=False, short=False):
+def reduce_clusters_single(bundle, clusters, counts, stats, mismtch, gt_threshold,
+                           qual_dict, no_msa=False, short=False, cons_no_qual=False):
     ''' collapse clusters down to the UMI which accounts for the cluster
     and return the list of final UMIs using consensus sequence'''
 
     reads = []
-    consensus = []
+    consensus_seqs = []
+    consensus_quals = []
     final_umis = []
     umi_counts = []
     low_gt = 0
@@ -481,16 +615,18 @@ def reduce_clusters_single(bundle, clusters, counts, stats, mismtch, gt_threshol
         out_dict = {umi:bundle[umi]['seq'] for umi in cluster}
 
 
-        assert len(out_dict) != 0, 'No sequence from umi'
+        assert len(out_dict) > 0, 'No sequence from umi'
 
         if umi_in_cluster > 1: #contains umi with 1 error
             corrected += 1
 
-        if msa:
-            alignment = kalign_msa(out_dict)
-            gt_ratio, consensus_seq, diffs_from_cons = read_loss(alignment, differences=mismtch, msa=True) #umi=umi_cons
+        if no_msa:
+            gt_ratio, consensus_seq, consensus_qual, diffs_from_cons = read_loss(out_dict, qual_dict, differences=mismtch,
+                                                                                short=short, no_msa=no_msa, cons_no_qual=cons_no_qual) #umi=umi_cons
         else:
-            gt_ratio, consensus_seq, diffs_from_cons = read_loss(out_dict, differences=mismtch, short=short) #umi=umi_cons
+            alignment, new_qual_dict = kalign_msa(out_dict, qual_dict)
+            gt_ratio, consensus_seq, consensus_qual, diffs_from_cons = read_loss(alignment, new_qual_dict, differences=mismtch,
+                                                                                 no_msa=no_msa, cons_no_qual=cons_no_qual) #umi=umi_cons
         #keep record of the distance between sequence and consensus per UMI bases (clustered UMIs seperated by ,)
         if not isinstance(diffs_from_cons, int):
             cons_diffs[','.join(cluster)] = ','.join(x for x in diffs_from_cons)
@@ -502,7 +638,9 @@ def reduce_clusters_single(bundle, clusters, counts, stats, mismtch, gt_threshol
             #Parent umi = highest count umi which account for the cluster
             parent_umi = umi_correction.get_best_higher_counts(cluster, counts)
             reads.append(bundle[parent_umi]['read'])
-            consensus.append(consensus_seq.replace('-', '')) #remove padding
+            consensus_seqs.append(consensus_seq.replace('-', '')) #remove padding or indels from msa
+            consensus_quals.append(consensus_qual.replace('#', '')) #should not have any # qual as preclean removed them
+
             final_umis.append(parent_umi)
             #Number of UMI's in the cluster (how many have been collapsed)
             umi_counts.append(sum([counts[x] for x in cluster]))
@@ -515,7 +653,7 @@ def reduce_clusters_single(bundle, clusters, counts, stats, mismtch, gt_threshol
     assert len(set(reads)) == len(reads), 'Not all reads unique!'
 
     #list of reads, final umi's used, list of umi counts within clusters
-    return reads, consensus, final_umis, umi_counts, low_gt, corrected, low_gt_corrected, cons_diffs#, gt_list
+    return reads, consensus_seqs, consensus_quals, final_umis, umi_counts, low_gt, corrected, low_gt_corrected, cons_diffs#, gt_list
 
 
 
@@ -619,12 +757,13 @@ def reduce_clusters_single(bundle, clusters, counts, stats, mismtch, gt_threshol
 #Deduplication in parallel
 ################################################################################
 
-def deduplication_worker_umi(bundle, threshold, stats, mismatch, min_reads, nprocs, gt_threshold, msa, short):
+def deduplication_worker_umi(bundle, threshold, stats, mismatch, min_reads, nprocs, gt_threshold, no_msa, short, qual_dict, cons_no_qual):
     ''' worker for deduplicate_bundle_parallel '''
 
-    reads, consensus, final_umis, umi_counts, low_gt, corrected, low_gt_corrected =\
+    reads, consensus_seqs, consensus_quals, final_umis, umi_counts, low_gt, corrected, low_gt_corrected, cons_diffs =\
     umi_correction.run_dir_adj(bundle, threshold=threshold, stats=stats, mismatches=mismatch,
-                nprocs=nprocs, gt_threshold=gt_threshold, msa=msa, short=short)
+                nprocs=nprocs, gt_threshold=gt_threshold, qual_dict=qual_dict, no_msa=no_msa, short=short,
+                cons_no_qual=cons_no_qual)
 
 
     num_input = sum([bundle[umi]['count'] for umi in bundle])
@@ -637,10 +776,10 @@ def deduplication_worker_umi(bundle, threshold, stats, mismatch, min_reads, npro
 
         # pre_average_distance = get_average_umi_distance(bundle.keys()) #v_seq + umi
 
-    return [reads, consensus, final_umis, umi_counts, low_gt, corrected, low_gt_corrected, num_input, stats_pre_df_dict, cons_diffs] #, pre_average_distance]
+    return [reads, consensus_seqs, final_umis, umi_counts, low_gt, corrected, low_gt_corrected, num_input, stats_pre_df_dict, cons_diffs, consensus_quals] #, pre_average_distance]
 
 
-def deduplication_worker(bundle, threshold, stats, mismatch, min_reads, nprocs, gt_threshold, msa, short):
+def deduplication_worker(bundle, threshold, stats, mismatch, min_reads, nprocs, gt_threshold, no_msa, short, qual_dict, cons_no_qual):
     ''' worker for deduplicate_bundle_parallel without umi correction'''
 
     #reduce bundle
@@ -652,10 +791,10 @@ def deduplication_worker(bundle, threshold, stats, mismatch, min_reads, nprocs, 
         clusters.append(set([key]))
 
     counts = {umi: bundle[umi]['count'] for umi in umis}
-    # bundle, clusters, counts, stats, mismtch, gt_threshold, msa=False
+    # bundle, clusters, counts, stats, mismtch, gt_threshold, no_msa=False
 
-    reads, consensus, final_umis, umi_counts, low_gt, corrected, low_gt_corrected, cons_diffs =\
-    reduce_clusters_single(bundle, clusters, counts, stats, mismatch, gt_threshold, msa, short)
+    reads, consensus_seqs, consensus_quals, final_umis, umi_counts, low_gt, corrected, low_gt_corrected, cons_diffs =\
+    reduce_clusters_single(bundle, clusters, counts, stats, mismatch, gt_threshold, qual_dict, no_msa, short, cons_no_qual)
 
 
     num_input = sum([bundle[umi]['count'] for umi in bundle])
@@ -668,25 +807,26 @@ def deduplication_worker(bundle, threshold, stats, mismatch, min_reads, nprocs, 
 
         # pre_average_distance = get_average_umi_distance(bundle.keys()) #v_seq + umi
 
-    return [reads, consensus, final_umis, umi_counts, low_gt, corrected, low_gt_corrected, num_input, stats_pre_df_dict, cons_diffs] #, pre_average_distance]
+    return [reads, consensus_seqs, final_umis, umi_counts, low_gt, corrected, low_gt_corrected, num_input, stats_pre_df_dict, cons_diffs, consensus_quals] #, pre_average_distance]
 
 
 
-def deduplicate_bundle_parallel(reads_dict, low_umi_out, out, threshold, min_reads, mismatch,
-                   stats, threads, pdf_out, gt_threshold, nprocs, msa,
-                   skip_umi_correction, no_anchor=False, short=False):
+def deduplicate_bundle_parallel(reads_dict, low_umi_out, out, qual_dict, threshold,
+                    min_reads, mismatch, stats, threads, pdf_out, gt_threshold,
+                    nprocs, no_msa, umi_correction, no_anchor=False, short=False, fq=False,
+                    cons_no_qual=False):
     '''
     :param reads_dict:
     :param min_reads: minimun number of reads required in a umi group [5]
     '''
 
-    if skip_umi_correction:
+    if umi_correction:
+        dir_adj_results = Parallel(n_jobs=threads)(delayed(deduplication_worker_umi)(bundle, threshold, stats,
+        mismatch, min_reads, nprocs, gt_threshold, no_msa, short, qual_dict, cons_no_qual) for bundle in reads_dict.values())
+    else:
         #list of result stats
         dir_adj_results = Parallel(n_jobs=threads)(delayed(deduplication_worker)(bundle, threshold, stats,
-        mismatch, min_reads, nprocs, gt_threshold, msa, short) for bundle in reads_dict.values())
-    else:
-        dir_adj_results = Parallel(n_jobs=threads)(delayed(deduplication_worker_umi)(bundle, threshold, stats,
-        mismatch, min_reads, nprocs, gt_threshold, msa, short) for bundle in reads_dict.values())
+        mismatch, min_reads, nprocs, gt_threshold, no_msa, short, qual_dict, cons_no_qual) for bundle in reads_dict.values())
 
 
     stats_pre_df_dict_all = {'UMI': [], 'counts': []}
@@ -739,12 +879,28 @@ def deduplicate_bundle_parallel(reads_dict, low_umi_out, out, threshold, min_rea
         indx = 0
         for count in dir_adj_results[bundle][3]: #umi_counts
             if count <= cut_point:
-                #write out fasta
-                low_umi_out.write(dir_adj_results[bundle][0][indx].split(' ')[0].replace('@', '>') + '_' + str(count) +'\n' + dir_adj_results[bundle][1][indx] + '\n')
+                if fq:
+                    assert len(dir_adj_results[bundle][1][indx]) == len(dir_adj_results[bundle][10][indx]), 'Consensus sequence not same length as consensus quality'
+
+                    low_umi_out.write(dir_adj_results[bundle][0][indx].split(' ')[0] + '_' + str(count) +'\n' +
+                                      dir_adj_results[bundle][1][indx] + '\n' +
+                                      '+' + '\n' +
+                                      dir_adj_results[bundle][10][indx] + '\n')
+                else:
+                    #write out fasta
+                    low_umi_out.write(dir_adj_results[bundle][0][indx].split(' ')[0].replace('@', '>') + '_' + str(count) +'\n' + dir_adj_results[bundle][1][indx] + '\n')
                 low_umi_count += 1
             else:
-                #write out fasta
-                out.write(dir_adj_results[bundle][0][indx].split(' ')[0].replace('@', '>') + '_' + str(count) + '\n' + dir_adj_results[bundle][1][indx] + '\n')
+                if fq:
+                    assert len(dir_adj_results[bundle][1][indx]) == len(dir_adj_results[bundle][10][indx]), 'Consensus sequence not same length as consensus quality'
+
+                    out.write(dir_adj_results[bundle][0][indx].split(' ')[0] + '_' + str(count) + '\n' +
+                              dir_adj_results[bundle][1][indx] + '\n' +
+                              '+' + '\n' +
+                              dir_adj_results[bundle][10][indx] + '\n')
+                else:
+                    #write out fasta
+                    out.write(dir_adj_results[bundle][0][indx].split(' ')[0].replace('@', '>') + '_' + str(count) + '\n' + dir_adj_results[bundle][1][indx] + '\n')
                 num_output += 1
             indx += 1
 
@@ -870,29 +1026,45 @@ class deduplicate:
 
 
     def v_start_j_umi_dedup_assembled(self, threshold, min_reads, threads, mismatch, gt_threshold, v_len, j_len,
-                                      stats=False, ignore_umi=False, ignore_j=False, ignore_v=False, skip_unclear=False,
-                                      skip_mh=False, msa=False, skip_umi_cor=False, no_anchor=False, short=False):
+                                      stats=False, ignore_umi=False, use_j=False, use_v=False, skip_unclear=False,
+                                      keep_mh=False, no_msa=False, umi_cor=False, no_anchor=False, short=False, fq=False,
+                                      cons_no_qual=False):
         '''Determine start position of v reads
-        some elements inspired by umi_tools by tom smith cagt
+        some elements based on umi_tools by tom smith cagt
 
         '''
         if no_anchor:
-            reads_dict, unclear_skip_an1, low_qual_an1 = make_bundle(self.jv_fastq_an1, v_len=v_len, j_len=j_len, ignore_umi=ignore_umi,
-                                                            ignore_j=ignore_j, ignore_v=ignore_v,
-                                                            skip_unclear=skip_unclear, skip_mh=skip_mh, no_anchor=no_anchor, short=short)
+            reads_dict, unclear_skip_an1, low_qual_an1, qual_dict = make_bundle(self.jv_fastq_an1, v_len=v_len, j_len=j_len,
+                                                            ignore_umi=ignore_umi, use_j=use_j, use_v=use_v,
+                                                            skip_unclear=skip_unclear, keep_mh=keep_mh, no_anchor=no_anchor, short=short)
             unclear_skip_an2 = 0
             low_qual_an2 = 0
         else:
 
-            reads_dict_an1, unclear_skip_an1, low_qual_an1 = make_bundle(self.jv_fastq_an1, v_len=v_len, j_len=j_len, ignore_umi=ignore_umi,
-                                                           ignore_j=ignore_j, ignore_v=ignore_v,
-                                                           skip_unclear=skip_unclear, skip_mh=skip_mh, short=short)
-            reads_dict_an2, unclear_skip_an2, low_qual_an2 = make_bundle(self.jv_fastq_an2, v_len=v_len, j_len=j_len, ignore_umi=ignore_umi,
-                                                           ignore_j=ignore_j, ignore_v=ignore_v,
-                                                           skip_unclear=skip_unclear, skip_mh=skip_mh, short=short)
+            reads_dict_an1, unclear_skip_an1, low_qual_an1, qual_dict_an1 = make_bundle(self.jv_fastq_an1, v_len=v_len, j_len=j_len,
+                                                            ignore_umi=ignore_umi, use_j=use_j, use_v=use_v,
+                                                            skip_unclear=skip_unclear, keep_mh=keep_mh, short=short)
+            reads_dict_an2, unclear_skip_an2, low_qual_an2, qual_dict_an2 = make_bundle(self.jv_fastq_an2, v_len=v_len, j_len=j_len,
+                                                            ignore_umi=ignore_umi, use_j=use_j, use_v=use_v,
+                                                            skip_unclear=skip_unclear, keep_mh=keep_mh, short=short)
 
             # merge the two dict_keys
             reads_dict = {**reads_dict_an1, **reads_dict_an2}
+
+            #second dict values will overwrite those from the first
+            # qual_dict = {**qual_dict_an1, **qual_dict_an2}
+
+            qual_dict = defaultdict(list)
+            for k,v in itertools.chain(qual_dict_an1.items(), qual_dict_an2.items()):
+                qual_dict[k].extend(v)
+
+            #keep only highest quality for duplicates
+            for k,v in qual_dict.items():
+                if len(v) > 1:
+                    qual_lofls = [list(item) for item in v]
+                    qual_dict[k] = [qual_highest(qual_lofls)]
+
+
 
         ########################
 
@@ -923,8 +1095,15 @@ class deduplicate:
 
         # print(reads_dict.keys())
         # with pysam.AlignmentFile(self.tmp_dir + '/' + self.v_prefix_an1 + '_' + self.an1 + '_dedup.bam', "wb", template=sam_algn_v_an1) as out_file:
-        with open(self.out_dir + '/' + self.jv_prefix + '_dedup.fasta', 'w') as jv_out, \
-        open(self.out_dir + '/' + self.jv_prefix + '_low_umi.fasta', 'w') as low_umi_out, \
+
+        if fq:
+            out_name = self.out_dir + '/' + self.jv_prefix + '_dedup.fastq'
+            low_name = self.out_dir + '/' + self.jv_prefix + '_low_umi.fastq'
+        else:
+            out_name = self.out_dir + '/' + self.jv_prefix + '_dedup.fasta'
+            low_name = self.out_dir + '/' + self.jv_prefix + '_low_umi.fasta'
+
+        with open(out_name, 'w') as jv_out, open(low_name, 'w') as low_umi_out, \
         PdfPages(self.out_dir + '/' + self.jv_prefix + '_histogram.pdf') as pdf:
 
             #run an1 and an2 side by side (not tested!)
@@ -937,10 +1116,10 @@ class deduplicate:
             stats_pre_df_dict, stats_post_df_dict, pre_cluster_stats, post_cluster_stats, \
             num_input, num_output, low_gt_reads, corrected_reads, \
             low_gt_corrected_reads, low_umi_count, stats_cons_diffs=\
-            deduplicate_bundle_parallel(reads_dict, low_umi_out, jv_out, threshold=threshold, min_reads=min_reads,
-                           mismatch=mismatch, gt_threshold=gt_threshold,
-                           stats=stats, threads=threads, pdf_out=pdf, nprocs=nprocs, msa=msa,
-                           skip_umi_correction=skip_umi_cor, no_anchor=no_anchor, short=short)
+            deduplicate_bundle_parallel(reads_dict, low_umi_out, jv_out, qual_dict, threshold=threshold,
+                            min_reads=min_reads, mismatch=mismatch, gt_threshold=gt_threshold,
+                            stats=stats, threads=threads, pdf_out=pdf, nprocs=nprocs, no_msa=no_msa,
+                            umi_correction=umi_cor, no_anchor=no_anchor, short=short, fq=fq, cons_no_qual=cons_no_qual)
 
             #stats
             if stats:
@@ -968,10 +1147,13 @@ class deduplicate:
 
             print('Number of clusters with low ratio discarded:' + str(low_gt_reads_an1))
             logging.info('Number of clusters with low ratio discarded:' + str(low_gt_reads_an1))
-            print('Number of directional-adjacency corrected clusters:', corrected_reads_an1)
-            logging.info('Number of directional-adjacency corrected clusters:' + str(corrected_reads_an1))
-            print('Number of corrected clusters with low ratio discarded:', low_gt_corrected_reads_an1)
-            logging.info('Number of corrected clusters with low ratio discarded:' +  str(low_gt_corrected_reads_an1))
+
+            if umi_cor:
+                print('Number of directional-adjacency corrected clusters:', corrected_reads_an1)
+                logging.info('Number of directional-adjacency corrected clusters:' + str(corrected_reads_an1))
+                print('Number of corrected clusters with low ratio discarded:', low_gt_corrected_reads_an1)
+                logging.info('Number of corrected clusters with low ratio discarded:' +  str(low_gt_corrected_reads_an1))
+
             print('Number of low UMI count groups:', low_umi_count_an1)
             logging.info('Number of low UMI count groups:' + str(low_umi_count_an1))
 
@@ -1031,37 +1213,63 @@ class deduplicate:
 def parse_args():
     parser = argparse.ArgumentParser(description='BabrahamLinkON Deduplicate')
 
-    parser.add_argument('--input_dir', dest='in_dir', type=str, required=True, help='Input directory (created for/by preclean)')
-    parser.add_argument('--cores', dest='nthreads', default=1, type=int, help='Number of cores to use (if aligning), default: 1')
-    # parser.add_argument('--species', dest='species', default='mmu', type=str, help='Which species (mmu, hsa), default: mmu')
-    parser.add_argument('--an1', dest='an1', default='GACTCGT', type=str, help='Default: GACTCGT')
-    parser.add_argument('--an2', dest='an2', default='CTGCTCCT', type=str, help='Default: CTGCTCCT')
-    # parser.add_argument('--verbose', action='store_true', help='Print detailed progress')
-    parser.add_argument('--out', dest='out_dir', type=str, help='Output directory, default: creates Deduplicated in main directory')
-    parser.add_argument('--no_anchor', action='store_true', help='No anchor sequence present')
-    parser.add_argument('--short', action='store_true', help='Short sequences present')
+    sub = parser.add_subparsers(dest='action', description='Chose pipeline')
 
-    parser.add_argument('--ignore_umi', action='store_true', help='Deduplicate without using UMI')
-    #TODO: make using these default
-    parser.add_argument('--ignore_j', action='store_true', help='Deduplicate without using J end identity')
-    parser.add_argument('--ignore_v', action='store_true', help='Deduplicate without using 8bp V end')
-    parser.add_argument('--v_len', dest='v_len', type=int, default=0, help='Length V end sequence to add to the UMI [0]')
-    parser.add_argument('--j_len', dest='j_len', type=int, default=0, help='Length of J end sequence, 50bp into read (-), to add to the UMI (for short UMIs) [0]')
+    sp1 = sub.add_parser('umi')
+    sp2 = sub.add_parser('short')
+    sp3 = sub.add_parser('short_anchor')
+    sp4 = sub.add_parser('no_anchor')
 
-    parser.add_argument('--skip_umi_correction', action='store_true', help='Skip correcting errors that might be present in UMI')
+    for sp in [sp1,sp2,sp3,sp4]: #common to all 3
+
+        sp.add_argument('--input_dir', dest='in_dir', type=str, required=True, help='Input directory (created for/by preclean)')
+        sp.add_argument('--cores', dest='nthreads', default=1, type=int, help='Number of cores to use (if aligning), default: 1')
+        sp.add_argument('--out', dest='out_dir', type=str, help='Output directory, default: creates Deduplicated in main directory')
+
+        sp.add_argument('--umi_correction', action='store_true', help='Perform correction of errors that might be present in UMI')
+        sp.add_argument('--stats', action='store_true', help='Output stats from UMI deduplication [False]')
+        sp.add_argument('--skip_unclear', action='store_true', help='Skip unclear J reads [False]')
+        sp.add_argument('--keep_mh', action='store_true', help='Keep multiple hit unclear J reads [False]')
 
 
-    parser.add_argument('--stats', action='store_true', help='Output stats from UMI deduplication [False]')
-    parser.add_argument('--skip_unclear', action='store_true', help='Skip unclear J reads [False]')
-    parser.add_argument('--skip_mh', action='store_true', help='Skip multiple hits unclear J reads [False]')
+        sp.add_argument('--mismatch', dest='mismatch', type=int, default=5, help='Number of mismatches allowed in consensus sequence comparison [5]')
+        sp.add_argument('--threshold', dest='threshold', type=int, default=1, help='Number of mismatches allowed in UMI [1]')
+        sp.add_argument('--min_reads', dest='minreads', type=int, default=5, help='Minimum number of reads in UMI group, if less than or equal to [5] then discard')
+        sp.add_argument('--gt_ratio', dest='gtratio', type=float, default=1, help='Ratio of good to total reads to mark UMI group as early PCR error 0-1 [1]')
+
+        sp.add_argument('--umi_seq_logo', dest='seqlogo', action='store_true', help='Make seqlogo from UMIs')
+
+
+    for sp in [sp1, sp3]:
+
+
+        sp.add_argument('--an1', dest='an1', default='GACTCGT', type=str, help='Default: GACTCGT')
+        sp.add_argument('--an2', dest='an2', default='CTGCTCCT', type=str, help='Default: CTGCTCCT')
+        sp.add_argument('--ignore_umi', action='store_true', help='Deduplicate without using UMI')
+
+    for sp in [sp2, sp3]:
+        sp.add_argument('--v_len', dest='v_len', type=int, default=0, help='Length from 42bp in to add to the UMI [0]')
+        sp.add_argument('--use_v', action='store_true', help='Deduplicate using V end')
+
+    sp4.add_argument('--j_len', dest='j_len', type=int, default=0, help='Length of J end sequence, 50bp into read (-), to add to the UMI [0]')
+
+    for sp in [sp1, sp4]:
+        sp.add_argument('--no_msa', dest='no_msa', action='store_true', help='Don\'t use msa to derive consensus sequence [False]')
+        sp.add_argument('--fq', dest='fq', action='store_true', help='Output fastq instead of fasta')
+
+        sp.add_argument('--cons_no_qual', dest='cons_no_qual', action='store_true', help='Make consensus without using quality scores')
+
+
+    sp1.set_defaults(short=False, no_anchor=False, use_j=False, use_v=False, v_len=0, j_len=0)
+    sp2.set_defaults(short=True, no_anchor=True, ignore_umi=True, no_msa=True, use_j=False, fq=False, j_len=0, cons_no_qual=False)
+    sp3.set_defaults(short=True, no_anchor=False, no_msa=True, use_j=False, fq=False, j_len=0, cons_no_qual=False)
+    sp4.set_defaults(short=False, no_anchor=True, ignore_umi=True, use_j=False, use_v=False, v_len=0)
+    # parser.add_argument('--no_anchor', action='store_true', help='No anchor sequence present')
+    # parser.add_argument('--short', action='store_true', help='Short sequences present')
+
+    # parser.add_argument('--use_j', action='store_true', help='Deduplicate without using J end identity')
     # parser.add_argument('--assembled', action='store_true', help='Assembled reads are being provided as input (from PEAR) [False]')
-    parser.add_argument('--mismatch', dest='mismatch', type=int, default=5, help='Number of mismatches allowed in consensus sequence comparison [5]')
-    parser.add_argument('--threshold', dest='threshold', type=int, default=1, help='Number of mismatches allowed in UMI [1]')
-    parser.add_argument('--min_reads', dest='minreads', type=int, default=5, help='Minimum number of reads in UMI group, if less than or equal to [5] then discard')
-    parser.add_argument('--gt_ratio', dest='gtratio', type=float, default=1, help='Ratio of good to total reads to mark UMI group as early PCR error 0-1 [1]')
-    parser.add_argument('--msa', dest='msa', action='store_true', help='Use msa to derive consensus sequence (Slow) [False]')
 
-    parser.add_argument('--umi_seq_logo', dest='seqlogo', action='store_true', help='Make seqlogo from UMIs')
 
     opts = parser.parse_args()
 
@@ -1073,6 +1281,12 @@ def main():
 
     #argparse
     opts = parse_args()
+
+    #combinations which can't be used together
+    if opts.cons_no_qual and opts.fq:
+        raise Exception('Can\'t output fastq without producing consensus quality')
+    if opts.no_msa and opts.fq:
+        raise Exception('Can\'t output fastq without producing consensus quality which is only used with msa at the moment')
 
     if opts.no_anchor:
         an1 = ''
@@ -1108,14 +1322,14 @@ def main():
         dedup.v_start_j_umi_dedup_assembled(threshold=opts.threshold, min_reads=opts.minreads, threads=opts.nthreads,
                                             mismatch=opts.mismatch, gt_threshold=opts.gtratio, v_len=opts.v_len, j_len=opts.j_len,
                                             stats=opts.stats,
-                                            ignore_umi=opts.ignore_umi, ignore_j=opts.ignore_j, ignore_v=opts.ignore_v,
-                                            skip_unclear=opts.skip_unclear, skip_mh=opts.skip_mh, msa=opts.msa,
-                                            skip_umi_cor=opts.skip_umi_correction,
-                                            no_anchor=opts.no_anchor, short=opts.short)
+                                            ignore_umi=opts.ignore_umi, use_j=opts.use_j, use_v=opts.use_v,
+                                            skip_unclear=opts.skip_unclear, keep_mh=opts.keep_mh, no_msa=opts.no_msa,
+                                            umi_cor=opts.umi_correction,
+                                            no_anchor=opts.no_anchor, short=opts.short, fq=opts.fq,
+                                            cons_no_qual=opts.cons_no_qual)
 
 
 
-#TODO: do a collision measure like in presto, could perhaps remove collision UMIs distance-to-nearest plot
 
 if __name__ == "__main__":
     main()

@@ -139,7 +139,7 @@ def v_identity_igblast(V_fastq, fasta, custom_ref, cores_num, spe, aux):
     with open(tmp_dir + '/igblast.fasta', 'w') as fa_out:
         fa_out.write(fasta)
 
-    igblast_wrapper.run_igblast(tmp_dir + '/igblast.fasta', tmp_fmt, 10000, spe, custom_ref, cores_num, aux_file=aux, additional_flags=['-num_alignments_V', '1'])
+    igblast_wrapper.run_igblast(tmp_dir + '/igblast.fasta', tmp_fmt, 10000, spe, cores_num, custom_ref, aux_file=aux, additional_flags=['-num_alignments_V', '1'])
     igblast_wrapper.parse_igblast(tmp_fmt, tmp_dir + '/igblast.fasta', spe, custom_ref)
     #make v_identity dict key=qname value=idenity
 
