@@ -165,7 +165,8 @@ def v_identity_igblast(V_fastq, fasta, custom_ref, cores_num, spe, aux):
 #     return [V_END_IDENTITY, V_END_SCORE]
 
 def read_changeo_out(tab_file, out, prefix, fasta, v_fastq=None, plot=False, retain_nam=False,
-                     minimal=False, short=False, cores_num=1, spe='mmu', aux=None, custom_ref=False):
+                     minimal=False, short=False, cores_num=1, spe='mmu', aux=None, custom_ref=False,
+                     j_cutoff=35, v_cutoff=50):
     '''
     :param retain_nam: keep full name of V and J calls
     '''
@@ -207,7 +208,8 @@ def read_changeo_out(tab_file, out, prefix, fasta, v_fastq=None, plot=False, ret
 
             plt.figure()
             plt.bar(labels, non_dedup_values)
-            my_plot = plt.axvline(50, linestyle='dashed', linewidth=2).get_figure()
+            plt.title('V score')
+            my_plot = plt.axvline(v_cutoff, linestyle='dashed', linewidth=2).get_figure()
             pdf_out.savefig(my_plot)
 
             labels, values = zip(*Counter(igblast_out['J_SCORE']).items())
@@ -215,7 +217,8 @@ def read_changeo_out(tab_file, out, prefix, fasta, v_fastq=None, plot=False, ret
 
             plt.figure()
             plt.bar(labels, non_dedup_values)
-            my_plot = plt.axvline(35, linestyle='dashed', linewidth=2).get_figure()
+            plt.title('J score')
+            my_plot = plt.axvline(j_cutoff, linestyle='dashed', linewidth=2).get_figure()
             pdf_out.savefig(my_plot)
 
             if short:
@@ -224,7 +227,8 @@ def read_changeo_out(tab_file, out, prefix, fasta, v_fastq=None, plot=False, ret
 
                 plt.figure()
                 plt.bar(labels, non_dedup_values)
-                my_plot = plt.axvline(35, linestyle='dashed', linewidth=2).get_figure()
+                plt.title('V score v end')
+                my_plot = plt.axvline(v_cutoff, linestyle='dashed', linewidth=2).get_figure()
                 pdf_out.savefig(my_plot)
 
     #if low quality replace by bowtie call in qname
@@ -233,11 +237,11 @@ def read_changeo_out(tab_file, out, prefix, fasta, v_fastq=None, plot=False, ret
         #drop low scoring V genes that don't have idenitity
         igblast_out_na = igblast_out_m.dropna(subset = ['V_CALL', 'V_CALL_VEND'], how='all')
         #drop low quality J calls
-        igblast_out_hs = igblast_out_na[(igblast_out_na['J_SCORE'] > 35) & ((igblast_out_na['V_SCORE'] > 50) | (igblast_out_na['V_SCORE_VEND'] > 50))]
+        igblast_out_hs = igblast_out_na[(igblast_out_na['J_SCORE'] > j_cutoff) & ((igblast_out_na['V_SCORE'] > v_cutoff) | (igblast_out_na['V_SCORE_VEND'] > v_cutoff))]
 
     else:
         #Filter out low quality scores
-        igblast_out_hs = igblast_out[(igblast_out['V_SCORE'] > 50) & (igblast_out['J_SCORE'] > 35)]
+        igblast_out_hs = igblast_out[(igblast_out['V_SCORE'] > v_cutoff) & (igblast_out['J_SCORE'] > j_cutoff)]
 
 
     #Filter mutiple different V calls
@@ -357,9 +361,6 @@ def write_out(pd_data_frame, out):
 # pd_data_frame.to_csv('/media/chovanec/My_Passport/Dan_VDJ-seq_cycles_new/J_merged_1c_Deduplicated_test/J_merged_1c_dedup.0.fasta_db-pass_assembled.tab', sep='\t')
 
 
-#Assemble clones comparing entire sequence (allowing x mismatches?) msa? different V starts makes this complicated
-
-
 
 #parser
 def parse_args():
@@ -379,6 +380,9 @@ def parse_args():
     parser.add_argument('--species', dest='species', default='mmu', type=str, help='Which species (mmu hsa), default: mmu')
     parser.add_argument('--aux', dest='aux', type=str, default=None, help='aux file for igblast')
     parser.add_argument('--custom_ref', dest='custom_ref', action='store_true', help='Use AEC custom reference for igblast')
+    parser.add_argument('--v_cutoff', dest='v_cutoff', default=50, type=int, help='IgBlast V_SCORE cutoff [>50]')
+    parser.add_argument('--j_cutoff', dest='j_cutoff', default=35, type=int, help='IgBlast J_SCORE cutoff [>35]')
+
 
     opts = parser.parse_args()
 
@@ -418,7 +422,7 @@ def main():
 
     igblast_cln = read_changeo_out(tmp_tab, out_dir, prefix, opts.fasta, v_fastq=opts.v_fastq, plot=opts.plot,
                                    retain_nam=opts.full_name, minimal=opts.minimal, short=opts.short, cores_num=opts.nthreads,
-                                   spe=opts.species, aux=opts.aux, custom_ref=opts.custom_ref)
+                                   spe=opts.species, aux=opts.aux, custom_ref=opts.custom_ref, j_cutoff=opts.j_cutoff, v_cutoff=opts.v_cutoff)
     # igblast_cln = read_changeo_out(files, out_dir, prefix)
 
     clonotype_dict = make_bundle(igblast_cln, only_v=opts.only_v)
@@ -436,32 +440,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-
-
-#
-# from igblast_wrapper import parse_igblast
-# import logging
-#
-# logging.basicConfig(level=logging.INFO, filename='/media/chovanec/My_Passport/Old_vdj_seq_data/lane5_TGACCA_WT_BC_L005_R1_val_1_40k_Deduplicated/test.log', filemode='a+',
-#                     format='%(asctime)-15s %(levelname)-8s %(message)s')
-#
-# logging.info('test')
-#
-# igblast_wrapper.parse_igblast('/media/chovanec/My_Passport/Old_vdj_seq_data/lane5_TGACCA_WT_BC_L005_R1_val_1_40k_Deduplicated/lane5_TGACCA_WT_BC_L005_R1_val_1_40k_dedup.fmt7',
-#               '/media/chovanec/My_Passport/Old_vdj_seq_data/lane5_TGACCA_WT_BC_L005_R1_val_1_40k_Deduplicated/lane5_TGACCA_WT_BC_L005_R1_val_1_40k_dedup.fasta',
-#               'mmu')
-#
-# logging.info('test')
-
-
-#
-#
-#
-#
-#
-# V_fastq = '/media/chovanec/My_Passport/Old_vdj_seq_data/lane5_GCCAAT_Y2_BC_L005_R1_val_1_200k.fastq'
-# fasta = '/media/chovanec/My_Passport/Old_vdj_seq_data/lane5_GCCAAT_Y2_BC_L005_R1_val_1_200k_Deduplicated/lane5_GCCAAT_Y2_BC_L005_R1_val_1_200k_dedup.fasta'
-# spe='mmu'
-# cores_num=8
-#
-# v_identity_igblast(V_fastq, fasta, cores_num, spe='mmu')

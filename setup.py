@@ -21,6 +21,13 @@ try:
 except OSError:
     print('kalign not found, some options won\'t work\n')
 
+#check pear
+try:
+    subprocess.call(['pear', '-h'])
+except OSError:
+    print('PEAR not found, please install\n')
+
+
 # check bowtie2 and samtools is accessible
 try:
     subprocess.check_output(['bowtie2', '-h'])
@@ -28,11 +35,6 @@ try:
 except OSError:
     raise RuntimeError('bowtie2/samtools not found; put directory in $PATH\n')
 
-try:
-    subprocess.check_output(['MakeDb.py', '-h'])
-except OSError:
-    print('MakeDb.py from Changeo not found. Is changeo installed? (pip install changeo, \
-    https://bitbucket.org/kleinstein/changeo/downloads/)\nSome options won\'t work')
 
 
 #check igblast and version_info
@@ -40,8 +42,8 @@ try:
     version = subprocess.check_output(['igblastn', '-version'])
     version = version.decode('utf-8').split('\n')[1]
     major, minor, micro = re.split(',| ', version)[3].split('.')
-    if int(major) < 1 and int(minor) < 5:
-        raise Exception('IgBlast version 1.5.0 or higher required')
+    if int(major) < 1 and int(minor) < 7:
+        raise Exception('IgBlast version 1.7.0 or higher required')
 except OSError:
     print('IgBlast not found. Some scripts won\'t work')
 
@@ -69,7 +71,8 @@ setup(name='BabrahamLinkON',
           'scikit-bio>=0.5.0',
           'python-Levenshtein>=0.12.0',
           'pysam>=0.9.1.3',
-          'joblib>=0.9.3'],
+          'joblib>=0.9.3',
+          'changeo>=0.3.7'],
       scripts=['babrahamlinkon/deduplicate.py',
                'babrahamlinkon/preclean.py',
                'babrahamlinkon/assemble_clones.py'],
@@ -83,3 +86,10 @@ setup(name='BabrahamLinkON',
 		'Topic :: Scientific/Engineering :: Bio-Informatics'],
       ext_modules=cythonize('babrahamlinkon/_dedup_umi.pyx')
 )
+
+
+try:
+    subprocess.check_output(['MakeDb.py', '-h'])
+except OSError:
+    print('MakeDb.py from Changeo not found. Is changeo installed? (pip install changeo, \
+    https://bitbucket.org/kleinstein/changeo/downloads/)\nSome options won\'t work')

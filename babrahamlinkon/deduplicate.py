@@ -42,7 +42,7 @@ from babrahamlinkon._dedup_umi import edit_distance
 ################################################################################
 
 
-def make_bundle(fastq, v_len, j_len, ignore_umi, use_j, use_v, skip_unclear, keep_mh, no_anchor=False, short=False):
+def make_bundle(fastq, v_len, j_len, ignore_umi, use_j, use_v, skip_unclear, keep_mh, no_anchor=False, short=False, in_len=50):
     '''bundle reads
     '''
     unclear_skip = 0
@@ -1028,7 +1028,7 @@ class deduplicate:
     def v_start_j_umi_dedup_assembled(self, threshold, min_reads, threads, mismatch, gt_threshold, v_len, j_len,
                                       stats=False, ignore_umi=False, use_j=False, use_v=False, skip_unclear=False,
                                       keep_mh=False, no_msa=False, umi_cor=False, no_anchor=False, short=False, fq=False,
-                                      cons_no_qual=False):
+                                      cons_no_qual=False, in_len=0):
         '''Determine start position of v reads
         some elements based on umi_tools by tom smith cagt
 
@@ -1036,17 +1036,18 @@ class deduplicate:
         if no_anchor:
             reads_dict, unclear_skip_an1, low_qual_an1, qual_dict = make_bundle(self.jv_fastq_an1, v_len=v_len, j_len=j_len,
                                                             ignore_umi=ignore_umi, use_j=use_j, use_v=use_v,
-                                                            skip_unclear=skip_unclear, keep_mh=keep_mh, no_anchor=no_anchor, short=short)
+                                                            skip_unclear=skip_unclear, keep_mh=keep_mh, no_anchor=no_anchor, short=short,
+                                                            in_len=in_len)
             unclear_skip_an2 = 0
             low_qual_an2 = 0
         else:
 
             reads_dict_an1, unclear_skip_an1, low_qual_an1, qual_dict_an1 = make_bundle(self.jv_fastq_an1, v_len=v_len, j_len=j_len,
                                                             ignore_umi=ignore_umi, use_j=use_j, use_v=use_v,
-                                                            skip_unclear=skip_unclear, keep_mh=keep_mh, short=short)
+                                                            skip_unclear=skip_unclear, keep_mh=keep_mh, short=short, in_len=in_len)
             reads_dict_an2, unclear_skip_an2, low_qual_an2, qual_dict_an2 = make_bundle(self.jv_fastq_an2, v_len=v_len, j_len=j_len,
                                                             ignore_umi=ignore_umi, use_j=use_j, use_v=use_v,
-                                                            skip_unclear=skip_unclear, keep_mh=keep_mh, short=short)
+                                                            skip_unclear=skip_unclear, keep_mh=keep_mh, short=short, in_len=in_len)
 
             # merge the two dict_keys
             reads_dict = {**reads_dict_an1, **reads_dict_an2}
@@ -1253,6 +1254,10 @@ def parse_args():
 
     sp4.add_argument('--j_len', dest='j_len', type=int, default=0, help='Length of J end sequence, 50bp into read (-), to add to the UMI [0]')
 
+    for sp in [sp2, sp3, sp4]:
+        sp.add_argument('--in_len', dest='in_len', type=int, default=50, help='Length into the J end sequence to go, xbp into read (+umi) [50]')
+
+
     for sp in [sp1, sp4]:
         sp.add_argument('--no_msa', dest='no_msa', action='store_true', help='Don\'t use msa to derive consensus sequence [False]')
         sp.add_argument('--fq', dest='fq', action='store_true', help='Output fastq instead of fasta')
@@ -1326,7 +1331,7 @@ def main():
                                             skip_unclear=opts.skip_unclear, keep_mh=opts.keep_mh, no_msa=opts.no_msa,
                                             umi_cor=opts.umi_correction,
                                             no_anchor=opts.no_anchor, short=opts.short, fq=opts.fq,
-                                            cons_no_qual=opts.cons_no_qual)
+                                            cons_no_qual=opts.cons_no_qual, in_len=opts.in_len)
 
 
 
