@@ -1,5 +1,5 @@
 
-from babrahamlinkon import deduplicate
+from babrahamlinkon import deduplicate, general
 import pyximport
 from collections import defaultdict, Counter
 import itertools
@@ -289,11 +289,11 @@ def resolve_clusters(bundle, clusters, counts, differences, gt_threshold, no_msa
                         else:
 
                             #Align head 1 and value
-                            algn_1 = deduplicate.kalign_msa(resolve_dict_1)
+                            algn_1, qual_1 = deduplicate.kalign_msa(resolve_dict_1)
                             diff_1 = consensus_difference(algn_1, no_msa=False)
 
                             #Align head 2 and value
-                            algn_2 = deduplicate.kalign_msa(resolve_dict_2)
+                            algn_2, qual_2 = deduplicate.kalign_msa(resolve_dict_2)
                             diff_2 = consensus_difference(algn_2, no_msa=False)
 
 

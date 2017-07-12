@@ -31,7 +31,7 @@ With bioconda (recommended):
 
 .. code:: bash
 
-   conda install samtools
+  conda install samtools
 
 `Bowtie 2 <http://bowtie-bio.sourceforge.net/bowtie2/index.shtml>`_
 
@@ -69,22 +69,22 @@ Enviroment variables:
 .. code:: bash
 
   export BOWTIE2_INDEXES='/path/to/bowtie2/indexes'
-   export BOWTIE2_REF='Basename_of_reference'
+  export BOWTIE2_REF='Basename_of_reference'
 
 If running in cluster enviroment:
 
 .. code:: bash
 
   #Home directory
-   export home='/path/to/working/directory'
-   #Folder for all the log/output files
-   export log_folder=${home}/logs
+  export home='/path/to/working/directory'
+  #Folder for all the log/output files
+  export log_folder=${home}/logs
 
-   #matplotlib backend for headless nodes
-   export MPLBACKEND=pdf
+  #matplotlib backend for headless nodes
+  export MPLBACKEND=pdf
 
-   #specify tmp dir (needed for nodes as they don't have much memory)
-   export TMPDIR='/state/partition1'
+  #specify tmp dir (needed for nodes as they don't have much memory)
+  export TMPDIR='/state/partition1'
 
 
 Setup
@@ -95,5 +95,5 @@ To install Babrahamlinkon straight from the git repository:
 .. code:: bash
 
   git clone https://github.com/peterch405/BabrahamLinkON
-   cd BabrahamLinkON
-   pip install .
+  cd BabrahamLinkON
+  pip install .

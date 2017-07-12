@@ -74,12 +74,12 @@ def make_bundle(fastq, v_len, j_len, ignore_umi, use_j, use_v, skip_unclear, kee
                 #Only J seq present, trim all to 50bp and take 8bp from there
                 if v_len > 0:
 
-                    v_qual = qual[:50][-v_len:]
+                    v_qual = qual[:in_len][-v_len:]
                     if general.check_qual(v_qual, 20):
                         low_qual += 1
                         continue
 
-                    v_seq = seq[:50][-v_len:]
+                    v_seq = seq[:in_len][-v_len:]
 
             else:
                 if v_len > 0:
@@ -120,12 +120,12 @@ def make_bundle(fastq, v_len, j_len, ignore_umi, use_j, use_v, skip_unclear, kee
             elif int(j_len) > 0: #if more than 0
 
                 #check quality of J UMI
-                j_qual = qual[:50][-j_len:]
+                j_qual = qual[:in_len][-j_len:]
                 if general.check_qual(j_qual, 20):
                     low_qual += 1
                     continue
 
-                j_seq = seq[:50][-j_len:]
+                j_seq = seq[:in_len][-j_len:]
 
                 dedup_seq = j_seq + umi
             else:
@@ -307,7 +307,7 @@ def consensus_unequal(list_of_lists):
 
 
 
-def kalign_msa(seq_counter_dict, qual_dict): #, umi=None
+def kalign_msa(seq_counter_dict, qual_dict=None): #, umi=None
     '''Multiple sequence alignment for read loss analysis
     :param dict seq_counter_dict: dict of Counter object with sequences
     :param qual_dict: perserve fq quality of aligned reads
@@ -325,16 +325,17 @@ def kalign_msa(seq_counter_dict, qual_dict): #, umi=None
     for umi, cntr in sorted(seq_counter_dict.items(), key=operator.itemgetter(0)):
         for seq, freq in sorted(cntr.items(), key=lambda x:x[0]):
             seq_fasta = seq_fasta + '>' + str(count) + '_' + umi + '_' + str(freq) + '\n' + seq + '\n'
-            seq_qual['>' + str(count) + '_' + umi + '_' + str(freq)].append(qual_dict.get(seq))
+            if qual_dict:
+                seq_qual['>' + str(count) + '_' + umi + '_' + str(freq)].append(qual_dict.get(seq))
             count += 1  #how many different reads
             reads += freq #how many total reads
 
-    #collapse qual for same reads
-    for k,v in seq_qual.items():
-        if len(v) > 1:
-            qual_lofls = [list(item) for item in v]
-            print('qual_lofls', qual_lofls)
-            seq_qual[k] = [qual_highest(qual_lofls)]
+    if qual_dict:
+        #collapse qual for same reads
+        for k,v in seq_qual.items():
+            if len(v) > 1:
+                qual_lofls = [list(item) for item in v]
+                seq_qual[k] = [qual_highest(qual_lofls)]
 
     #Can't get consensus from single sequence, return single sequence
     if count == 1:
@@ -342,9 +343,9 @@ def kalign_msa(seq_counter_dict, qual_dict): #, umi=None
         assert len(list(seq_counter_dict.values())) == 1, 'Not a single sequence'
         seq_out= re.sub('\n', '', seq_fasta)
         seq_out = list(filter(None, re.split('(>\d+_[A-Z]+_\d+)', seq_out)))
-
-        out_seq_qual = seq_qual.get(seq_out[0])[0]
-        out_qual[seq_out[1]].extend(out_seq_qual)
+        if qual_dict:
+            out_seq_qual = seq_qual.get(seq_out[0])[0]
+            out_qual[seq_out[1]].extend(out_seq_qual)
 
         return (seq_out, out_qual)
 
@@ -370,23 +371,14 @@ def kalign_msa(seq_counter_dict, qual_dict): #, umi=None
     for item in general.fasta_parse(alignment):
         qname = item[0]
         seq = item[1]
+        if qual_dict:
+            qual = seq_qual.get(qname)[0]
 
-        qual = seq_qual.get(qname)[0]
-
-        new_qual = add_at_hypens(seq, qual[0], '#')
-        out_qual[seq].append(new_qual)
+            new_qual = add_at_hypens(seq, qual[0], '#')
+            out_qual[seq].append(new_qual)
 
     return (alignment, out_qual)
-#
-# qual_dict = {'ATATGAGATAA':'AAAAAAAAAAA'}
-# seq_counter_dict = {'ATCGATAT':Counter(['ATATGAGATAA', 'ATATGAGATAA','ATATGAGATAA'])}
-# align, qual_d = kalign_msa(seq_counter_dict, qual_dict)
 
-# qual_dict.get('ATATGAGATAA')
-#
-# for item in general.fasta_parse(['>0_ATCGATAT_3', 'ATATGAGATAA']):
-#     qname = item[0]
-#     seq = item[1]
 
 
 def add_at_hypens(hypen_str, str_add, sym_to_add):
@@ -1018,9 +1010,9 @@ class deduplicate:
             pass
 
         #Get 1:N:0:GCCAAT from header
-        with open(self.jv_fastq_an1, 'r') as f:
+        with general.file_open(self.jv_fastq_an1) as f:
                 first_line = f.readline()
-                self.header_postfix_jv = first_line.split(' ')[1].rstrip()
+                self.header_postfix_jv = first_line.decode('utf-8').split(' ')[1].rstrip()
 
 
 
@@ -1239,6 +1231,7 @@ def parse_args():
         sp.add_argument('--gt_ratio', dest='gtratio', type=float, default=1, help='Ratio of good to total reads to mark UMI group as early PCR error 0-1 [1]')
 
         sp.add_argument('--umi_seq_logo', dest='seqlogo', action='store_true', help='Make seqlogo from UMIs')
+        sp.add_argument('--use_j', action='store_true', help='Deduplicate using V end')
 
 
     for sp in [sp1, sp3]:
@@ -1265,10 +1258,10 @@ def parse_args():
         sp.add_argument('--cons_no_qual', dest='cons_no_qual', action='store_true', help='Make consensus without using quality scores')
 
 
-    sp1.set_defaults(short=False, no_anchor=False, use_j=False, use_v=False, v_len=0, j_len=0)
-    sp2.set_defaults(short=True, no_anchor=True, ignore_umi=True, no_msa=True, use_j=False, fq=False, j_len=0, cons_no_qual=False)
-    sp3.set_defaults(short=True, no_anchor=False, no_msa=True, use_j=False, fq=False, j_len=0, cons_no_qual=False)
-    sp4.set_defaults(short=False, no_anchor=True, ignore_umi=True, use_j=False, use_v=False, v_len=0)
+    sp1.set_defaults(short=False, no_anchor=False, use_v=False, v_len=0, j_len=0, in_len=0)
+    sp2.set_defaults(short=True, no_anchor=True, ignore_umi=True, no_msa=True, fq=False, j_len=0, cons_no_qual=False)
+    sp3.set_defaults(short=True, no_anchor=False, no_msa=True, fq=False, j_len=0, cons_no_qual=False)
+    sp4.set_defaults(short=False, no_anchor=True, ignore_umi=True, use_v=False, v_len=0)
     # parser.add_argument('--no_anchor', action='store_true', help='No anchor sequence present')
     # parser.add_argument('--short', action='store_true', help='Short sequences present')
 
