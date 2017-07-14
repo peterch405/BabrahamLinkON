@@ -22,10 +22,10 @@ except OSError:
     print('kalign not found, some options won\'t work\n')
 
 #check pear
-try:
-    subprocess.call(['pear', '-h'])
-except OSError:
-    print('PEAR not found, please install\n')
+# try:
+#     subprocess.call(['pear', '-h'])
+# except OSError:
+#     print('PEAR not found, please install\n')
 
 
 # check bowtie2 and samtools is accessible
