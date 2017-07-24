@@ -50,10 +50,10 @@ except OSError:
 
 from Cython.Build import cythonize
 
-
+exec(open('babrahamlinkon/version.py').read())
 
 setup(name='BabrahamLinkON',
-      version='0.1',
+      version=__version__,
       description='BabrahamLinkON pipeline for preprocessing and analysing VDJ-seq data',
       author='Peter Chovanec',
       author_email='peter.chovanec@babraham.ac.uk',

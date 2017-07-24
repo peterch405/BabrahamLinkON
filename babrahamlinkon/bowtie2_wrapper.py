@@ -43,7 +43,7 @@ class bowtie2:
                      spe='mmu', samtools_mapq=0, verbose=True, out_dir=None):
         '''Use bowtie2 to perform single end alignment
         :param fastq: full path to fastq to aligned
-        :param nthreads: number of cores to Use
+        :param nthreads: number of threads to Use
         :param trim: trim the barcode from 5' end
         :param score: score min to be used  by bowtie2
         :param flags: additional bowtie2 flags, remove reads that failed to align, prints only serious errors (won't get alignment rate :( )

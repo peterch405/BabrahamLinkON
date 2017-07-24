@@ -19,7 +19,7 @@ import shutil
 import logging
 import pyximport
 from babrahamlinkon._dedup_umi import edit_distance
-
+from babrahamlinkon.version import __version__
 # %matplotlib inline
 # %config InlineBackend.figure_format = 'svg'
 # '/media/chovanec/My_Passport/Dan_VDJ-seq_cycles_new/J_merged_1c_Deduplicated_test/J_merged_1c_dedup.0.fasta_db-pass.tab'
@@ -105,11 +105,11 @@ def change_v_call(row):
 
 
 
-def v_identity_igblast(V_fastq, fasta, custom_ref, cores_num, spe, aux):
+def v_identity_igblast(V_fastq, fasta, custom_ref, thread_num, spe, aux):
     '''
     :param V_fastq: original fastq
     :param fasta: deduplicate.py fasta output
-    :param cores_num: number of threads to use
+    :param thread_num: number of threads to use
     :param spe: species (mmu, hsa)
     '''
     #retain full name
@@ -139,7 +139,7 @@ def v_identity_igblast(V_fastq, fasta, custom_ref, cores_num, spe, aux):
     with open(tmp_dir + '/igblast.fasta', 'w') as fa_out:
         fa_out.write(fasta)
 
-    igblast_wrapper.run_igblast(tmp_dir + '/igblast.fasta', tmp_fmt, 10000, spe, cores_num, custom_ref, aux_file=aux, additional_flags=['-num_alignments_V', '1'])
+    igblast_wrapper.run_igblast(tmp_dir + '/igblast.fasta', tmp_fmt, 10000, spe, thread_num, custom_ref, aux_file=aux, additional_flags=['-num_alignments_V', '1'])
     igblast_wrapper.parse_igblast(tmp_fmt, tmp_dir + '/igblast.fasta', spe, custom_ref)
     #make v_identity dict key=qname value=idenity
 
@@ -165,7 +165,7 @@ def v_identity_igblast(V_fastq, fasta, custom_ref, cores_num, spe, aux):
 #     return [V_END_IDENTITY, V_END_SCORE]
 
 def read_changeo_out(tab_file, out, prefix, fasta, v_fastq=None, plot=False, retain_nam=False,
-                     minimal=False, short=False, cores_num=1, spe='mmu', aux=None, custom_ref=False,
+                     minimal=False, short=False, thread_num=1, spe='mmu', aux=None, custom_ref=False,
                      j_cutoff=35, v_cutoff=50):
     '''
     :param retain_nam: keep full name of V and J calls
@@ -194,7 +194,7 @@ def read_changeo_out(tab_file, out, prefix, fasta, v_fastq=None, plot=False, ret
             raise Exception('Short option requires the V end fastq file')
 
         #run igblast on the v end
-        v_end_calls = v_identity_igblast(v_fastq, fasta, custom_ref, cores_num, spe, aux)
+        v_end_calls = v_identity_igblast(v_fastq, fasta, custom_ref, thread_num, spe, aux)
         # logging.info('igblast_out', len(igblast_out), 'v_end_calls', len(v_end_calls))
         #merge data fragments
         igblast_out_m = pd.merge(igblast_out, v_end_calls, how='left', on=['SEQUENCE_ID'])
@@ -269,13 +269,13 @@ def read_changeo_out(tab_file, out, prefix, fasta, v_fastq=None, plot=False, ret
     # len(non_functional)
 
     #If not cdr3 present drop record
-    igblast_out_hs_cln = igblast_out_hs.dropna(subset = ['CDR3_IMGT'])
+    igblast_out_hs_cln = igblast_out_hs.dropna(subset = ['CDR3_IGBLAST_NT'])
     # functional_cln = functional.dropna(subset = ['CDR3_IMGT'])
     # non_functional_cln = non_functional.dropna(subset = ['CDR3_IMGT'])
 
     #only output a minimal table
     if minimal:
-        igblast_out_hs_cln = igblast_out_hs_cln[['SEQUENCE_ID', 'SEQUENCE_INPUT', 'V_CALL', 'D_CALL', 'J_CALL', 'CDR3_IMGT', 'file_ID']]
+        igblast_out_hs_cln = igblast_out_hs_cln[['SEQUENCE_ID', 'SEQUENCE_INPUT', 'V_CALL', 'D_CALL', 'J_CALL', 'CDR3_IGBLAST_NT', 'file_ID']]
     # return (functional_cln, non_functional_cln)
     return igblast_out_hs_cln
 
@@ -290,16 +290,19 @@ def make_bundle(pd_data_frame, only_v=False):
     clonotype_dict = defaultdict(lambda: defaultdict(dict))
 
     assert 'V_CALL' in pd_data_frame.columns and 'J_CALL' in pd_data_frame.columns \
-    and 'CDR3_IMGT' in pd_data_frame.columns and 'SEQUENCE_ID' in pd_data_frame.columns \
+    and 'CDR3_IGBLAST_NT' in pd_data_frame.columns and 'SEQUENCE_ID' in pd_data_frame.columns \
     and 'SEQUENCE_INPUT' in pd_data_frame.columns, 'Requried columns not in data frame'
     # print(pd_data_frame)
+    # print(pd_data_frame['CDR3_IGBLAST_NT'])
     for line in pd_data_frame.index:
         if only_v:
             v_j = pd_data_frame['V_CALL'][line]
         else:
             v_j = pd_data_frame['V_CALL'][line] + '_' + pd_data_frame['J_CALL'][line]
 
-        cdr3 = pd_data_frame['CDR3_IMGT'][line]
+        #use IgBlast CDR3
+        cdr3 = pd_data_frame['CDR3_IGBLAST_NT'][line]
+
         #seperate group based on sequence length as well as V and J
         v_j_len = v_j + '_' + str(len(cdr3))
 
@@ -366,23 +369,40 @@ def write_out(pd_data_frame, out):
 def parse_args():
     parser = argparse.ArgumentParser(description='BabrahamLinkON Assemble Clones')
 
-    # parser.add_argument('--tab_file', dest='in_file', type=str, required=True, help='Input tab file from changeo IgBlast MakeDb (or file wildcard)')
-    parser.add_argument('-fa', '--fasta', dest='fasta', type=str, help='Input fasta file from deduplication.py')
-    parser.add_argument('-fq', '--v_fastq', dest='v_fastq', type=str, help='V end fastq file')
-    parser.add_argument('--plot', action='store_true', help='Plot V and J scores with cutoff')
-    parser.add_argument('--out', dest='out_dir', type=str, help='Output directory, default: creates Deduplicated in main directory')
-    parser.add_argument('--threshold', dest='thres', type=int, default=1, help='Number of differences allowed between CDR3 sequences, default: 1')
-    parser.add_argument('--only_v', action='store_true', help='Use only V idenity and CDR3 for clone assembly')
-    parser.add_argument('--full_name', action='store_true', help='Retain full name of first V and J genes')
-    parser.add_argument('--minimal', action='store_true', help='Work with and output only a minimal table')
-    parser.add_argument('--short', action='store_true', help='Analysing short sequences')
-    parser.add_argument('--cores', dest='nthreads', default=1, type=int, help='Number of cores to use, default: 1')
-    parser.add_argument('--species', dest='species', default='mmu', type=str, help='Which species (mmu hsa), default: mmu')
-    parser.add_argument('--aux', dest='aux', type=str, default=None, help='aux file for igblast')
-    parser.add_argument('--custom_ref', dest='custom_ref', action='store_true', help='Use AEC custom reference for igblast')
-    parser.add_argument('--v_cutoff', dest='v_cutoff', default=50, type=int, help='IgBlast V_SCORE cutoff [>50]')
-    parser.add_argument('--j_cutoff', dest='j_cutoff', default=35, type=int, help='IgBlast J_SCORE cutoff [>35]')
+    parser.add_argument('--version', action='version', version='%(prog)s ' + __version__)
 
+    sub = parser.add_subparsers(dest='action', description='Choose pipeline')
+
+    sp1 = sub.add_parser('umi')
+    sp2 = sub.add_parser('short')
+    # sp3 = sub.add_parser('short_anchor')
+    # sp4 = sub.add_parser('no_anchor')
+
+    # parser.add_argument('--tab_file', dest='in_file', type=str, required=True, help='Input tab file from changeo IgBlast MakeDb (or file wildcard)')
+    for sp in [sp1, sp2]:
+
+        sp.add_argument('-fa', '--fasta', dest='fasta', type=str, help='Input fasta file from deduplication.py')
+
+        sp.add_argument('--plot', action='store_true', help='Plot V and J scores with cutoff')
+        sp.add_argument('--out', dest='out_dir', type=str, help='Output directory, default: creates Deduplicated in main directory')
+        sp.add_argument('--threshold', dest='thres', type=int, default=1, help='Number of differences allowed between CDR3 sequences [1]')
+        sp.add_argument('--only_v', action='store_true', help='Use only V idenity and CDR3 for clone assembly')
+        sp.add_argument('--full_name', action='store_true', help='Retain full name of first V and J genes')
+        sp.add_argument('--minimal', action='store_true', help='Work with and output only a minimal table')
+
+        sp.add_argument('--threads', dest='nthreads', default=1, type=int, help='Number of threads to use [1]')
+        sp.add_argument('--species', dest='species', default='mmu', type=str, help='Which species (mmu hsa) [mmu]')
+        sp.add_argument('--aux', dest='aux', type=str, default=None, help='aux file for igblast')
+        sp.add_argument('--custom_ref', dest='custom_ref', action='store_true', help='Use AEC custom reference for igblast')
+        sp.add_argument('--v_cutoff', dest='v_cutoff', default=50, type=int, help='IgBlast V_SCORE cutoff [>50]')
+        sp.add_argument('--j_cutoff', dest='j_cutoff', default=35, type=int, help='IgBlast J_SCORE cutoff [>35]')
+
+
+    sp2.add_argument('-fq', '--v_fastq', dest='v_fastq', type=str, help='V end fastq file')
+    # parser.add_argument('--short', action='store_true', help='Analysing short sequences')
+
+    sp1.set_defaults(short=False, v_fastq=None)
+    sp2.set_defaults(short=True)
 
     opts = parser.parse_args()
 
@@ -421,7 +441,7 @@ def main():
     tmp_tab = glob.glob(tmp_dir + '/*.tab')
 
     igblast_cln = read_changeo_out(tmp_tab, out_dir, prefix, opts.fasta, v_fastq=opts.v_fastq, plot=opts.plot,
-                                   retain_nam=opts.full_name, minimal=opts.minimal, short=opts.short, cores_num=opts.nthreads,
+                                   retain_nam=opts.full_name, minimal=opts.minimal, short=opts.short, thread_num=opts.nthreads,
                                    spe=opts.species, aux=opts.aux, custom_ref=opts.custom_ref, j_cutoff=opts.j_cutoff, v_cutoff=opts.v_cutoff)
     # igblast_cln = read_changeo_out(files, out_dir, prefix)
 

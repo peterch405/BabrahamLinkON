@@ -35,6 +35,7 @@ import Levenshtein
 
 import pyximport
 from babrahamlinkon._dedup_umi import edit_distance
+from babrahamlinkon.version import __version__
 # from memory_profiler import profile
 
 
@@ -879,19 +880,24 @@ def deduplicate_bundle_parallel(reads_dict, low_umi_out, out, qual_dict, thresho
     :param reads_dict:
     :param min_reads: minimun number of reads required in a umi group [5]
     '''
-    #TODO implement a progress bar tqdm
-    #restrict number of threads to number of bundles
+    #TODO implement a progress bar tqdm?
+    #restrict number of threads to number of bundles + subprocess that will be spawned
     num_bundles = len(reads_dict.values())
     if num_bundles > threads:
         use_threads = threads
     elif num_bundles < threads:
         use_threads = num_bundles
+        
 
     if umi_correction:
         dir_adj_results = Parallel(n_jobs=use_threads)(delayed(deduplication_worker_umi)(bundle, threshold, stats,
         mismatch, gt_threshold, no_msa, short, qual_dict, cons_no_qual) for bundle in reads_dict.values())
 
     elif no_anchor:
+
+        if not no_msa:
+            use_threads = use_threads/2
+
         reads = []
         consensus_seqs = []
         consensus_quals = []
@@ -1344,37 +1350,43 @@ class deduplicate:
 def parse_args():
     parser = argparse.ArgumentParser(description='BabrahamLinkON Deduplicate')
 
-    sub = parser.add_subparsers(dest='action', description='Chose pipeline')
+    parser.add_argument('--version', action='version', version='%(prog)s ' + __version__)
+
+    sub = parser.add_subparsers(dest='action', description='Choose pipeline')
 
     sp1 = sub.add_parser('umi')
     sp2 = sub.add_parser('short')
     sp3 = sub.add_parser('short_anchor')
     sp4 = sub.add_parser('no_anchor')
+    sp5 = sub.add_parser('umi_seq_logo')
 
-    for sp in [sp1,sp2,sp3,sp4]: #common to all 3
+    for sp in [sp1,sp2,sp3,sp4,sp5]: #common to all 3
 
         sp.add_argument('--input_dir', dest='in_dir', type=str, required=True, help='Input directory (created for/by preclean)')
-        sp.add_argument('--cores', dest='nthreads', default=1, type=int, help='Number of cores to use (if aligning), default: 1')
+
+    for sp in [sp1,sp2,sp3,sp4]:
+        sp.add_argument('--threads', dest='nthreads', default=1, type=int, help='Number of threads to use (if aligning), default: 1')
         sp.add_argument('--out', dest='out_dir', type=str, help='Output directory, default: creates Deduplicated in main directory')
 
-        sp.add_argument('--umi_correction', action='store_true', help='Perform correction of errors that might be present in UMI')
+        sp.add_argument('--mismatch', dest='mismatch', type=int, default=5, help='Number of mismatches allowed in consensus sequence comparison [5]')
+        sp.add_argument('--min_reads', dest='minreads', type=int, default=2, help='Minimum number of reads in UMI group, if less than or equal to [2] then discard')
+        sp.add_argument('--gt_ratio', dest='gtratio', type=float, default=1, help='Ratio of good to total reads to mark UMI group as early PCR error 0-1 [1]')
+
         sp.add_argument('--stats', action='store_true', help='Output stats from UMI deduplication [False]')
+
+        sp.add_argument('--umi_correction', action='store_true', help='Perform correction of errors that might be present in UMI')
+        sp.add_argument('--threshold', dest='threshold', type=int, default=1, help='Number of mismatches allowed in UMI when doing UMI correction [1]')
+
         sp.add_argument('--skip_unclear', action='store_true', help='Skip unclear J reads [False]')
         sp.add_argument('--keep_mh', action='store_true', help='Keep multiple hit unclear J reads [False]')
 
-
-        sp.add_argument('--mismatch', dest='mismatch', type=int, default=5, help='Number of mismatches allowed in consensus sequence comparison [5]')
-        sp.add_argument('--threshold', dest='threshold', type=int, default=1, help='Number of mismatches allowed in UMI [1]')
-        sp.add_argument('--min_reads', dest='minreads', type=int, default=5, help='Minimum number of reads in UMI group, if less than or equal to [5] then discard')
-        sp.add_argument('--gt_ratio', dest='gtratio', type=float, default=1, help='Ratio of good to total reads to mark UMI group as early PCR error 0-1 [1]')
-
-        sp.add_argument('--umi_seq_logo', dest='seqlogo', action='store_true', help='Make seqlogo from UMIs')
         sp.add_argument('--use_j', action='store_true', help='Deduplicate using V end')
         sp.add_argument('--ignore_umi', action='store_true', help='Deduplicate without using UMI')
 
+    # sp.add_argument('--umi_seq_logo', dest='seqlogo', action='store_true', help='Make seqlogo from UMIs')
 
 
-    for sp in [sp1, sp3]:
+    for sp in [sp1, sp3, sp5]:
 
 
         sp.add_argument('--an1', dest='an1', default='GACTCGT', type=str, help='Default: GACTCGT')
@@ -1397,10 +1409,11 @@ def parse_args():
         sp.add_argument('--cons_no_qual', dest='cons_no_qual', action='store_true', help='Make consensus without using quality scores')
 
 
-    sp1.set_defaults(short=False, no_anchor=False, use_v=False, v_len=0, j_len=0, in_len=0)
-    sp2.set_defaults(short=True, no_anchor=True, no_msa=True, fq=False, j_len=0, cons_no_qual=False)
-    sp3.set_defaults(short=True, no_anchor=False, no_msa=True, fq=False, j_len=0, cons_no_qual=False)
-    sp4.set_defaults(short=False, no_anchor=True, use_v=False, v_len=0)
+    sp1.set_defaults(short=False, no_anchor=False, use_v=False, v_len=0, j_len=0, in_len=0, seqlogo=False)
+    sp2.set_defaults(short=True, no_anchor=True, no_msa=True, fq=False, j_len=0, cons_no_qual=False, seqlogo=False)
+    sp3.set_defaults(short=True, no_anchor=False, no_msa=True, fq=False, j_len=0, cons_no_qual=False, seqlogo=False)
+    sp4.set_defaults(short=False, no_anchor=True, use_v=False, v_len=0, seqlogo=False)
+    sp5.set_defaults(seqlogo=True)
     # parser.add_argument('--no_anchor', action='store_true', help='No anchor sequence present')
     # parser.add_argument('--short', action='store_true', help='Short sequences present')
 

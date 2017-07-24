@@ -3,7 +3,7 @@
 # from . import preclean
 # from . import deduplicate
 # from . import assemble_clones
-from . import igblast_wrapper
-__all__ = ['general', 'presets', 'preclean', 'deduplicate', 'assemble_clones', 'mispriming_correction', 'UMI_seqlogo']
+# from . import igblast_wrapper
+__all__ = ['general', 'presets', 'preclean', 'deduplicate', 'assemble_clones', 'mispriming_correction', 'UMI_seqlogo', 'igblast_wrapper']
 
-__version__ = "0.0.1"
+from babrahamlinkon.version import __version__

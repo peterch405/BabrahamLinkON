@@ -26,12 +26,12 @@ class SSW_align:
         self.ref_overlap = defaultdict(list) #created by reference function
         self.align_coord = defaultdict(int) #created by reference function
 
-    def align(self, target, qry, score=0, misprim_cor=True, mismatch_allow=1, spe='mmu', quick_align=False):
+    def align(self, target, qry, score=0, no_misprim_cor=False, mismatch_allow=1, spe='mmu', quick_align=False):
         '''Align against reference and return which J sequence aligns to
         :param target: reference
         :param qry: sequence to align against reference
         :param score: score filter, min score to pass as an alignment
-        :param misprim_cor: perform mispriming correction
+        :param no_misprim_cor: do not perform mispriming correction
         :param mismatch_allow: number of mismatches to allow in sequence beyond J primer
         :param spe: which organism
         :param quick_align: skip SSW and mispriming and return initial identification using only levenshtein distance on first 5bps
@@ -117,7 +117,9 @@ class SSW_align:
                 else:
 
                     #If mispriming include original read identity in header; output: (before, after, correct_seq)
-                    if misprim_cor:
+                    if no_misprim_cor: #if not misprime correcting return identity of primer seq
+                        return [read_identity]
+                    else:
                         self.alignments.append(alignment)
 
 
@@ -233,8 +235,6 @@ class SSW_align:
                             # else:
                             #     return 'unclear-' + read_identity + '-' + print_seq_full[primer_end[min_val_key[0]]:primer_end[min_val_key[0]]+15]
 
-                    else: #if not misprime correcting return identity of primer seq
-                        return [read_identity]
             else: #doesn't match primer seq within acceptable paramenters
                 return 'other'
 

@@ -14,7 +14,7 @@ from collections import defaultdict
 import logging
 import shutil
 import tempfile
-
+from babrahamlinkon.version import __version__
 
 
 
@@ -90,7 +90,7 @@ def assemble(V_region, J_region, out_dir, threads=1, prefix=None, short=False):
 
 
 #Don't need to do, will perform in deduplicate (useful for troubleshooting)
-# def aligned_to_igh(V_region, cores_num, spe='mmu', write=False, plot=False, verbose=True):
+# def aligned_to_igh(V_region, thread_num, spe='mmu', write=False, plot=False, verbose=True):
     # '''Extract reads aligning to the IgH
     # :param V_region: R1 fastq file with V end sequences
     # :param spe: which organism
@@ -104,7 +104,7 @@ def assemble(V_region, J_region, out_dir, threads=1, prefix=None, short=False):
     #
     # #Align with bowtie2
     # run_bowtie2 = bowtie2_wrapper.bowtie2()
-    # run_bowtie2.align_single(fastq=fp_V_region, nthreads=cores_num, spe=spe, verbose=verbose)
+    # run_bowtie2.align_single(fastq=fp_V_region, nthreads=thread_num, spe=spe, verbose=verbose)
     #
     # if plot:
     #     run_bowtie2.plot(plot_region=germ[0] + ':' + str(germ[1]) + '-' + str(germ[2]), spe=spe)
@@ -119,7 +119,7 @@ def assemble(V_region, J_region, out_dir, threads=1, prefix=None, short=False):
 
     # sam_file = bowtie2_wrapper.align_single(
     # fastq=fp_V_region,
-    # nthreads=cores_num,
+    # nthreads=thread_num,
     # region=igh,
     # write=write,
     # spe=spe,
@@ -361,7 +361,7 @@ class fastqHolder:
 
 #Don't need to remove germline other than to reduce file size (speed up)
 #Almost half the data is germline, required for germline mispriming.
-def germline(J_region, cores_num, spe='mmu', plot=False, write=False, verbose=True):
+def germline(J_region, thread_num, spe='mmu', plot=False, write=False, verbose=True):
     '''Extract reads aligning to J genes i.e. germline (used to correct mispriming)
     :param J_region: R2 fastq file with J end sequences
     :param spe: which species
@@ -383,7 +383,7 @@ def germline(J_region, cores_num, spe='mmu', plot=False, write=False, verbose=Tr
 
     #Don't need to align V reads, if germline present will get discarded in deduplicaiton DJ V seperation
     run_bowtie2 = bowtie2_wrapper.bowtie2()
-    run_bowtie2.align_single(fastq=fp_J_region, nthreads=cores_num, trim5=str(shortest_J), spe=spe, verbose=verbose)
+    run_bowtie2.align_single(fastq=fp_J_region, nthreads=thread_num, trim5=str(shortest_J), spe=spe, verbose=verbose)
 
     if plot:
         run_bowtie2.plot(plot_region=germ[0] + ':' + str(germ[1]) + '-' + str(germ[2]), spe=spe)
@@ -415,7 +415,7 @@ def germline(J_region, cores_num, spe='mmu', plot=False, write=False, verbose=Tr
 
 
 def preclean_assembled(jv_region, fq_dict_germ, q_score, umi_len, spe='mmu', verbose = True,
-                       misprime_correct=True, discard_germline=True, fast=False, short=False):
+                       no_misprime_correct=False, discard_germline=True, fast=False, short=False):
     '''Seperate out J reads and clean up low quality/unknown reads
     :param jv_region: assembled J and V sequences (from PEAR)
     :param fq_dict_germ: fastqHolder object from germline
@@ -423,7 +423,7 @@ def preclean_assembled(jv_region, fq_dict_germ, q_score, umi_len, spe='mmu', ver
     :param umi_len: length of the UMI
     :param spe: which species
     :param verbose: output run startswith
-    :param misprime_correct: run mispriming correction
+    :param no_misprime_correct: do not run mispriming correction
     :param fast: use only quick initial J identification (without SSW and mispriming correction)
     :return: fastqHolder object
     '''
@@ -496,7 +496,7 @@ def preclean_assembled(jv_region, fq_dict_germ, q_score, umi_len, spe='mmu', ver
             first_filter += 1
             #allows 2 mismatches for 21nt seq
             #Will return touple is misprimed
-            J = j_align.align(ref, seq, misprim_cor=misprime_correct, quick_align=fast, spe=spe) #might need to adjust
+            J = j_align.align(ref, seq, no_misprim_cor=no_misprime_correct, quick_align=fast, spe=spe) #might need to adjust
             #@HWI-1KL136:214:D1MR5ACXX:5:1101:1821:2154 1:N:0:TGACCA remove 1:N:0:TGACCA
 
             #Output from align
@@ -704,7 +704,7 @@ def write_short(V_region, jv_region, fq_dict_pcln, v_iden_out, umi_len, prefix=N
     logging.info('Number of short V reads:' + str(v_short))
 
 
-def gemline_removed_qc(V_region, out_dir, spe='mmu', prefix=None, cores_num=8, verbose=False):
+def gemline_removed_qc(V_region, out_dir, spe='mmu', prefix=None, thread_num=8, verbose=False):
     '''Realign and plot J region to determine success of germline removal
 
     '''
@@ -730,7 +730,7 @@ def gemline_removed_qc(V_region, out_dir, spe='mmu', prefix=None, cores_num=8, v
         print('Processing', name)
 
         run_bowtie2 = bowtie2_wrapper.bowtie2()
-        run_bowtie2.align_single(fastq=name, nthreads=cores_num, trim5=str(shortest_J), spe=spe, verbose=verbose)
+        run_bowtie2.align_single(fastq=name, nthreads=thread_num, trim5=str(shortest_J), spe=spe, verbose=verbose)
 
         run_bowtie2.plot(plot_region=germ[0] + ':' + str(germ[1]) + '-' + str(germ[2]), spe=spe)
 
@@ -741,7 +741,7 @@ def gemline_removed_qc(V_region, out_dir, spe='mmu', prefix=None, cores_num=8, v
 
 
 
-def v_end_identity(igh_ref, V_region, cores_num, spe='mmu'):
+def v_end_identity(igh_ref, V_region, thread_num, spe='mmu'):
     #Get position of all V genes
 
     v_genes = defaultdict()
@@ -765,7 +765,7 @@ def v_end_identity(igh_ref, V_region, cores_num, spe='mmu'):
 
     #Align V end with bowtie2 and put idenity of V into qname
     run_bowtie2 = bowtie2_wrapper.bowtie2()
-    run_bowtie2.align_single(fastq=V_region, nthreads=cores_num, spe=spe, verbose=True)
+    run_bowtie2.align_single(fastq=V_region, nthreads=thread_num, spe=spe, verbose=True)
 
     #fetch only within the IGH
     igh = presets.prs(spe).igh()
@@ -792,7 +792,7 @@ def v_end_identity(igh_ref, V_region, cores_num, spe='mmu'):
 
 
 #
-# def v_identity_igblast(V_region, cores_num, spe='mmu'):
+# def v_identity_igblast(V_region, thread_num, spe='mmu'):
 #
 #     #fastq to fasta
 #     fasta = ''
@@ -807,7 +807,7 @@ def v_end_identity(igh_ref, V_region, cores_num, spe='mmu'):
 #     with open(tmp_dir + '/igblast.fasta', 'w') as fa_out:
 #         fa_out.write(fasta)
 #
-#     igblast_wrapper.run_igblast(tmp_dir + '/igblast.fasta', tmp_fmt, 10000, spe, cores_num, aux_file=None, additional_flags=['-num_alignments_V', '1'])
+#     igblast_wrapper.run_igblast(tmp_dir + '/igblast.fasta', tmp_fmt, 10000, spe, thread_num, aux_file=None, additional_flags=['-num_alignments_V', '1'])
 #     igblast_wrapper.parse_igblast(tmp_fmt, tmp_dir + '/igblast.fasta', spe)
 #     #make v_identity dict key=qname value=idenity
 #
@@ -838,38 +838,59 @@ def parse_args():
     '''
     parser = argparse.ArgumentParser(description='BabrahamLinkON Preclean')
 
+    parser.add_argument('--version', action='version', version='%(prog)s ' + __version__)
+
+    sub = parser.add_subparsers(dest='action', description='Choose pipeline')
+
+    sp1 = sub.add_parser('umi')
+    sp2 = sub.add_parser('short')
+    sp3 = sub.add_parser('short_anchor')
+    # sp4 = sub.add_parser('no_anchor')
+
     # group = parser.add_mutually_exclusive_group(required=True)
-    #TODO:haven't tested multiple files in a long time!
     #TODO:remove files not required for deduplication like output from PEAR
-    parser.add_argument('-v', '--V_r1', dest='input_V', type=str, metavar='v.fastq', nargs='+', help='Input fastq file(s) with V end sequences')
-    parser.add_argument('-j', '--J_r2', dest='input_J', type=str, metavar='j.fastq', nargs='+', help='Input fastq file(s) with J end sequences')
-    # parser.add_argument('-jv', '--jv', dest='input_jv', type=str, metavar='jv.fastq', nargs='+', help='Input fastq file(s) from PEAR with J (forward) end and V (reverse) end sequences')
 
-    parser.add_argument('--species', dest='species', default='mmu', type=str, help='Which species (mmu hsa), default: mmu')
+    for sp in [sp1, sp2, sp3]:
+        # parser.add_argument('-v', '--V_r1', dest='input_V', type=str, metavar='v.fastq', nargs='+', help='Input fastq file(s) with V end sequences')
+        # parser.add_argument('-j', '--J_r2', dest='input_J', type=str, metavar='j.fastq', nargs='+', help='Input fastq file(s) with J end sequences')
 
-    parser.add_argument('--fast', action='store_true', help='Perform fast inaccurate J identification')
-    parser.add_argument('--mispriming', action='store_true', help='Perform mispriming correction (not compatible with --fast)')
-    parser.add_argument('--prefix', dest='prefix', type=str, metavar='N', nargs='+', help='Prefix of the output file (need to provide one for each input)')
-    parser.add_argument('--out', dest='out_dir', type=str, help='Output direcotry')
-    parser.add_argument('--cores', dest='nthreads', default=1, type=int, help='Number of cores to use, default: 1')
-    parser.add_argument('--an1', dest='an1', default='GACTCGT', type=str, help='Default: GACTCGT')
-    parser.add_argument('--an2', dest='an2', default='CTGCTCCT', type=str, help='Default: CTGCTCCT')
-    parser.add_argument('--verbose', action='store_true', help='Print detailed progress')
-    parser.add_argument('--plot', action='store_true', help='Plot alignments')
+        sp.add_argument('-v', '--V_r1', dest='input_V', type=str, required=True, help='Input fastq file with V end sequences')
+        sp.add_argument('-j', '--J_r2', dest='input_J', type=str, help='Input fastq file with J end sequences')
 
-    parser.add_argument('-q', '--q_score', dest='q_score', type=int, default=30, help='Minimum Phred quality score for bases in UMI')
-    parser.add_argument('-ul', '--umi_len', dest='umi_len', type=int, default=6, help='Length of the UMI')
+        # parser.add_argument('-jv', '--jv', dest='input_jv', type=str, metavar='jv.fastq', nargs='+', help='Input fastq file(s) from PEAR with J (forward) end and V (reverse) end sequences')
 
-    #If analysing short sequences
-    parser.add_argument('--short', action='store_true', help='If using short reads <250bp with no anchor+umi')
-    parser.add_argument('--anchor', action='store_true', help='If using short reads <250bp with anchor+umi')
+        sp.add_argument('--species', dest='species', default='mmu', type=str, help='Which species (mmu hsa), [mmu]')
 
-    parser.add_argument('--keep_germline', action='store_false', help='Skip germline removal step')
+        sp.add_argument('--fast', action='store_true', help='Perform fast inaccurate J identification (additionally need to use --no_mispriming)')
+        sp.add_argument('--no_mispriming', action='store_true', help='Don\'t perform mispriming correction ')
+        # parser.add_argument('--prefix', dest='prefix', type=str, metavar='N', nargs='+', help='Prefix of the output file (need to provide one for each input)')
+        sp.add_argument('--prefix', dest='prefix', type=str, help='Prefix of the output file (need to provide one for each input)')
 
-    parser.add_argument('--ref', dest='ref_path', type=str, help='Igh reference files path')
+        sp.add_argument('--out', dest='out_dir', type=str, help='Output direcotry')
+        sp.add_argument('-t', '--threads', dest='nthreads', default=1, type=int, help='Number of threads to use, [1]')
+        sp.add_argument('--verbose', action='store_true', help='Print detailed progress')
+        sp.add_argument('--plot', action='store_true', help='Plot alignments')
+        sp.add_argument('-q', '--q_score', dest='q_score', type=int, default=30, help='Minimum Phred quality score for bases in UMI')
+        sp.add_argument('-ul', '--umi_len', dest='umi_len', type=int, default=12, help='Length of the UMI')
+
+        sp.add_argument('--an1', dest='an1', default='GACTCGT', type=str, help='Adaptor 1 anchor sequence [GACTCGT]')
+        sp.add_argument('--an2', dest='an2', default='CTGCTCCT', type=str, help='Adaptor 2 anchor sequence [CTGCTCCT]')
+
+        sp.add_argument('--keep_germline', action='store_false', help='Skip germline removal step')
+
+    for sp in [sp2, sp3]:
+
+        #If analysing short sequences
+        # sp.add_argument('--short', action='store_true', help='If using short reads <250bp with no anchor+umi')
+        # sp.add_argument('--anchor', action='store_true', help='If using short reads <250bp with anchor+umi')
+        sp.add_argument('--ref', dest='ref_path', type=str, help='Igh reference files path')
 
 
     # parser.add_argument('--plot_QC', action='store_true', help='QC plot showing if all germline reads were removed (few will be present J-J rearrangements)')
+
+    sp1.set_defaults(short=False)
+    sp2.set_defaults(short=True)
+    sp3.set_defaults(short=True, anchor=True)
 
     opts = parser.parse_args()
 
@@ -888,9 +909,9 @@ def main():
 
     #Repeat, maybe condense
     if opts.prefix==None:
-        prefix = os.path.basename(opts.input_V[0]).split('.')[0]
+        prefix = os.path.basename(opts.input_V).split('.')[0]
 
-    fp_v_region = os.path.abspath(opts.input_V[0])
+    fp_v_region = os.path.abspath(opts.input_V)
     dir_nam = os.path.dirname(fp_v_region)
 
     if prefix == None:
@@ -920,8 +941,8 @@ def main():
                         format='%(asctime)-15s %(levelname)-8s %(message)s')
 
 
-    assembled_file = assemble(opts.input_V[0], opts.input_J[0], out_dir, threads=opts.nthreads, prefix=opts.prefix, short=opts.short)
-
+    assembled_file = assemble(opts.input_V, opts.input_J, out_dir, threads=opts.nthreads, prefix=opts.prefix, short=opts.short)
+    print(assembled_file)
     # os.chdir('/media/chovanec/My_Passport/Old_vdj_seq_data/')
     # assembled_file = assemble('/media/chovanec/My_Passport/Old_vdj_seq_data/lane5_TGACCA_WT_BC_L005_R1_val_1.fq.gz',
     # '/media/chovanec/My_Passport/Old_vdj_seq_data/lane5_TGACCA_WT_BC_L005_R3_val_2.fq.gz', threads=6, short=True)
@@ -935,25 +956,25 @@ def main():
     # prefix.all_assembled.fastq
 
     if opts.short:
-        germ_assembled = germline(assembled_file + '.all_J.fastq', spe=opts.species, cores_num=opts.nthreads, plot=opts.plot, verbose=opts.verbose)
+        germ_assembled = germline(assembled_file + '.all_J.fastq', spe=opts.species, thread_num=opts.nthreads, plot=opts.plot, verbose=opts.verbose)
 
         #Merge the two files into one (pairing unassembled reads)
         fq_clean = preclean_assembled(assembled_file + '.all_J.fastq', germ_assembled, q_score=opts.q_score, umi_len=opts.umi_len, spe=opts.species, verbose=opts.verbose,
-                                      misprime_correct=opts.mispriming, discard_germline=opts.keep_germline, fast=opts.fast, short=opts.short)
+                                      no_misprime_correct=opts.no_mispriming, discard_germline=opts.keep_germline, fast=opts.fast, short=opts.short)
         #get identity of V end using bowtie2 alignment
-        v_iden_dict = v_end_identity(opts.ref_path, opts.input_V[0], cores_num=opts.nthreads, spe=opts.species)
+        v_iden_dict = v_end_identity(opts.ref_path, opts.input_V[0], thread_num=opts.nthreads, spe=opts.species)
         #get identity of V end using igblast
-        # v_iden_dict = v_identity_igblast(opts.input_V[0], cores_num=opts.nthreads, spe=opts.species)
+        # v_iden_dict = v_identity_igblast(opts.input_V[0], thread_num=opts.nthreads, spe=opts.species)
 
         #Old short reads don't have any anchor (short reads with anchor ignore for now)
         write_short(opts.input_V[0], assembled_file + '.all_J.fastq', fq_clean, v_iden_dict, umi_len=opts.umi_len,
                     prefix=opts.prefix, out_dir=out_dir, q_score=opts.q_score, anchor=opts.anchor)
 
     else:
-        germ_assembled = germline(assembled_file + '.assembled.fastq', spe=opts.species, cores_num=opts.nthreads, plot=opts.plot, verbose=opts.verbose)
+        germ_assembled = germline(assembled_file + '.assembled.fastq', spe=opts.species, thread_num=opts.nthreads, plot=opts.plot, verbose=opts.verbose)
 
         fq_clean = preclean_assembled(assembled_file + '.assembled.fastq', germ_assembled, q_score=opts.q_score, umi_len=opts.umi_len, spe=opts.species, verbose=opts.verbose,
-                                      misprime_correct=opts.mispriming, discard_germline=opts.keep_germline, fast=opts.fast)
+                                      no_misprime_correct=opts.no_mispriming, discard_germline=opts.keep_germline, fast=opts.fast)
 
         fq_demultiplex = demultiplex_assembled(assembled_file + '.assembled.fastq', fq_clean, umi_len=opts.umi_len, anchor_1=opts.an1, anchor_2=opts.an2, verbose=opts.verbose)
 
