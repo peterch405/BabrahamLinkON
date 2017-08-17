@@ -275,42 +275,44 @@ class fastqHolder:
         low_qual_UMI = 0
         no_anchor = 0
         v_short = 0
+        out_reads = 0
 
         with general.file_open(fastq_path_v) as v_fq:
             for qname, seq, thrd, qual in general.fastq_parse(v_fq):
                 if anchor: #if anochor present verify it is correct
-                    if seq[6:6+7] == 'GACTCGT':
+                    if seq[umi_len:umi_len+7] == 'GACTCGT':
                         anchor_dict[qname.split(' ')[0]] = 'GACTCGT'
                         anchor_len = 7
-                    elif seq[6:6+8] == 'CTGCTCCT':
+                    elif seq[umi_len:umi_len+8] == 'CTGCTCCT':
                         anchor_dict[qname.split(' ')[0]] = 'CTGCTCCT'
                         anchor_len = 8
                     else:
                         rec_skip.add(qname.split(' ')[0][1:])
                         no_anchor += 1
                         continue
-                #check qual of umi_len
-                if anchor and umi_len > 6:
-                    umi_qual = qual[:6] + qual[6+anchor_len:anchor_len+6+umi_len-6]
-                else:
-                    umi_qual = qual[:umi_len]
+                #check qual of umi_len (this is for cases when you want to take part of V read beyond anchor)
+                #TODO: add seperate command for sequence beyond anchor to take
+                # if anchor and umi_len > 6:
+                #     umi_qual = qual[:6] + qual[6+anchor_len:anchor_len+6+umi_len-6]
+                # else:
+                umi_qual = qual[:umi_len]
                 if general.check_qual(umi_qual, q_score):
                     #poor quality skip record
                     low_qual_UMI += 1
                     rec_skip.add(qname.split(' ')[0][1:])
                 else:
-                    if anchor and umi_len > 6:
-                        umi_seq = seq[:6] + seq[6+anchor_len:anchor_len+6+umi_len-6]
-                        if len(umi_seq) == umi_len:
-                            umi_dict[qname.split(' ')[0]] = umi_seq
-                        else:
-                            v_short += 1
+                    # if anchor and umi_len > 6:
+                    #     umi_seq = seq[:6] + seq[6+anchor_len:anchor_len+6+umi_len-6]
+                    #     if len(umi_seq) == umi_len:
+                    #         umi_dict[qname.split(' ')[0]] = umi_seq
+                    #     else:
+                    #         v_short += 1
+                    # else:
+                    umi_seq = seq[:umi_len]
+                    if len(umi_seq) == umi_len: #if V read is too short skip it
+                        umi_dict[qname.split(' ')[0]] = umi_seq
                     else:
-                        umi_seq = seq[:umi_len]
-                        if len(umi_seq) == umi_len: #if V read is too short skip it
-                            umi_dict[qname.split(' ')[0]] = umi_seq
-                        else:
-                            v_short += 1
+                        v_short += 1
 
         if merge:
 
@@ -329,11 +331,12 @@ class fastqHolder:
 
                     for gene in genes:
                         if 'germline' not in gene and 'other' not in gene:
-                            if qname.split(' ')[0][1:] in self.gene_split[gene]:
+                            if qname.split(' ')[0][1:] in self.gene_split[gene] or qname.split(' ')[0][1:] in self.misprimed[gene]:
                                 if anchor:
                                     out_file.write(qname.split(' ')[0] + '_' + gene + '_' + v_iden_out.upper() + '_' +
                                                    anchor_dict[qname.split(' ')[0]] + '_' + umi + ' ' +
                                                    ''.join(qname.split(' ')[1:]) + '\n' + seq + '\n' + thrd + '\n' + qual + '\n')
+                                    out_reads += 1
                                 else:
                                     out_file.write(qname.split(' ')[0] + '_' + gene + '_' + v_iden_out.upper() + '_' + umi + ' ' +
                                                    ''.join(qname.split(' ')[1:]) + '\n' + seq + '\n' + thrd + '\n' + qual + '\n')
@@ -354,7 +357,7 @@ class fastqHolder:
                         out_file.write(qname.split(' ')[0] + '_' + genes + '_' + umi + ' ' +
                                        ''.join(qname.split(' ')[1:]) + '\n' + seq + '\n' + thrd + '\n' + qual + '\n')
 
-        return low_qual_UMI, no_anchor, v_short
+        return low_qual_UMI, no_anchor, v_short, out_reads
 
 ################################################################################
 
@@ -692,16 +695,18 @@ def write_short(V_region, jv_region, fq_dict_pcln, v_iden_out, umi_len, prefix=N
                                               out_dir + '/' + prefix_jv + '_' + key, v_iden_out,
                                               umi_len, merge=False, q_score=0, anchor=anchor)
     #else write everything else in the same file
-    low_qual_UMI, no_anchor, v_short = fq_dict_pcln.write_preclean_short(fp_v_region, fp_jv_region, list(out_files),
+    low_qual_UMI, no_anchor, v_short, out_reads = fq_dict_pcln.write_preclean_short(fp_v_region, fp_jv_region, list(out_files),
                                                      out_dir + '/' + prefix_jv + '_' + 'all_jv',
                                                      v_iden_out, umi_len, merge=True, q_score=q_score, anchor=anchor)
 
     print('Number of low quality UMIs:', low_qual_UMI)
     print('Number of missing anchors:', no_anchor)
     print('Number of short V reads:', v_short)
+    print('Number of J reads written out:', out_reads)
     logging.info('Number of low quality UMIs:' + str(low_qual_UMI))
     logging.info('Number of missing anchors:' + str(no_anchor))
     logging.info('Number of short V reads:' + str(v_short))
+    logging.info('Number of J reads written out:' + str(out_reads))
 
 
 def gemline_removed_qc(V_region, out_dir, spe='mmu', prefix=None, thread_num=8, verbose=False):
@@ -883,7 +888,7 @@ def parse_args():
         #If analysing short sequences
         # sp.add_argument('--short', action='store_true', help='If using short reads <250bp with no anchor+umi')
         # sp.add_argument('--anchor', action='store_true', help='If using short reads <250bp with anchor+umi')
-        sp.add_argument('--ref', dest='ref_path', type=str, help='Igh reference files path')
+        sp.add_argument('--ref', dest='ref_path', default=None, type=str, help='Igh reference files path')
 
 
     # parser.add_argument('--plot_QC', action='store_true', help='QC plot showing if all germline reads were removed (few will be present J-J rearrangements)')
@@ -961,13 +966,17 @@ def main():
         #Merge the two files into one (pairing unassembled reads)
         fq_clean = preclean_assembled(assembled_file + '.all_J.fastq', germ_assembled, q_score=opts.q_score, umi_len=opts.umi_len, spe=opts.species, verbose=opts.verbose,
                                       no_misprime_correct=opts.no_mispriming, discard_germline=opts.keep_germline, fast=opts.fast, short=opts.short)
-        #get identity of V end using bowtie2 alignment
-        v_iden_dict = v_end_identity(opts.ref_path, opts.input_V[0], thread_num=opts.nthreads, spe=opts.species)
+
+        #get identity of V end using bowtie2 alignment, if ref not specified skip this step.
+        if opts.ref_path == None:
+            v_iden_dict = dict()
+        else:
+            v_iden_dict = v_end_identity(opts.ref_path, opts.input_V, thread_num=opts.nthreads, spe=opts.species)
         #get identity of V end using igblast
         # v_iden_dict = v_identity_igblast(opts.input_V[0], thread_num=opts.nthreads, spe=opts.species)
 
         #Old short reads don't have any anchor (short reads with anchor ignore for now)
-        write_short(opts.input_V[0], assembled_file + '.all_J.fastq', fq_clean, v_iden_dict, umi_len=opts.umi_len,
+        write_short(opts.input_V, assembled_file + '.all_J.fastq', fq_clean, v_iden_dict, umi_len=opts.umi_len,
                     prefix=opts.prefix, out_dir=out_dir, q_score=opts.q_score, anchor=opts.anchor)
 
     else:

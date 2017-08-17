@@ -62,8 +62,20 @@ def igblast_worker(fasta, spe, custom_ref, aux_file, additional_flags):
                 '-outfmt', '7 std qseq sseq btop',
                 '-query', fasta_input, '-out', '-',
                 ]
-        if additional_flags is not None:
-            cmd = cmd + additional_flags
+        # if additional_flags is not None:
+        #     cmd = cmd + additional_flags
+    elif spe == 'mmuk':
+        cmd = ['igblastn',
+            '-germline_db_V', DATA_PATH + 'Mus_musculus_IGKV',
+            '-germline_db_J', DATA_PATH + 'Mus_musculus_IGKJ',
+            '-auxiliary_data', aux_file,
+            '-domain_system', 'imgt',
+            '-ig_seqtype', 'Ig' ,
+            '-organism', 'mouse',
+            '-num_threads', '1',
+            '-outfmt', '7 std qseq sseq btop',
+            '-query', fasta_input, '-out', '-',
+            ]
     elif spe == 'hsa':
         cmd = ['igblastn',
             '-germline_db_V', DATA_PATH + 'Homo_sapiens_IGHV',
@@ -77,8 +89,9 @@ def igblast_worker(fasta, spe, custom_ref, aux_file, additional_flags):
             '-outfmt', '7 std qseq sseq btop',
             '-query', fasta_input, '-out', '-',
             ]
-        if additional_flags is not None:
-            cmd = cmd + additional_flags
+
+    if additional_flags is not None:
+        cmd = cmd + additional_flags
 
     result = subprocess.check_output(cmd, input=fasta if fasta_input == '-' else None, universal_newlines=True)
 
@@ -131,6 +144,10 @@ def parse_igblast(fmt, fasta, spe, custom_ref):
             cmd = ['MakeDb.py', 'igblast', '-i', fmt, '-s', fasta,
             	'-r', DATA_PATH + 'Mus_musculus_IGH[JDV].fasta',
             	'--regions', '--scores', '--cdr3', '--partial']
+    elif spe == 'mmuk':
+        cmd = ['MakeDb.py', 'igblast', '-i', fmt, '-s', fasta,
+            '-r', DATA_PATH + 'Mus_musculus_IGK[JV].fasta',
+            '--regions', '--scores', '--cdr3', '--partial']
     elif spe == 'hsa':
         cmd = ['MakeDb.py', 'igblast', '-i', fmt, '-s', fasta,
         	'-r', DATA_PATH + 'Homo_sapiens_IGH[JDV].fasta',

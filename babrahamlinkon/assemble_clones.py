@@ -18,6 +18,7 @@ import tempfile
 import shutil
 import logging
 import pyximport
+from tqdm import tqdm
 from babrahamlinkon._dedup_umi import edit_distance
 from babrahamlinkon.version import __version__
 # %matplotlib inline
@@ -84,10 +85,7 @@ def adj_list_adjacency(umis, counts, threshold=1):
                     adj_list[umi].append(umi2)
 
     return adj_list
-#
-# Levenshtein.distance('GGGTTTGCTTAC', 'GGTTTGCTTAC')
-# Levenshtein.distance('GTTTGCTTAC', 'GGTTTGCTTAC')
-# Levenshtein.distance('TTTGCTTAC', 'GTTTGCTTAC')
+
 
 
 def change_v_call(row):
@@ -181,7 +179,7 @@ def read_changeo_out(tab_file, out, prefix, fasta, v_fastq=None, plot=False, ret
         df_list.append(df)
     igblast_out = pd.concat(df_list)
     igblast_out.reset_index(drop=True, inplace=True)
-
+    print('called reads', len(igblast_out.index))
     if short:
         # HWI-1KL136:214:D1MR5ACXX:5:1103:17395:138047_J4_Ighv13-2_GTGTCTAC_11
 
@@ -238,11 +236,18 @@ def read_changeo_out(tab_file, out, prefix, fasta, v_fastq=None, plot=False, ret
         igblast_out_na = igblast_out_m.dropna(subset = ['V_CALL', 'V_CALL_VEND'], how='all')
         #drop low quality J calls
         igblast_out_hs = igblast_out_na[(igblast_out_na['J_SCORE'] > j_cutoff) & ((igblast_out_na['V_SCORE'] > v_cutoff) | (igblast_out_na['V_SCORE_VEND'] > v_cutoff))]
+        low_score = len(igblast_out_m.index) - len(igblast_out_hs.index)
+        #how many filtered out?
+        logging.info('Low V and J score:' + str(low_score))
+        print('Low V and J score:', low_score)
 
     else:
         #Filter out low quality scores
         igblast_out_hs = igblast_out[(igblast_out['V_SCORE'] > v_cutoff) & (igblast_out['J_SCORE'] > j_cutoff)]
-
+        low_score = len(igblast_out.index) - len(igblast_out_hs.index)
+        #how many filtered out?
+        logging.info('Low V and J score:' + str(low_score))
+        print('Low V and J score:', low_score)
 
     #Filter mutiple different V calls
     # igblast_out_hs['V_CALL'].str.split('(,|\*)').str[0]
@@ -270,6 +275,10 @@ def read_changeo_out(tab_file, out, prefix, fasta, v_fastq=None, plot=False, ret
 
     #If not cdr3 present drop record
     igblast_out_hs_cln = igblast_out_hs.dropna(subset = ['CDR3_IGBLAST_NT'])
+    #how many have no CDR3?
+    no_cdr3 = len(igblast_out_hs.index)-len(igblast_out_hs_cln.index)
+    logging.info('Number of reads without CDR3:' + str(no_cdr3))
+    print('Number of reads without CDR3:', no_cdr3)
     # functional_cln = functional.dropna(subset = ['CDR3_IMGT'])
     # non_functional_cln = non_functional.dropna(subset = ['CDR3_IMGT'])
 
@@ -327,20 +336,17 @@ def assemble_colonotype(pd_data_frame, bundles, threshold):
     pd_data_frame['clonotype'] = ''
 
     bundle_count = 0
-    for bundle in bundles.values():
+    for bundle in tqdm(bundles.values()):
         umis = bundle.keys()
 
         # len_umis = [len(x) for x in umis]
         # assert max(len_umis) == min(len_umis), ('not all umis are the same length(!):  %d - %d' % (min(len_umis), max(len_umis)))
 
-        counts = {umi: bundle[umi]['count'] for umi in umis} #If two UMI's merged, count will be taken only from the larger UMI group
-        # print('Getting directional adjacency list')
-        adj_list = adj_list_adjacency(list(umis), counts, threshold)
+        counts = {umi: bundle[umi]['count'] for umi in umis}
 
-        # print(len(adj_list), sorted(adj_list)[1:5])
-        # print('Getting connected components')
+        adj_list = adj_list_adjacency(list(umis), counts, threshold)
         clusters = umi_correction.get_connected_components_adjacency(umis, adj_list, counts)
-        # print(clusters)
+
         #Assign clonotypes
         cluster_count = 0
         for cluster in clusters:
@@ -397,6 +403,7 @@ def parse_args():
         sp.add_argument('--v_cutoff', dest='v_cutoff', default=50, type=int, help='IgBlast V_SCORE cutoff [>50]')
         sp.add_argument('--j_cutoff', dest='j_cutoff', default=35, type=int, help='IgBlast J_SCORE cutoff [>35]')
 
+        sp.add_argument('--skip_assembly', dest='skip_assembly', action='store_true', help='Do not perform clone assembly into clonotypes')
 
     sp2.add_argument('-fq', '--v_fastq', dest='v_fastq', type=str, help='V end fastq file')
     # parser.add_argument('--short', action='store_true', help='Analysing short sequences')
@@ -444,16 +451,27 @@ def main():
                                    retain_nam=opts.full_name, minimal=opts.minimal, short=opts.short, thread_num=opts.nthreads,
                                    spe=opts.species, aux=opts.aux, custom_ref=opts.custom_ref, j_cutoff=opts.j_cutoff, v_cutoff=opts.v_cutoff)
     # igblast_cln = read_changeo_out(files, out_dir, prefix)
+    out_reads_count = len(igblast_cln.index)
+    logging.info('Out reads:' + str(out_reads_count))
+    print('Out reads:', out_reads_count)
 
-    clonotype_dict = make_bundle(igblast_cln, only_v=opts.only_v)
+    if opts.skip_assembly:
+        if opts.minimal:
+            write_out(igblast_cln, out_dir + '/' + prefix + '_annotated_clones_min.tab')
+        else:
+            write_out(igblast_cln, out_dir + '/' + prefix + '_annotated_clones.tab')
 
-    ig_blast_asm = assemble_colonotype(igblast_cln, clonotype_dict, opts.thres)
-
-
-    if opts.minimal:
-        write_out(ig_blast_asm, out_dir + '/' + prefix + '_assembled_clones_min.tab')
     else:
-        write_out(ig_blast_asm, out_dir + '/' + prefix + '_assembled_clones.tab')
+        print('Assembling clones')
+        clonotype_dict = make_bundle(igblast_cln, only_v=opts.only_v)
+
+        ig_blast_asm = assemble_colonotype(igblast_cln, clonotype_dict, opts.thres)
+
+
+        if opts.minimal:
+            write_out(ig_blast_asm, out_dir + '/' + prefix + '_assembled_clones_min.tab')
+        else:
+            write_out(ig_blast_asm, out_dir + '/' + prefix + '_assembled_clones.tab')
 
     #delete tmp dir
     shutil.rmtree(tmp_dir)

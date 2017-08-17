@@ -1,3 +1,5 @@
+#Taken from UMI-tools https://github.com/CGATOxford/UMI-tools
+
 cpdef int edit_distance(a, b):
     cdef char * aa = a
     cdef char * bb = b

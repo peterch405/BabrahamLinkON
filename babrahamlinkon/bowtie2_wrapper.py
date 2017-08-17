@@ -7,7 +7,6 @@ import tempfile
 import shutil
 import shlex
 from babrahamlinkon import presets
-import tempfile
 import logging
 import re
 import sys
@@ -120,7 +119,8 @@ class bowtie2:
         tf = tempfile.NamedTemporaryFile()
 
         #Sort and index bam file
-        samtools_sort = ['samtools', 'sort', '-O', 'bam', '-o', self.tmp_prefix + '_sorted.bam',
+        #threads only works with version >=1.4
+        samtools_sort = ['samtools', 'sort', '-@', str(nthreads), '-O', 'bam', '-o', self.tmp_prefix + '_sorted.bam',
                          '-T', os.path.basename(tf.name), self.tmp_prefix + '.bam']
         samtools_index = ['samtools', 'index', self.tmp_prefix + '_sorted.bam']
 

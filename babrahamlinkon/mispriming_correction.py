@@ -169,8 +169,8 @@ class SSW_align:
                         for key in presets.prs(spe).mispriming().keys():
                             seq_chk_lst = []
                             try: #if in offset dict do ... else do ...
-                                #Special case for J1 (rare)
-
+                                #Special case for J1 (rare) in mouse
+                                #TODO: don't hard code the len of the sequence to check
                                 offst = presets.prs(spe).offset()[read_identity][key]
                                 for off in offst:
                                     seq_chk_lst.append(print_seq_full[ref_end-off:ref_end-off+5])
@@ -215,11 +215,10 @@ class SSW_align:
                                 replace_seq = presets.prs(spe).replace()[min_val_key[0]]
 
                                 corrected_seq = replace_seq + print_seq_full[primer_end[min_val_key[0]]:]
-                                # if '-' in corrected_seq:
-                                #     print(min_val_key, differences)
-                                #     print(corrected_seq)
-                                #     print(print_seq_full)
-                                #     corrected_seq.replace('-', '')
+                                if '-' in corrected_seq: #issue for kappa with long stretch of C's
+                                    # print('Possible deletion in read', corrected_seq, 'print_seq_full', print_seq_full, 'qry', qry)
+                                    corrected_seq = corrected_seq.replace('-', '')
+                                    # print(corrected_seq)
                                 assert '-' not in corrected_seq, 'Unknown space in corrected sequence'
 
                                 #Will correct qual when writing out fastq (fastqHolder), just trim start or add 'I'
@@ -245,46 +244,47 @@ class SSW_align:
         '''
         #Target sequence should be the same for all (reference)
         seqs = []
-        if print_out:
-            print(self.alignments[0]['target_sequence'])
+        if self.alignments:
+            if print_out:
+                print(self.alignments[0]['target_sequence'])
 
-        seqs.append(self.alignments[0]['target_sequence'])
-        count = 0
+            seqs.append(self.alignments[0]['target_sequence'])
+            count = 0
 
-        for item in self.alignments:
-            if count <= num: #print only num alignments
-                s = item['cigar']
-                matches = re.findall(r'(\d+)([A-Z]{1})', s)
-                cigar_dict = ([{'type':m[1], 'length':int(m[0])} for m in matches])
+            for item in self.alignments:
+                if count <= num: #print only num alignments
+                    s = item['cigar']
+                    matches = re.findall(r'(\d+)([A-Z]{1})', s)
+                    cigar_dict = ([{'type':m[1], 'length':int(m[0])} for m in matches])
 
-                start = item['target_begin']
-                end = item['target_end_optimal']+1
-                q_start = item['query_begin']
-                q_end = item['query_end']+1
+                    start = item['target_begin']
+                    end = item['target_end_optimal']+1
+                    q_start = item['query_begin']
+                    q_end = item['query_end']+1
 
-                print_seq = '-'*start
-                poscounter = q_start
+                    print_seq = '-'*start
+                    poscounter = q_start
 
-                for cig in cigar_dict:
-                    if cig['type'] == 'M':
-                        #match just print seq
-                        c_start = poscounter
-                        poscounter += cig['length']
-                        print_seq = print_seq + item['query_sequence'][c_start:poscounter]
-                    elif cig['type'] == 'D':
-                        #deletion print '-'
-                        print_seq = print_seq + '-'*cig['length']
-                    elif cig['type'] == 'I':
-#                         print_seq = print_seq + '^'*cig['length']
-                        poscounter += cig['length']  #skip over insertion
+                    for cig in cigar_dict:
+                        if cig['type'] == 'M':
+                            #match just print seq
+                            c_start = poscounter
+                            poscounter += cig['length']
+                            print_seq = print_seq + item['query_sequence'][c_start:poscounter]
+                        elif cig['type'] == 'D':
+                            #deletion print '-'
+                            print_seq = print_seq + '-'*cig['length']
+                        elif cig['type'] == 'I':
+    #                         print_seq = print_seq + '^'*cig['length']
+                            poscounter += cig['length']  #skip over insertion
 
-                print_seq = print_seq + '-'*(len(item['target_sequence'])-end)
-                seqs.append(print_seq)
-                if print_out:
-                    print(print_seq)
-                count += 1
-            else:
-                break
+                    print_seq = print_seq + '-'*(len(item['target_sequence'])-end)
+                    seqs.append(print_seq)
+                    if print_out:
+                        print(print_seq)
+                    count += 1
+                else:
+                    break
 
         return(seqs)
 

@@ -19,6 +19,12 @@ class prs:
                     'J2':'AGTGGTGCCTTGGCCCCAGTAG',
                     'J3':'ACCAGAGTCCCTTGGCCCCAGTAA',
                     'J4':'TGAGGTTCCTTGACCCCAGTAGTCCATA'}
+        elif self.name == 'mmuk' or self.name == 'mouse kappa' or self.name == 'mus musculus kappa':
+            return {'J1':'TTTGATTTCCAGCTTGGTGCCTCC'[4:],
+                    'J2':'TTTATTTCCAGCTTGGTCCCCCCT'[4:],
+                    'J4':'CGTTTTATTTCCAACTTTGTCCCCGA'[4:],
+                    'J5':'CAGCTCCAGCTTGGTCCCAGC'[4:]}
+                    #first 4bp removed due to low quality resulting from low diversity
         elif self.name == 'hsa' or self.name == 'human' or self.name == 'homo sapien':
             return {'J1':'GGTGCCCTGGCCCCAGTG',
                     'J2':'GGTGCCACGGCCCCAGAGA',
@@ -33,16 +39,16 @@ class prs:
                     'J6.4':'TTGCCCCAGACGTCCATACCGT',
                     'J6.c':'TTCCCCCAGACGTCCATACCGT'}  #Misprimed sequence
         else:
-            print('Under construction, use mm for now')
-
-    def igh(self):
-        if self.name == 'mmu' or self.name == 'mouse' or self.name == 'mus musculus':
-            return ['chr12', 113249830, 116015093] #IgH mm10
-        elif self.name == 'hsa' or self.name == 'human' or self.name == 'homo sapien':
-            # return ['chr14', 105857867, 106890699] #IgH GRCh38.7 (VDJ only)
-            return ['chr14', 106324871, 107292532] #hg19
-        else:
-            print('Under construction, use mm for now')
+            print('Only mmu, mmuk and hsa available for now')
+    #
+    # def igh(self):
+    #     if self.name == 'mmu' or self.name == 'mouse' or self.name == 'mus musculus':
+    #         return ['chr12', 113249830, 116015093] #IgH mm10
+    #     elif self.name == 'hsa' or self.name == 'human' or self.name == 'homo sapien':
+    #         # return ['chr14', 105857867, 106890699] #IgH GRCh38.7 (VDJ only)
+    #         return ['chr14', 106324871, 107292532] #hg19
+    #     else:
+    #         print('Only mmu, mmuk and hsa available for now')
 
     def bowtie_index(self):
         if not os.environ.get('BOWTIE2_INDEXES'):
@@ -53,11 +59,13 @@ class prs:
         if not os.environ.get('BOWTIE2_REF'):
             if self.name == 'mmu' or self.name == 'mouse' or self.name == 'mus musculus':
                 return 'mm10'
+            elif self.name == 'mmuk' or self.name == 'mouse kappa' or self.name == 'mus musculus kappa':
+                return 'mm10'
             elif self.name == 'hsa' or self.name == 'human' or self.name == 'homo sapien':
                 # return 'GCA_000001405.15_GRCh38_no_alt_analysis_set.fna.bowtie_index'
                 return 'Homo_sapiens.GRCh37'
             else:
-                print('Under construction, use mmu for now')
+                print('Only mmu, mmuk and hsa available for now')
         else:
             return os.environ.get('BOWTIE2_REF')
 
@@ -66,11 +74,13 @@ class prs:
     def germline(self):
         if self.name == 'mmu' or self.name == 'mouse' or self.name == 'mus musculus':
             return ['chr12', 113428237, 113430474] #J genes mm10
+        elif self.name == 'mmuk' or self.name == 'mouse kappa' or self.name == 'mus musculus kappa':
+            return ['chr6', 70720525, 70725451] #J genes mm10
         elif self.name == 'hsa' or self.name == 'human' or self.name == 'homo sapien':
             # return ['chr14', 105863049, 105865530] #J genes without J1P and IGHD7-27 hg38
             return ['chr14',106329364,106331708]
         else:
-            print('Under construction, use mmu for now')
+            print('Only mmu, mmuk and hsa available for now')
 
     #TODO:Implement automatic import from biomart
     def J_location(self): #required to seperate germline into unique J's
@@ -80,6 +90,13 @@ class prs:
                     'J3':{'start':113429085, 'end':113429132},
                     'J4':{'start':113428514, 'end':113428567}}
                     #mm10
+        elif self.name == 'mmuk' or self.name == 'mouse kappa' or self.name == 'mus musculus kappa':
+            return {'J1':{'start':70722562, 'end':70722599},
+                    'J2':{'start':70722916, 'end':70722958},
+                    'J3':{'start':70723223, 'end':70723258},
+                    'J4':{'start':70723548, 'end':70723585},
+                    'J5':{'start':70723886, 'end':70723927}}
+                    #mm10 J3 pseudogene
         elif self.name == 'hsa' or self.name == 'human' or self.name == 'homo sapien':
             # return {'J1':{'start':105865407, 'end':105865458},
             #         'J2':{'start':105865199, 'end':105865250},
@@ -98,42 +115,44 @@ class prs:
                     'J6':{'start':106329408, 'end':106329468}}
                     # GRCh37
         else:
-            print('Under construction, use mmu for now')
+            print('Only mmu, mmuk and hsa available for now')
 
     ## Regions / genomes ##
-
-    def dj(self):
-        '''Location of DJ genes to remove DJ recombination (seqmonk)
-        '''
-        if self.name == 'mmu' or self.name == 'mouse' or self.name == 'mus musculus':
-            return ['chr12','113428112', '113488696']
-        elif self.name == 'hsa' or self.name == 'human' or self.name == 'homo sapien':
-            # return ['chr14','105862474','105920591']
-            return ['chr14','106327849','106392148'] #hg19
-        else:
-            print('Under construction, use mmu for now')
+    #
+    # def dj(self):
+    #     '''Location of DJ genes to remove DJ recombination (seqmonk)
+    #     '''
+    #     if self.name == 'mmu' or self.name == 'mouse' or self.name == 'mus musculus':
+    #         return ['chr12','113428112', '113488696']
+    #     elif self.name == 'hsa' or self.name == 'human' or self.name == 'homo sapien':
+    #         # return ['chr14','105862474','105920591']
+    #         return ['chr14','106327849','106392148'] #hg19
+    #     else:
+    #         print('Only mmu, mmuk and hsa available for now')
 
     def genome(self):
         '''Which genome is being used
         '''
         if self.name == 'mmu' or self.name == 'mouse' or self.name == 'mus musculus':
             return 'mm10'
+        elif self.name == 'mmuk' or self.name == 'mouse kappa' or self.name == 'mus musculus kappa':
+            return 'mm10'
         elif self.name == 'hsa' or self.name == 'human' or self.name == 'homo sapien':
             # return 'hg38'
             return 'hg19'
         else:
-            print('Under construction, use mmu for now')
+            print('Only mmu, mmuk and hsa available for now')
 
-    def v_region(self):
-        '''Coordinates of V region (seqmonk)
-        '''
-        if self.name == 'mmu' or self.name == 'mouse' or self.name == 'mus musculus':
-            return 'chr12:113531809-116015193'
-        elif self.name == 'hsa' or self.name == 'human' or self.name == 'homo sapien':
-            # return 'chr14:105931103-106903920'
-            return 'chr14:106394250-107295467' #hg19
-        else:
-            print('Under construction, use mmu for now')
+    # def v_region(self):
+    #     '''Coordinates of V region (seqmonk)
+    #     '''
+    #     if self.name == 'mmu' or self.name == 'mouse' or self.name == 'mus musculus':
+    #         return 'chr12:113531809-116015193'
+    #     elif self.name == 'hsa' or self.name == 'human' or self.name == 'homo sapien':
+    #         # return 'chr14:105931103-106903920'
+    #         return 'chr14:106394250-107295467' #hg19
+    #     else:
+    #         print('Only mmu, mmuk and hsa available for now')
 
     ## Mispriming ##
 
@@ -143,6 +162,11 @@ class prs:
                     'J2':'AGTGGTGCCTTGGCCCCAGTAGTCAAA',
                     'J3':'ACCAGAGTCCCTTGGCCCCAGTAAGCAAA',
                     'J4':'TGAGGTTCCTTGACCCCAGTAGTCCAT'}
+        if self.name == 'mmuk' or self.name == 'mouse kappa' or self.name == 'mus musculus kappa':
+            return {'J1':'TTTGATTTCCAGCTTGGTGCCTCCACCGA'[4:],
+                    'J2':'TTTATTTCCAGCTTGGTCCCCCCTCCGA'[4:],
+                    'J4':'CGTTTTATTTCCAACTTTGTCCCCGAGCCGA'[4:],
+                    'J5':'CAGCTCCAGCTTGGTCCCAGCA'[4:]}
         elif self.name == 'hsa' or self.name == 'human' or self.name == 'homo sapien':
             return {'J1':'GGTGCCCTGGCCCCAGTGCTGGAA',
                     'J2':'GGTGCCACGGCCCCAGAGATCGAA',
@@ -160,7 +184,7 @@ class prs:
                     'J6.c':'TTCCCCCAGACGTCCATACCGTA',
                     'J6.c2':'GGTGCCCTGGCCCCAGACGTCCATACCGTA'} #Misprimed sequence (with c)
         else:
-            print('Under construction, use mmu for now')
+            print('Only mmu, mmuk and hsa available for now')
 
     #REVIEW: reduce to 4 bp?
     def mispriming(self): #implement auto method to generate this dict
@@ -169,6 +193,12 @@ class prs:
                     'J2':'TCAAA',
                     'J3':'GCAAA',
                     'J4':'TCCAT'}
+        elif self.name == 'mmuk' or self.name == 'mouse kappa' or self.name == 'mus musculus kappa':
+            return {'J1':'CCTCC',
+                    'J2':'TCCGA',
+                    'J4':'GCCGA',
+                    'J5':'CAGCA',
+                    'J5.c':'ACGTG'}
         elif self.name == 'hsa' or self.name == 'human' or self.name == 'homo sapien':
             return {'J1':'TGGAA',
                     'J2':'CGAAG',
@@ -179,7 +209,7 @@ class prs:
                     'J5.2':'GGTCG',
                     'J6.1':'GTAGT'}
         else:
-            print('Under construction, use mmu for now')
+            print('Only mmu, mmuk and hsa available for now')
 
     def offset(self):
         if self.name == 'mmu' or self.name == 'mouse' or self.name == 'mus musculus':
@@ -187,6 +217,12 @@ class prs:
                     'J2':{'J1':[8]},
                     'J3':{'J1':[8]},
                     'J4':{'J1':[8]}}
+        elif self.name == 'mmuk' or self.name == 'mouse kappa' or self.name == 'mus musculus kappa':
+            return {'J1':{'J1':[10], 'J4':[-2], 'J5':[9]},
+                    'J2':{'J2':[5], 'J5':[4]},
+                    'J4':{},
+                    'J5':{'J2':[1], 'J4':[2], 'J5':[5]},
+                    'J5.c':{}}
         elif self.name == 'hsa' or self.name == 'human' or self.name == 'homo sapien':
             return {'J1':{'J2':[4], 'J3':[6], 'J4.1':[1], 'J5.1':[7], 'J5.2':[7]},
                     'J2':{'J2':[4], 'J3':[6], 'J4.1':[1], 'J5.1':[7], 'J5.2':[7], 'J6.1':[-3]},
@@ -202,7 +238,7 @@ class prs:
                     'J6.3':{},
                     'J6.4':{}} #TODO:check multiple human germline
         else:
-            print('Under construction, use mmu for now')
+            print('Only mmu, mmuk and hsa available for now')
 
     def replace(self):
         if self.name == 'mmu' or self.name == 'mouse' or self.name == 'mus musculus':
@@ -210,6 +246,12 @@ class prs:
                     'J2':'AGTGGTGCCTTGGCCCCAGTAG',
                     'J3':'ACCAGAGTCCCTTGGCCCCAGTAA',
                     'J4':'TGAGGTTCCTTGACCCCAGTAG'}
+        elif self.name == 'mmuk' or self.name == 'mouse kappa' or self.name == 'mus musculus kappa':
+            return {'J1':'TTTGATTTCCAGCTTGGTGCCTCC',
+                    'J2':'TTTATTTCCAGCTTGGTCCCCCC',
+                    'J4':'CGTTTTATTTCCAACTTTGTCCCCGA',
+                    'J5':'CAGCTCCAGCTTGGTCC',
+                    'J5.c':'CAGCTCCAGCTTGGTCC'}
         elif self.name == 'hsa' or self.name == 'human' or self.name == 'homo sapien':
             return {'J1':'GGTGCCCTGGCCCCAGTGC',
                     'J2':'GGTGCCACGGCCCCAGAGA',
@@ -223,4 +265,4 @@ class prs:
                     'J6.3':'TGGCCCCAGACGTCCATACCGT',
                     'J6.4':'TTGCCCCAGACGTCCATACCGT'}
         else:
-            print('Under construction, use mmu for now')
+            print('Only mmu, mmuk and hsa available for now')
