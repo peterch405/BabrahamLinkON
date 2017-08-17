@@ -691,7 +691,7 @@ def write_short(V_region, jv_region, fq_dict_pcln, v_iden_out, umi_len, prefix=N
     #write out, get umi from v end
     for key in out_files:
         if 'germline' in key or 'other' in key:
-            low_qual_UMI_n, no_anochor_n, v_short_n = fq_dict_pcln.write_preclean_short(fp_v_region, fp_jv_region, key,
+            low_qual_UMI_n, no_anochor_n, v_short_n, out_reads_n = fq_dict_pcln.write_preclean_short(fp_v_region, fp_jv_region, key,
                                               out_dir + '/' + prefix_jv + '_' + key, v_iden_out,
                                               umi_len, merge=False, q_score=0, anchor=anchor)
     #else write everything else in the same file
@@ -706,7 +706,7 @@ def write_short(V_region, jv_region, fq_dict_pcln, v_iden_out, umi_len, prefix=N
     logging.info('Number of low quality UMIs:' + str(low_qual_UMI))
     logging.info('Number of missing anchors:' + str(no_anchor))
     logging.info('Number of short V reads:' + str(v_short))
-    logging.info('Number of J reads written out:' + str(out_reads))
+    logging.info('Number of J reads written out:' + str(out_reads_n))
 
 
 def gemline_removed_qc(V_region, out_dir, spe='mmu', prefix=None, thread_num=8, verbose=False):

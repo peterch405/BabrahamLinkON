@@ -24,7 +24,7 @@ def splice_fasta(fasta_path, chunk_size):
     if fasta_chunk: #if not empty
         yield fasta_chunk
 
-#TODO:They fixed num_threads in version > 1.5, could test this later
+#TODO:IgBlast fixed num_threads in version > 1.5, could test this later
 def igblast_worker(fasta, spe, custom_ref, aux_file, additional_flags):
 
     #if fasta string - stdin else file in
@@ -34,7 +34,7 @@ def igblast_worker(fasta, spe, custom_ref, aux_file, additional_flags):
         fasta_input = fasta
 
     DATA_PATH = pkg_resources.resource_filename('babrahamlinkon', 'resources/IgBlast_database/')
-
+    #TODO: IGKD using IGH sequences, none should get called, test more (make database with all loci?)
     if spe == 'mmu':
         if custom_ref:
             cmd = ['igblastn',
@@ -67,6 +67,7 @@ def igblast_worker(fasta, spe, custom_ref, aux_file, additional_flags):
     elif spe == 'mmuk':
         cmd = ['igblastn',
             '-germline_db_V', DATA_PATH + 'Mus_musculus_IGKV',
+            '-germline_db_D', DATA_PATH + 'Mus_musculus_IGHD',
             '-germline_db_J', DATA_PATH + 'Mus_musculus_IGKJ',
             '-auxiliary_data', aux_file,
             '-domain_system', 'imgt',
@@ -98,7 +99,6 @@ def igblast_worker(fasta, spe, custom_ref, aux_file, additional_flags):
     return result
 
 
-
 def run_igblast(fasta, out_fmt, splice_size, spe, nprocs, custom_ref, aux_file=None, additional_flags=None):
     '''Run IgBlast in parallel
     :param fasta: fasta file path
@@ -112,6 +112,11 @@ def run_igblast(fasta, out_fmt, splice_size, spe, nprocs, custom_ref, aux_file=N
     DATA_PATH = pkg_resources.resource_filename('babrahamlinkon', 'resources/IgBlast_database/')
     #try locating the aux files for igblast
     if spe == 'mmu' and aux_file == None:
+        #won't work on some systems
+        # mouse_aux = subprocess.check_output(['locate', '-br', 'mouse_gl.aux$'], universal_newlines=True)
+        # aux_file = mouse_aux.split('\n')[0]
+        aux_file = DATA_PATH + 'optional_file/mouse_gl.aux'
+    elif spe == 'mmuk' and aux_file == None:
         #won't work on some systems
         # mouse_aux = subprocess.check_output(['locate', '-br', 'mouse_gl.aux$'], universal_newlines=True)
         # aux_file = mouse_aux.split('\n')[0]

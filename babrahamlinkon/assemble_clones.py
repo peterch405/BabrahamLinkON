@@ -397,7 +397,7 @@ def parse_args():
         sp.add_argument('--minimal', action='store_true', help='Work with and output only a minimal table')
 
         sp.add_argument('--threads', dest='nthreads', default=1, type=int, help='Number of threads to use [1]')
-        sp.add_argument('--species', dest='species', default='mmu', type=str, help='Which species (mmu hsa) [mmu]')
+        sp.add_argument('--species', dest='species', default='mmu', type=str, help='Which species (mmu hsa mmuk) [mmu]')
         sp.add_argument('--aux', dest='aux', type=str, default=None, help='aux file for igblast')
         sp.add_argument('--custom_ref', dest='custom_ref', action='store_true', help='Use AEC custom reference for igblast')
         sp.add_argument('--v_cutoff', dest='v_cutoff', default=50, type=int, help='IgBlast V_SCORE cutoff [>50]')
@@ -430,6 +430,11 @@ def main():
         out_dir = os.path.dirname(full_path)
     else:
         out_dir = opts.out_dir
+        #create out dir if it doesn't exist
+        try:
+            os.mkdir(out_dir)
+        except FileExistsError:
+            pass
 
 
     logging.basicConfig(level=logging.DEBUG, filename=out_dir +'/' + prefix + '_assembled_clones.log', filemode='a+',
