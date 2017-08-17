@@ -97,3 +97,27 @@ To install Babrahamlinkon straight from the git repository:
   git clone https://github.com/peterch405/BabrahamLinkON
   cd BabrahamLinkON
   pip install .
+
+Basic usage for data with Unique Molecular Identifiers (UMI's)
+==============================================================
+
+Precleaning
+-----------
+
+.. code:: bash
+
+  preclean.py umi -v <v_end.fastq> -j <j_end_fastq> --species <mmu or hsa or mmuk> --threads <int> --umi_len <int>
+
+Deduplication
+-------------
+
+.. code:: bash
+
+  deduplicate.py umi --input_dir <preclean output directory> --stats --threads <int>
+
+Annotation and clone assembly
+-----------------------------
+
+.. code:: bash
+
+ assemble_clones.py umi -fa <fasta from deduplication> --full_name --threads <int> --species <mmu or hsa or mmuk>
