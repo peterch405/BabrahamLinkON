@@ -93,7 +93,7 @@ class prs:
         elif self.name == 'mmuk' or self.name == 'mouse kappa' or self.name == 'mus musculus kappa':
             return {'J1':{'start':70722562, 'end':70722599},
                     'J2':{'start':70722916, 'end':70722958},
-                    'J3':{'start':70723223, 'end':70723258},
+                    # 'J3':{'start':70723223, 'end':70723258},
                     'J4':{'start':70723548, 'end':70723585},
                     'J5':{'start':70723886, 'end':70723927}}
                     #mm10 J3 pseudogene

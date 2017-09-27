@@ -60,7 +60,8 @@ BabrahamLinkON is dependent on:
  * python-Levenshtein>=0.12.0,
  * pysam>=0.9.1.3,
  * joblib>=0.9.3,
- * changeo>=0.3.7.
+ * changeo>=0.3.7,
+ * tqdm>=4.13.0.
 
 
 Enviroment variables:

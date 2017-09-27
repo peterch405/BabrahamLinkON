@@ -23,7 +23,6 @@ from babrahamlinkon._dedup_umi import edit_distance
 from babrahamlinkon.version import __version__
 # %matplotlib inline
 # %config InlineBackend.figure_format = 'svg'
-# '/media/chovanec/My_Passport/Dan_VDJ-seq_cycles_new/J_merged_1c_Deduplicated_test/J_merged_1c_dedup.0.fasta_db-pass.tab'
 
 
 def ambigious_calls(item, full_name=False):
@@ -103,7 +102,7 @@ def change_v_call(row):
 
 
 
-def v_identity_igblast(V_fastq, fasta, custom_ref, thread_num, spe, aux):
+def v_identity_igblast(V_fastq, fasta, custom_ref, thread_num, spe, aux, dj):
     '''
     :param V_fastq: original fastq
     :param fasta: deduplicate.py fasta output
@@ -137,8 +136,8 @@ def v_identity_igblast(V_fastq, fasta, custom_ref, thread_num, spe, aux):
     with open(tmp_dir + '/igblast.fasta', 'w') as fa_out:
         fa_out.write(fasta)
 
-    igblast_wrapper.run_igblast(tmp_dir + '/igblast.fasta', tmp_fmt, 10000, spe, thread_num, custom_ref, aux_file=aux, additional_flags=['-num_alignments_V', '1'])
-    igblast_wrapper.parse_igblast(tmp_fmt, tmp_dir + '/igblast.fasta', spe, custom_ref)
+    igblast_wrapper.run_igblast(tmp_dir + '/igblast.fasta', tmp_fmt, 10000, spe, thread_num, custom_ref, dj, aux_file=aux, additional_flags=['-num_alignments_V', '1'])
+    igblast_wrapper.parse_igblast(tmp_fmt, tmp_dir + '/igblast.fasta', spe, custom_ref, dj)
     #make v_identity dict key=qname value=idenity
 
     #need to find the output of changeo
@@ -164,7 +163,7 @@ def v_identity_igblast(V_fastq, fasta, custom_ref, thread_num, spe, aux):
 
 def read_changeo_out(tab_file, out, prefix, fasta, v_fastq=None, plot=False, retain_nam=False,
                      minimal=False, short=False, thread_num=1, spe='mmu', aux=None, custom_ref=False,
-                     j_cutoff=35, v_cutoff=50):
+                     j_cutoff=35, v_cutoff=50, dj=False):
     '''
     :param retain_nam: keep full name of V and J calls
     '''
@@ -180,6 +179,13 @@ def read_changeo_out(tab_file, out, prefix, fasta, v_fastq=None, plot=False, ret
     igblast_out = pd.concat(df_list)
     igblast_out.reset_index(drop=True, inplace=True)
     print('called reads', len(igblast_out.index))
+
+    #Seperate out DJ calls into seperate dataframe
+    igblast_dj = igblast_out[igblast_out['V_CALL'].str.contains('IGHVD', na=False)]
+    # igblast_dj.reset_index(drop=True, inplace=True)
+    igblast_out = igblast_out[~igblast_out['V_CALL'].str.contains('IGHVD', na=False)]
+    # igblast_out.reset_index(drop=True, inplace=True)
+
     if short:
         # HWI-1KL136:214:D1MR5ACXX:5:1103:17395:138047_J4_Ighv13-2_GTGTCTAC_11
 
@@ -192,7 +198,7 @@ def read_changeo_out(tab_file, out, prefix, fasta, v_fastq=None, plot=False, ret
             raise Exception('Short option requires the V end fastq file')
 
         #run igblast on the v end
-        v_end_calls = v_identity_igblast(v_fastq, fasta, custom_ref, thread_num, spe, aux)
+        v_end_calls = v_identity_igblast(v_fastq, fasta, custom_ref, thread_num, spe, aux, dj)
         # logging.info('igblast_out', len(igblast_out), 'v_end_calls', len(v_end_calls))
         #merge data fragments
         igblast_out_m = pd.merge(igblast_out, v_end_calls, how='left', on=['SEQUENCE_ID'])
@@ -229,6 +235,7 @@ def read_changeo_out(tab_file, out, prefix, fasta, v_fastq=None, plot=False, ret
                 my_plot = plt.axvline(v_cutoff, linestyle='dashed', linewidth=2).get_figure()
                 pdf_out.savefig(my_plot)
 
+
     #if low quality replace by bowtie call in qname
     if short:
 
@@ -248,6 +255,18 @@ def read_changeo_out(tab_file, out, prefix, fasta, v_fastq=None, plot=False, ret
         #how many filtered out?
         logging.info('Low V and J score:' + str(low_score))
         print('Low V and J score:', low_score)
+
+    if dj:
+        #DJ filtering
+        #Drop DJ without a J calls, suggests misidentification of D
+        igblast_dj_na = igblast_dj.dropna(subset = ['J_CALL'])
+        igblast_dj_out = igblast_dj_na[(igblast_dj_na['V_SCORE'] > v_cutoff)]
+
+        dj_filt = len(igblast_dj.index)-len(igblast_dj_out.index)
+        logging.info('Number of DJ reads filtered:' + str(dj_filt))
+        print('Number of DJ reads filtered:', dj_filt)
+
+
 
     #Filter mutiple different V calls
     # igblast_out_hs['V_CALL'].str.split('(,|\*)').str[0]
@@ -286,7 +305,7 @@ def read_changeo_out(tab_file, out, prefix, fasta, v_fastq=None, plot=False, ret
     if minimal:
         igblast_out_hs_cln = igblast_out_hs_cln[['SEQUENCE_ID', 'SEQUENCE_INPUT', 'V_CALL', 'D_CALL', 'J_CALL', 'CDR3_IGBLAST_NT', 'file_ID']]
     # return (functional_cln, non_functional_cln)
-    return igblast_out_hs_cln
+    return (igblast_out_hs_cln, igblast_dj_out)
 
 # functional_cln['SEQUENCE_ID']['HWI-M02293:218:000000000-AKGG1:1:1101:8139:9569_J3_CTGCTCCT_AGCGGA_5']
 # functional_cln.SEQUENCE_ID[functional_cln.SEQUENCE_ID == 'HWI-M02293:218:000000000-AKGG1:1:1101:8139:9569_J3_CTGCTCCT_AGCGGA_5'].index.tolist()[0]
@@ -404,6 +423,7 @@ def parse_args():
         sp.add_argument('--j_cutoff', dest='j_cutoff', default=35, type=int, help='IgBlast J_SCORE cutoff [>35]')
 
         sp.add_argument('--skip_assembly', dest='skip_assembly', action='store_true', help='Do not perform clone assembly into clonotypes')
+        sp.add_argument('--call_dj', dest='call_dj', action='store_true', help='Call DJ recombination, else only VDJ will be called')
 
     sp2.add_argument('-fq', '--v_fastq', dest='v_fastq', type=str, help='V end fastq file')
     # parser.add_argument('--short', action='store_true', help='Analysing short sequences')
@@ -446,19 +466,24 @@ def main():
     tmp_fmt = os.path.join(tmp_dir, "igblast.fmt7")
 
 
-    igblast_wrapper.run_igblast(opts.fasta, tmp_fmt, 10000, opts.species, opts.nthreads, opts.custom_ref, aux_file=opts.aux)
-    igblast_wrapper.parse_igblast(tmp_fmt, opts.fasta, opts.species, opts.custom_ref)
+    igblast_wrapper.run_igblast(opts.fasta, tmp_fmt, 10000, opts.species, opts.nthreads, opts.custom_ref, dj=opts.call_dj, aux_file=opts.aux)
+    igblast_wrapper.parse_igblast(tmp_fmt, opts.fasta, opts.species, opts.custom_ref, opts.call_dj)
 
     #need to find the output of changeo
     tmp_tab = glob.glob(tmp_dir + '/*.tab')
 
-    igblast_cln = read_changeo_out(tmp_tab, out_dir, prefix, opts.fasta, v_fastq=opts.v_fastq, plot=opts.plot,
+    igblast_cln, igblast_dj = read_changeo_out(tmp_tab, out_dir, prefix, opts.fasta, v_fastq=opts.v_fastq, plot=opts.plot,
                                    retain_nam=opts.full_name, minimal=opts.minimal, short=opts.short, thread_num=opts.nthreads,
-                                   spe=opts.species, aux=opts.aux, custom_ref=opts.custom_ref, j_cutoff=opts.j_cutoff, v_cutoff=opts.v_cutoff)
+                                   spe=opts.species, aux=opts.aux, custom_ref=opts.custom_ref, j_cutoff=opts.j_cutoff, v_cutoff=opts.v_cutoff,
+                                   dj=opts.call_dj)
     # igblast_cln = read_changeo_out(files, out_dir, prefix)
     out_reads_count = len(igblast_cln.index)
     logging.info('Out reads:' + str(out_reads_count))
     print('Out reads:', out_reads_count)
+
+    dj_count = len(igblast_dj.index)
+    logging.info('DJ reads:' + str(dj_count))
+    print('DJ reads:', dj_count)
 
     if opts.skip_assembly:
         if opts.minimal:
@@ -477,6 +502,8 @@ def main():
             write_out(ig_blast_asm, out_dir + '/' + prefix + '_assembled_clones_min.tab')
         else:
             write_out(ig_blast_asm, out_dir + '/' + prefix + '_assembled_clones.tab')
+
+    write_out(igblast_dj, out_dir + '/' + prefix + '_annotated_dj.tab')
 
     #delete tmp dir
     shutil.rmtree(tmp_dir)

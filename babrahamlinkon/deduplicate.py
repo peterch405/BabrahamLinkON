@@ -944,7 +944,7 @@ def deduplicate_bundle_parallel(reads_dict, low_umi_out, out, qual_dict, thresho
         # stats_pre_df_dict = {'UMI': [], 'counts': []}
         # cons_diffs = defaultdict()
 
-        #TODO: create a class for this
+
         # dir_adj_results = [[reads, consensus_seqs, final_umis, umi_counts, low_gt, corrected, low_gt_corrected,
         #                    num_input, stats_pre_df_dict, cons_diffs, consensus_quals]]
         dir_adj_results = []
@@ -1068,33 +1068,36 @@ def deduplicate_bundle_parallel(reads_dict, low_umi_out, out, qual_dict, thresho
 
 
     print('Writing out')
+
     for bundle in range(len(dir_adj_results)):
         # reads, consensus, final_umis, umi_counts, low_gt, corrected, low_gt_corrected,\
         # topologies, nodes, num_input, stats_pre_df_dict, pre_average_distance = results
         # print('Unique:', len(set(dir_adj_results[bundle][0])), 'All:', len(dir_adj_results[bundle][0]))
         #umi_counts
-        labels, values = zip(*Counter(dir_adj_results[bundle].umi_counts).items()) #*-operator to unpack the arguments out of a list or tuple #dir_adj_results[bundle][3]
-        non_dedup_values = tuple(l*v for l, v in zip(labels, values))
+        #in case no reads are output
+        if dir_adj_results[bundle].umi_counts:
+            labels, values = zip(*Counter(dir_adj_results[bundle].umi_counts).items()) #*-operator to unpack the arguments out of a list or tuple #dir_adj_results[bundle][3]
+            non_dedup_values = tuple(l*v for l, v in zip(labels, values))
 
-        if min_reads != None:
-            # cut_point = count_change(labels, non_dedup_values)
+            if min_reads != None:
+                # cut_point = count_change(labels, non_dedup_values)
 
-            cut_point = min_reads
+                cut_point = min_reads
 
-            plt.figure()
-            plt.bar(labels, non_dedup_values)
-            #extract title from read
-            # j_nam = re.search('J\d+', dir_adj_results[bundle][0][0].split(' ')[0]).group(0)
-            j_nam = dir_adj_results[bundle].reads[0].split(' ')[0].split('_')[-3] #dir_adj_results[bundle][0][0]
-            if no_anchor:
-                anchor = ''
-            else:
-                anchor = dir_adj_results[bundle].reads[0].split(' ')[0].split('_')[-2] #dir_adj_results[bundle][0][0]
+                plt.figure()
+                plt.bar(labels, non_dedup_values)
+                #extract title from read
+                # j_nam = re.search('J\d+', dir_adj_results[bundle][0][0].split(' ')[0]).group(0)
+                j_nam = dir_adj_results[bundle].reads[0].split(' ')[0].split('_')[-3] #dir_adj_results[bundle][0][0]
+                if no_anchor:
+                    anchor = ''
+                else:
+                    anchor = dir_adj_results[bundle].reads[0].split(' ')[0].split('_')[-2] #dir_adj_results[bundle][0][0]
 
-            plt.title(j_nam + ' ' + anchor + ' Cut point: ' + str(cut_point), ha='center') #need to put name to know which bundle J is being processed
-            my_plot = plt.axvline(cut_point, linestyle='dashed', linewidth=2).get_figure()
-            pdf_out.savefig(my_plot)
-            plt.close('all')
+                plt.title(j_nam + ' ' + anchor + ' Cut point: ' + str(cut_point), ha='center') #need to put name to know which bundle J is being processed
+                my_plot = plt.axvline(cut_point, linestyle='dashed', linewidth=2).get_figure()
+                pdf_out.savefig(my_plot)
+                plt.close('all')
 
         num_input_all += dir_adj_results[bundle].num_input #dir_adj_results[bundle][7] #num_input
 
@@ -1440,6 +1443,20 @@ class deduplicate:
             # stats_consensus_difference.to_csv(self.out_dir + '/' + self.jv_prefix + '_consensus_difference.tsv', sep="\t")
 
 
+def rev_comp_fq(path, fq):
+    fname_path, fname_end = path.split('.')
+    with general.file_open(path) as in_fname, open(fname_path + '_rv.' + fname_end, 'w') as out_fname:
+        if fq:
+            for qname, seq, thrd, qual in general.fastq_parse(in_fname):
+                rv_seq = general.reverse_complement(seq)
+                out_fname.write(qname + '\n' + rv_seq + '\n' + thrd + '\n' + qual + '\n')
+        else:
+            for qname, seq in general.fasta_iter(in_fname):
+                rv_seq = general.reverse_complement(seq)
+                out_fname.write('>' + qname + '\n' + rv_seq + '\n')
+
+
+
 def parse_args():
     parser = argparse.ArgumentParser(description='BabrahamLinkON Deduplicate')
 
@@ -1452,14 +1469,15 @@ def parse_args():
     sp3 = sub.add_parser('short_anchor')
     sp4 = sub.add_parser('no_anchor')
     sp5 = sub.add_parser('umi_seq_logo')
+    sp6 = sub.add_parser('reverse_complement')
 
     for sp in [sp1,sp2,sp3,sp4,sp5]: #common to all 3
 
         sp.add_argument('--input_dir', dest='in_dir', type=str, required=True, help='Input directory (created for/by preclean)')
+        sp.add_argument('--out', dest='out_dir', type=str, help='Output directory, default: creates Deduplicated in main directory')
 
     for sp in [sp1,sp2,sp3,sp4]:
         sp.add_argument('--threads', dest='nthreads', default=1, type=int, help='Number of threads to use (if aligning), default: 1')
-        sp.add_argument('--out', dest='out_dir', type=str, help='Output directory, default: creates Deduplicated in main directory')
 
         sp.add_argument('--mismatch', dest='mismatch', type=int, default=5, help='Number of mismatches allowed in consensus sequence comparison [5]')
         sp.add_argument('--min_reads', dest='minreads', type=int, default=2, help='Minimum number of reads in UMI group, if less than or equal to [2] then discard')
@@ -1481,7 +1499,7 @@ def parse_args():
     # sp.add_argument('--umi_seq_logo', dest='seqlogo', action='store_true', help='Make seqlogo from UMIs')
 
 
-    for sp in [sp1, sp3, sp5]:
+    for sp in [sp1, sp3, sp5, sp6]:
 
 
         sp.add_argument('--an1', dest='an1', default='GACTCGT', type=str, help='Default: GACTCGT')
@@ -1503,13 +1521,17 @@ def parse_args():
 
         sp.add_argument('--cons_no_qual', dest='cons_no_qual', action='store_true', help='Make consensus without using quality scores')
 
+    sp6.add_argument('--input', dest='input', type=str, required=True, help='Input file/directory with files')
+    sp6.add_argument('--fq', dest='fq', action='store_true', help='Convert fastq')
 
-    sp1.set_defaults(short=False, no_anchor=False, use_v=False, v_len=0, j_len=0, in_len=0, seqlogo=False)
-    sp2.set_defaults(short=True, no_anchor=True, no_msa=True, fq=False, j_len=0, cons_no_qual=False, seqlogo=False)
+
+    sp1.set_defaults(short=False, no_anchor=False, use_v=False, v_len=0, j_len=0, in_len=0, seqlogo=False, rev_comp=False)
+    sp2.set_defaults(short=True, no_anchor=True, no_msa=True, fq=False, j_len=0, cons_no_qual=False, seqlogo=False, rev_comp=False)
     # sp3.set_defaults(short=True, no_anchor=False, no_msa=True, fq=False, j_len=0, cons_no_qual=False, seqlogo=False)
-    sp3.set_defaults(short=True, no_anchor=False, j_len=0, seqlogo=False)
-    sp4.set_defaults(short=False, no_anchor=True, use_v=False, v_len=0, seqlogo=False)
-    sp5.set_defaults(seqlogo=True)
+    sp3.set_defaults(short=True, no_anchor=False, j_len=0, seqlogo=False, rev_comp=False)
+    sp4.set_defaults(short=False, no_anchor=True, use_v=False, v_len=0, seqlogo=False, rev_comp=False)
+    sp5.set_defaults(seqlogo=True, rev_comp=False, cons_no_qual=False, no_msa=False, no_anchor=False)
+    sp6.set_defaults(seqlogo=False, rev_comp=True, cons_no_qual=False, no_msa=False, no_anchor=False, in_dir=None)
     # parser.add_argument('--no_anchor', action='store_true', help='No anchor sequence present')
     # parser.add_argument('--short', action='store_true', help='Short sequences present')
 
@@ -1537,16 +1559,17 @@ def main():
     if opts.no_anchor:
         an1 = ''
         an2 = ''
-    elif opts.short:
-        an1 = ''
-        an2 = ''
+    # elif opts.short:
+    #     an1 = ''
+    #     an2 = ''
     else:
         an1 = opts.an1
         an2 = opts.an2
 
-    dedup = deduplicate(file_directory=opts.in_dir, an1=an1, an2=an2)
+    if not opts.rev_comp:
+        dedup = deduplicate(file_directory=opts.in_dir, an1=an1, an2=an2)
+        dedup.create_dirs_assembled(out_dir=opts.out_dir)
 
-    dedup.create_dirs_assembled(out_dir=opts.out_dir)
 
     if opts.seqlogo:
         if opts.no_anchor:
@@ -1557,8 +1580,27 @@ def main():
             jv_fastq_an2 = glob.glob(opts.in_dir + '/*all_jv*' + an2)[0]
             UMI_seqlogo.umi_seq_logo(jv_fastq_an1, dedup.out_dir + '/' + dedup.jv_prefix + '_' + an1 + '.eps')
             UMI_seqlogo.umi_seq_logo(jv_fastq_an2, dedup.out_dir + '/' + dedup.jv_prefix + '_' + an2 + '.eps')
-    else:
 
+    #reverse complement for partis (needs to be VDJ, default output is JDV)
+    elif opts.rev_comp:
+        #if file path is provided
+        if opts.input.endswith('fastq'):
+            print('Reverse complementing:', opts.input)
+            rev_comp_fq(os.path.abspath(opts.input), fq=True)
+        elif opts.input.endswith('fasta'):
+            print('Reverse complementing:', opts.input)
+            rev_comp_fq(os.path.abspath(opts.input), fq=False)
+        #if only directory provided
+        else:
+            if opts.fq:
+                jv_fnames = glob.glob(opts.input + '/*.fastq')
+            else:
+                jv_fnames = glob.glob(opts.input + '/*.fasta')
+            for jv_fname in jv_fnames:
+                print('Reverse complementing:', jv_fname)
+                rev_comp_fq(os.path.abspath(jv_fname), fq=opts.fq)
+
+    else:
 
         logging.basicConfig(level=logging.DEBUG, filename=dedup.out_dir +'/' + dedup.jv_prefix + '.log', filemode='a+',
                             format='%(asctime)-15s %(levelname)-8s %(message)s')

@@ -25,7 +25,7 @@ def splice_fasta(fasta_path, chunk_size):
         yield fasta_chunk
 
 #TODO:IgBlast fixed num_threads in version > 1.5, could test this later
-def igblast_worker(fasta, spe, custom_ref, aux_file, additional_flags):
+def igblast_worker(fasta, spe, custom_ref, aux_file, additional_flags, dj=False):
 
     #if fasta string - stdin else file in
     if fasta.startswith('>'):
@@ -33,7 +33,10 @@ def igblast_worker(fasta, spe, custom_ref, aux_file, additional_flags):
     else:
         fasta_input = fasta
 
-    DATA_PATH = pkg_resources.resource_filename('babrahamlinkon', 'resources/IgBlast_database/')
+    if dj:
+        DATA_PATH = pkg_resources.resource_filename('babrahamlinkon', 'resources/IgBlast_database/with_dj/')
+    else:
+        DATA_PATH = pkg_resources.resource_filename('babrahamlinkon', 'resources/IgBlast_database/')
     #TODO: IGKD using IGH sequences, none should get called, test more (make database with all loci?)
     if spe == 'mmu':
         if custom_ref:
@@ -99,7 +102,7 @@ def igblast_worker(fasta, spe, custom_ref, aux_file, additional_flags):
     return result
 
 
-def run_igblast(fasta, out_fmt, splice_size, spe, nprocs, custom_ref, aux_file=None, additional_flags=None):
+def run_igblast(fasta, out_fmt, splice_size, spe, nprocs, custom_ref, dj=False, aux_file=None, additional_flags=None):
     '''Run IgBlast in parallel
     :param fasta: fasta file path
     :param out_fmt: out path for fmt7 file
@@ -107,6 +110,7 @@ def run_igblast(fasta, out_fmt, splice_size, spe, nprocs, custom_ref, aux_file=N
     :param spe: species
     :param nprocs: number of processes to run in parallel
     :param additional_flags: a list of additional flags to pass to igblast
+    :param dj: call DJ recombination
     '''
 
     DATA_PATH = pkg_resources.resource_filename('babrahamlinkon', 'resources/IgBlast_database/')
@@ -127,7 +131,7 @@ def run_igblast(fasta, out_fmt, splice_size, spe, nprocs, custom_ref, aux_file=N
         aux_file = DATA_PATH + 'optional_file/human_gl.aux'
 
     #returns a list of all the results
-    results = Parallel(n_jobs=nprocs)(delayed(igblast_worker)(chunk, spe, custom_ref, aux_file, additional_flags) for chunk in splice_fasta(fasta, 10000))
+    results = Parallel(n_jobs=nprocs)(delayed(igblast_worker)(chunk, spe, custom_ref, aux_file, additional_flags, dj) for chunk in splice_fasta(fasta, 10000))
 
     with open(out_fmt, 'w') as out_file:
         for item in range(len(results)):
@@ -135,10 +139,15 @@ def run_igblast(fasta, out_fmt, splice_size, spe, nprocs, custom_ref, aux_file=N
 
 
 
-def parse_igblast(fmt, fasta, spe, custom_ref):
+def parse_igblast(fmt, fasta, spe, custom_ref, dj):
     '''run changeo MakeDb.py
     '''
-    DATA_PATH = pkg_resources.resource_filename('babrahamlinkon', 'resources/IgBlast_database/')
+
+    if dj:
+        DATA_PATH = pkg_resources.resource_filename('babrahamlinkon', 'resources/IgBlast_database/with_dj/')
+
+    else:
+        DATA_PATH = pkg_resources.resource_filename('babrahamlinkon', 'resources/IgBlast_database/')
 
     if spe == 'mmu':
         if custom_ref:
