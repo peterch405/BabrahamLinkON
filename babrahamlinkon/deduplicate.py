@@ -1451,7 +1451,7 @@ def rev_comp_fq(path, fq):
                 rv_seq = general.reverse_complement(seq)
                 out_fname.write(qname + '\n' + rv_seq + '\n' + thrd + '\n' + qual + '\n')
         else:
-            for qname, seq in general.fasta_iter(in_fname):
+            for qname, seq in general.fasta_iter(path):
                 rv_seq = general.reverse_complement(seq)
                 out_fname.write('>' + qname + '\n' + rv_seq + '\n')
 
