@@ -122,3 +122,17 @@ Annotation and clone assembly
 .. code:: bash
 
  assemble_clones.py umi -fa <fasta from deduplication> --full_name --threads <int> --species <mmu or hsa or mmuk>
+
+
+
+Running partis
+--------------
+
+Partis expects sequences to be input in the VDJ direction. BabrahamLinkON returns reads in the JDV orientation.
+To make the fasta/q with partis, simply run:
+
+.. code:: bash
+
+  deduplicate.py reverse_complement --input <fasta/q file or directory of files>
+
+If providing a fastq, use the `--fq` flag.

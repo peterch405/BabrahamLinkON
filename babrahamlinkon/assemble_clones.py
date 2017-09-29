@@ -265,7 +265,8 @@ def read_changeo_out(tab_file, out, prefix, fasta, v_fastq=None, plot=False, ret
         dj_filt = len(igblast_dj.index)-len(igblast_dj_out.index)
         logging.info('Number of DJ reads filtered:' + str(dj_filt))
         print('Number of DJ reads filtered:', dj_filt)
-
+    else:
+        igblast_dj_out = []
 
 
     #Filter mutiple different V calls
@@ -481,9 +482,12 @@ def main():
     logging.info('Out reads:' + str(out_reads_count))
     print('Out reads:', out_reads_count)
 
-    dj_count = len(igblast_dj.index)
-    logging.info('DJ reads:' + str(dj_count))
-    print('DJ reads:', dj_count)
+    if opts.call_dj:
+        dj_count = len(igblast_dj.index)
+        logging.info('DJ reads:' + str(dj_count))
+        print('DJ reads:', dj_count)
+        write_out(igblast_dj, out_dir + '/' + prefix + '_annotated_dj.tab')
+
 
     if opts.skip_assembly:
         if opts.minimal:
@@ -503,7 +507,6 @@ def main():
         else:
             write_out(ig_blast_asm, out_dir + '/' + prefix + '_assembled_clones.tab')
 
-    write_out(igblast_dj, out_dir + '/' + prefix + '_annotated_dj.tab')
 
     #delete tmp dir
     shutil.rmtree(tmp_dir)
