@@ -202,7 +202,7 @@ class fastqHolder:
 
 
 
-    def write_demultiplex_umi_extract_assembled(self, jv_fastq, gene_list, out_path, an1, an2, umi_len):
+    def write_demultiplex_umi_extract_assembled(self, jv_fastq, gene_list, out_path, an1, an2, umi_len, beyond_anchor, q_score, verbose):
         '''Write everything into single fastq file and extract umi
         :param fastq: fastq to subset
         :param gene_list: what to subset by (J gene in split_gene)
@@ -222,7 +222,14 @@ class fastqHolder:
                 for gene in gene_list: #J1 J2 J3 J4...
                     if qname.split(' ')[0][1:] in self.demultiplex[gene]:
 
+                        if an1 in gene:
+                            anchor_len = 7
+                        elif an2 in gene:
+                            anchor_len = 8
+
                         umi = seq[-umi_len:] #last 6 bases NNNNNN (it is in reverse complement configuration compared to original V read)
+                        umi += seq[-umi_len-anchor_len-beyond_anchor:-umi_len-anchor_len]
+
 
                         # umi_dict[qname.split(' ')[0][1:]] = umi #add to dict so can add to J qname too
                         if self.misprimed: #empty dict evals to False
@@ -240,24 +247,40 @@ class fastqHolder:
                                 assert len(seq) == len(qual), 'Sequence and quality length do not match!'
                             except KeyError:
                                 pass
+
+                        #if taking sequences beyond the umi, recheck the quality
+                        if beyond_anchor > 0:
+                            umi_qual = qual[-umi_len:]
+                            umi_qual += qual[-umi_len-anchor_len-beyond_anchor:-umi_len-anchor_len]
+
+                            if general.check_qual(umi_qual, q_score):
+                                #poor quality skip record
+                                low_qual_UMI += 1
+                                continue #skip low quality record
+
                         #Remove UMI and barcode from seq (keeping it in read qname only)
                         if an1 in gene:
                             an1_out_file.write(qname.split(' ')[0] + '_' + gene + '_' + umi + ' ' +
-                            ''.join(qname.split(' ')[1:]) + '\n' + seq[:-(7+umi_len)] + '\n' + thrd + '\n' + qual[:-(7+umi_len)] + '\n')
+                            ''.join(qname.split(' ')[1:]) + '\n' + seq[:-(anchor_len+umi_len+beyond_anchor)] +
+                            '\n' + thrd + '\n' + qual[:-(anchor_len+umi_len+beyond_anchor)] + '\n')
                             an1_count += 1
                             gene_count[gene] += 1
                         else:
                             an2_out_file.write(qname.split(' ')[0] + '_' + gene + '_' + umi + ' ' +
-                            ''.join(qname.split(' ')[1:]) + '\n' + seq[:-(8+umi_len)] + '\n' + thrd + '\n' + qual[:-(8+umi_len)] + '\n')
+                            ''.join(qname.split(' ')[1:]) + '\n' + seq[:-(anchor_len+umi_len+beyond_anchor)] +
+                            '\n' + thrd + '\n' + qual[:-(anchor_len+umi_len+beyond_anchor)] + '\n')
                             an2_count += 1
                             gene_count[gene] += 1
 
-        # print('Low quality UMIs:', low_qual_UMI)
-        print(an1, 'reads written out:', an1_count)
-        print(an2, 'reads written out:', an2_count)
+        if verbose:
+            # print('Low quality UMIs:', low_qual_UMI)
+            print(an1, 'reads written out:', an1_count)
+            print(an2, 'reads written out:', an2_count)
 
-        for j in gene_count.keys():
-            print('Number of', j, 'reads written out:', gene_count[j])
+            for j in gene_count.keys():
+                print('Number of', j, 'reads written out:', gene_count[j])
+
+        return [low_qual_UMI, an1_count, an2_count]
 
 
     #for short sequences only
@@ -668,7 +691,8 @@ def demultiplex_assembled(jv_region, fq_dict_pcln, umi_len, anchor_1='GACTCGT', 
 
 
 
-def write_assembled(jv_region, fq_dict_demult, umi_len, prefix=None, out_dir=None, anchor_1='GACTCGT', anchor_2='CTGCTCCT'):
+def write_assembled(jv_region, fq_dict_demult, umi_len, prefix=None, out_dir=None,
+                    anchor_1='GACTCGT', anchor_2='CTGCTCCT', beyond_anchor=0, q_score=30, verbose=False):
     '''Write out precleaned fastq files
     :param jv_region: (PEAR) assembled fastq file with J and V end sequences
     :param fq_dict: a fastqHolder object from demultiplex
@@ -703,9 +727,15 @@ def write_assembled(jv_region, fq_dict_demult, umi_len, prefix=None, out_dir=Non
             fq_dict_demult.write_demultiplex_unassigned(fp_jv_region, key, out_dir + '/' + prefix_jv + '_' + key)
 
     #Write out everything else
-    fq_dict_demult.write_demultiplex_umi_extract_assembled(fp_jv_region, key_list,
+    low_qual, an1_count, an2_count = fq_dict_demult.write_demultiplex_umi_extract_assembled(fp_jv_region, key_list,
                                                            out_path=out_dir + '/' + prefix_jv + '_' + 'all_jv',
-                                                           an1=anchor_1, an2=anchor_2, umi_len=umi_len)
+                                                           an1=anchor_1, an2=anchor_2, umi_len=umi_len, beyond_anchor=beyond_anchor,
+                                                           q_score=q_score, verbose=verbose)
+
+    logging.info('Number of ' + anchor_1 + ' reads written out:' + str(an1_count))
+    logging.info('Number of ' + anchor_2 + ' reads written out:' + str(an2_count))
+    if beyond_anchor > 0:
+        logging.info('Number of additional low umi quality reads filtered:' + str(low_qual))
 
     #write out germline and other
     for key in germ_files:
@@ -817,10 +847,10 @@ def v_end_identity(igh_ref, V_region, thread_num, spe='mmu'):
     run_bowtie2 = bowtie2_wrapper.bowtie2()
     run_bowtie2.align_single(fastq=V_region, nthreads=thread_num, spe=spe, verbose=True)
 
-    #fetch only within the IGH
-    igh = presets.prs(spe).igh()
+    #fetch only within the IG region
+    ig = presets.prs(spe).ig()
 
-    sam_file_v = run_bowtie2.pysam_out(region=igh, fetch=True)
+    sam_file_v = run_bowtie2.pysam_out(region=ig, fetch=True)
 
     # if write:
     #     run_bowtie2.write(region=igh) #Doesn't work with Hydrogen for some reason!
@@ -939,12 +969,14 @@ def parse_args():
         # sp.add_argument('--anchor', action='store_true', help='If using short reads <250bp with anchor+umi')
         sp.add_argument('--ref', dest='ref_path', default=None, type=str, help='Igh reference files path')
 
-    sp3.add_argument('-ba', '--beyond_anchor', dest='beyond_anchor', type=int, default=0, help='Length of V end to take beyond the anchor sequence')
+    for sp in [sp1, sp3]:
+        sp.add_argument('-ba', '--beyond_anchor', dest='beyond_anchor', type=int, default=0, help='Length of V end to take beyond the anchor sequence')
+
     sp4.add_argument('--input_dir', dest='in_dir', type=str, required=True, help='Input directory (created for/by preclean)')
     # parser.add_argument('--plot_QC', action='store_true', help='QC plot showing if all germline reads were removed (few will be present J-J rearrangements)')
 
     sp1.set_defaults(short=False, mispriming_error=False)
-    sp2.set_defaults(short=True, mispriming_error=False)
+    sp2.set_defaults(short=True, anchor=False, mispriming_error=False, beyond_anchor=0)
     sp3.set_defaults(short=True, anchor=True, mispriming_error=False)
     sp4.set_defaults(short=False, mispriming_error=True)
 
@@ -1065,7 +1097,8 @@ def main():
 
             fq_demultiplex = demultiplex_assembled(assembled_file + '.assembled.fastq', fq_clean, umi_len=opts.umi_len, anchor_1=opts.an1, anchor_2=opts.an2, verbose=opts.verbose)
 
-            write_assembled(assembled_file + '.assembled.fastq', fq_demultiplex, umi_len=opts.umi_len, prefix=opts.prefix, out_dir=out_dir)
+            write_assembled(assembled_file + '.assembled.fastq', fq_demultiplex, umi_len=opts.umi_len, prefix=opts.prefix, out_dir=out_dir,
+                            beyond_anchor=opts.beyond_anchor, q_score=opts.q_score, verbose=opts.verbose)
 
             if opts.keep_pear:
                 print('Removing files')

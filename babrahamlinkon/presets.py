@@ -40,15 +40,19 @@ class prs:
                     'J6.c':'TTCCCCCAGACGTCCATACCGT'}  #Misprimed sequence
         else:
             print('Only mmu, mmuk and hsa available for now')
-    #
-    # def igh(self):
-    #     if self.name == 'mmu' or self.name == 'mouse' or self.name == 'mus musculus':
-    #         return ['chr12', 113249830, 116015093] #IgH mm10
-    #     elif self.name == 'hsa' or self.name == 'human' or self.name == 'homo sapien':
-    #         # return ['chr14', 105857867, 106890699] #IgH GRCh38.7 (VDJ only)
-    #         return ['chr14', 106324871, 107292532] #hg19
-    #     else:
-    #         print('Only mmu, mmuk and hsa available for now')
+
+    #needed for short pipeline where v genes identity additionally identified using bowtie (might remove in future)
+    def ig(self):
+        if self.name == 'mmu' or self.name == 'mouse' or self.name == 'mus musculus':
+            return ['chr12', 113249830, 116015093] #IgH mm10
+        if self.name == 'mmuk' or self.name == 'mouse kappa' or self.name == 'mus musculus kappa':
+            return ['chr6', 67506809, 70747460] #IgK mm10
+        elif self.name == 'hsa' or self.name == 'human' or self.name == 'homo sapien':
+            # return ['chr14', 105857867, 106890699] #IgH GRCh38.7 (VDJ only)
+            return ['chr14', 106324871, 107292532] #hg19
+        else:
+            print('Only mmu, mmuk and hsa available for now')
+
 
     def bowtie_index(self):
         if not os.environ.get('BOWTIE2_INDEXES'):
