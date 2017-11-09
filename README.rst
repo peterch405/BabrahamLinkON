@@ -136,7 +136,7 @@ To make the fasta/q compatible with partis, simply run:
 
   deduplicate.py reverse_complement --input <fasta/q file or directory of files>
 
-If providing a fastq, use the :bash:`--fq` flag.
+If providing a fastq, use the `--fq` flag.
 
 
 Test dataset
@@ -148,4 +148,4 @@ A small dataset can be found in the test folder. This can be used to test your i
 
  . run_test
 
-The expected output is in :bash:`expected_test_output` folder
+The expected output is in `expected_test_output` folder
