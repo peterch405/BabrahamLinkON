@@ -8,7 +8,6 @@ from copy import deepcopy
 ################################################################################
 #Functions from UMI_tools to do UMI error corrections (some modifications)
 ################################################################################
-# TODO: short option giving different results each run
 
 '''
 directional-adjacency
