@@ -1,4 +1,9 @@
 
+# Copyright: (C) 2017 Peter Chovanec <peter.chovanec@babraham.ac.uk>
+# Copyright: (C) 2017, BabrahamLinkON
+# GNU General Public License v3.0+ (see LICENSE or https://www.gnu.org/licenses/gpl-3.0.txt)
+
+
 import subprocess
 import shlex
 from babrahamlinkon.general import fasta_iter

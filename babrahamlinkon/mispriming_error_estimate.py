@@ -1,4 +1,8 @@
 
+# Copyright: (C) 2017 Peter Chovanec <peter.chovanec@babraham.ac.uk>
+# GNU General Public License v3.0+ (see LICENSE or https://www.gnu.org/licenses/gpl-3.0.txt)
+
+
 from babrahamlinkon import general, presets, bowtie2_wrapper, mispriming_correction, deduplicate
 from collections import defaultdict
 import os
@@ -7,8 +11,6 @@ import pandas as pd
 import numpy as np
 
 #read in first 10 lines of germline fastq to determine if it is long reads or short, do they need trimming?
-
-
 
 
 def align_germline(jv_region, spe, plot, write, verbose, threads_num):

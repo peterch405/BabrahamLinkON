@@ -1,4 +1,10 @@
 
+# Copyright: (C) 2017 Peter Chovanec <peter.chovanec@babraham.ac.uk>
+# Copyright: (C) 2017, BabrahamLinkON
+# GNU General Public License v3.0+ (see LICENSE or https://www.gnu.org/licenses/gpl-3.0.txt)
+
+
+
 from babrahamlinkon import deduplicate, general
 import pyximport
 from collections import defaultdict, Counter
@@ -16,7 +22,7 @@ https://github.com/CGATOxford/UMI-tools/blob/master/umi_tools/dedup.py
 
 The MIT License (MIT)
 
-Copyright (c) 2015 CGAT
+Copyright (C) 2017 Peter Chovanec <peter.chovanec@babraham.ac.uk>
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal

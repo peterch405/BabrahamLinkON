@@ -1,5 +1,10 @@
 #!/usr/bin/env python3
 
+# Copyright: (C) 2017 Peter Chovanec <peter.chovanec@babraham.ac.uk>
+# Copyright: (C) 2017, BabrahamLinkON
+# GNU General Public License v3.0+ (see LICENSE or https://www.gnu.org/licenses/gpl-3.0.txt)
+
+
 from collections import defaultdict, Counter
 
 #Do not hard code matplotlib backend, use export MPLBACKEND=pdf instead if running on headless node

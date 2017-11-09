@@ -1,4 +1,9 @@
-#!/usr/bin/Rscript 
+#!/usr/bin/Rscript
+
+# Copyright: (C) 2017 Peter Chovanec <peter.chovanec@babraham.ac.uk>
+# Copyright: (C) 2017, BabrahamLinkON
+# GNU General Public License v3.0+ (see LICENSE or https://www.gnu.org/licenses/gpl-3.0.txt)
+
 
 source("https://bioconductor.org/biocLite.R")
 if("GenomicFeatures" %in% rownames(installed.packages()) == FALSE) {
@@ -43,7 +48,7 @@ args <- parser$parse_args()
 # args <- parser$parse_args(c("-b", "/media/chovanec/My_Passport/Sync/BabrahamLinkON/tests/UMI_tmp/lane3_WT_FrBC_1_GCCAAT_L003_R1_val_1_40k_V1_GACTCGT_umi_ext.bam",
 #                             "/media/chovanec/My_Passport/Sync/BabrahamLinkON/tests/UMI_tmp/lane3_WT_FrBC_1_GCCAAT_L003_R1_val_1_40k_V1_CTGCTCCT_umi_ext_dedup_sorted.bam",
 #                             "-n", "Before", "After", "-o", "/media/chovanec/My_Passport/Sync/BabrahamLinkON/tests/igh.pdf"))
-# 
+#
 # print(args$input_list)
 
 if(length(args$input_list) != length(args$names_list)){
@@ -71,10 +76,10 @@ tracks[["itrack"]] <- IdeogramTrack(genome=args$genome,chromosome=chrm)
 l_size <- length(tracks)
 for(i in 1:length(args$input_list)){
     f_name <- args$input_list[i]
-    tracks[[l_size+i]] <- DataTrack(range=f_name,genome=args$genome, name=args$names_list[i], 
-                                    chromosome=chrm, type = "histogram", 
+    tracks[[l_size+i]] <- DataTrack(range=f_name,genome=args$genome, name=args$names_list[i],
+                                    chromosome=chrm, type = "histogram",
                                     col.histogram= "#377EB8", fill="#377EB8")
-    
+
 }
 
 if(args$genome == "mm10"){
@@ -85,7 +90,7 @@ if(args$genome == "mm10"){
 
 #IgH only annotation dataframe from ensembl
 ensembl <- useEnsembl(biomart="ensembl", dataset=dataset_nam)
-genes <- getBM(attributes=c('chromosome_name','start_position','end_position', 'strand', 'external_gene_name'), 
+genes <- getBM(attributes=c('chromosome_name','start_position','end_position', 'strand', 'external_gene_name'),
                filters ='chromosome_name', values=chrm_num, mart = ensembl)
 igh_genes <- genes[grep("(Ig|IG)", genes$external_gene_name),]
 colnames(igh_genes) <- c("chromosome", "start", "end", "strand", "symbol")
@@ -97,7 +102,6 @@ tracks[["grtrack_id"]] <- GeneRegionTrack(igh_genes, genome=args$genome, chromos
 
 
 #Write to pdf
-pdf(args$output, height=20, paper='A4') #,width=10,height=18 , 
+pdf(args$output, height=20, paper='A4') #,width=10,height=18 ,
 plotTracks(tracks, from = start, to = end) #extend.left=200000
 dev.off()
-
