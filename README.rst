@@ -63,6 +63,7 @@ BabrahamLinkON is dependent on:
  * changeo>=0.3.7,
  * tqdm>=4.13.0.
 
+Installation time with all dependencies: ~5 minutes
 
 Enviroment variables:
 ------------------------------
@@ -129,10 +130,22 @@ Running partis
 --------------
 
 Partis expects sequences to be input in the VDJ direction. BabrahamLinkON returns reads in the JDV orientation.
-To make the fasta/q with partis, simply run:
+To make the fasta/q compatible with partis, simply run:
 
 .. code:: bash
 
   deduplicate.py reverse_complement --input <fasta/q file or directory of files>
 
-If providing a fastq, use the `--fq` flag.
+If providing a fastq, use the :bash:`--fq` flag.
+
+
+Test dataset
+============
+
+A small dataset can be found in the test folder. This can be used to test your installation:
+
+.. code:: bash
+
+ . run_test
+
+The expected output is in :bash:`expected_test_output` folder

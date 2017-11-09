@@ -486,14 +486,14 @@ def main():
         dj_count = len(igblast_dj.index)
         logging.info('DJ reads:' + str(dj_count))
         print('DJ reads:', dj_count)
-        write_out(igblast_dj, out_dir + '/' + prefix + '_annotated_dj.tab')
+        write_out(igblast_dj, out_dir + '/' + prefix + '_annotated_dj.tsv')
 
 
     if opts.skip_assembly:
         if opts.minimal:
-            write_out(igblast_cln, out_dir + '/' + prefix + '_annotated_clones_min.tab')
+            write_out(igblast_cln, out_dir + '/' + prefix + '_annotated_clones_min.tsv')
         else:
-            write_out(igblast_cln, out_dir + '/' + prefix + '_annotated_clones.tab')
+            write_out(igblast_cln, out_dir + '/' + prefix + '_annotated_clones.tsv')
 
     else:
         print('Assembling clones')
@@ -503,9 +503,9 @@ def main():
 
 
         if opts.minimal:
-            write_out(ig_blast_asm, out_dir + '/' + prefix + '_assembled_clones_min.tab')
+            write_out(ig_blast_asm, out_dir + '/' + prefix + '_assembled_clones_min.tsv')
         else:
-            write_out(ig_blast_asm, out_dir + '/' + prefix + '_assembled_clones.tab')
+            write_out(ig_blast_asm, out_dir + '/' + prefix + '_assembled_clones.tsv')
 
 
     #delete tmp dir

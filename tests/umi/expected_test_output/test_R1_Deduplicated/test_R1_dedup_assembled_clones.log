@@ -1,0 +1,434 @@
+2017-11-09 12:15:00,544 INFO     Subprocess: "MakeDb.py igblast -i /tmp/tmpmmklt0go/igblast.fmt7 -s ./test_R1_Deduplicated/test_R1_dedup.fasta -r /home/chovanec/anaconda3/lib/python3.5/site-packages/babrahamlinkon/resources/IgBlast_database/Mus_musculus_IGH[JDV].fasta --regions --scores --cdr3 --partial"
+2017-11-09 12:15:08,125 INFO              START> MakeDB
+       ALIGNER> IgBlast
+ALIGNER_OUTPUT> igblast.fmt7
+      SEQ_FILE> test_R1_dedup.fasta
+      NO_PARSE> False
+       PARTIAL> True
+        SCORES> True
+       REGIONS> True
+
+
+PROGRESS> 12:15:02 [Loading sequence files   ] 0.0 min
+PROGRESS> 12:15:02 [Done                     ] 0.0 min
+
+PROGRESS> 12:15:02 [                    ]   0% (     0) 0.0 min
+PROGRESS> 12:15:02 [#                   ]   5% (   658) 0.0 min
+PROGRESS> 12:15:02 [##                  ]  10% ( 1,316) 0.0 min
+PROGRESS> 12:15:03 [###                 ]  15% ( 1,974) 0.0 min
+PROGRESS> 12:15:03 [####                ]  20% ( 2,632) 0.0 min
+PROGRESS> 12:15:03 [#####               ]  25% ( 3,290) 0.0 min
+WARNING: IGHV1-62-2*01 was not found in the germline repository. IMGT-gapped sequence cannot be determined for HWI-M02293:267:000000000-B463D:1:1103:21633:23973_J3_GACTCGT_ACCTATCTAGAA_10.
+
+WARNING: IGHV1-62-2*01 was not found in the germline repository. IMGT-gapped sequence cannot be determined for HWI-M02293:267:000000000-B463D:1:1103:15536:6394_J4_GACTCGT_TGTATTTACAGC_4.
+
+WARNING: IGHV5-6*01 was not found in the germline repository. IMGT-gapped sequence cannot be determined for HWI-M02293:267:000000000-B463D:1:1102:6031:13479_J2_GACTCGT_ACTGACGGATAC_6.
+
+WARNING: IGHV1-62-2*01 was not found in the germline repository. IMGT-gapped sequence cannot be determined for HWI-M02293:267:000000000-B463D:1:1102:11767:4088_J4_GACTCGT_CTGGTTAGCCTC_3.
+
+WARNING: IGHV1-62-2*01 was not found in the germline repository. IMGT-gapped sequence cannot be determined for HWI-M02293:267:000000000-B463D:1:1101:8654:17779_unclear-J4-chw_GACTCGT_GTATCCCTATAT_5.
+
+WARNING: IGHV1-62-2*01 was not found in the germline repository. IMGT-gapped sequence cannot be determined for HWI-M02293:267:000000000-B463D:1:1101:17238:18089_J3_GACTCGT_CCCCTTAAAAAA_5.
+
+WARNING: IGHV2-6*01 was not found in the germline repository. IMGT-gapped sequence cannot be determined for HWI-M02293:267:000000000-B463D:1:1101:26310:6403_J4_GACTCGT_CGCGCGCAGGCT_10.
+
+WARNING: IGHV1-62-2*01 was not found in the germline repository. IMGT-gapped sequence cannot be determined for HWI-M02293:267:000000000-B463D:1:1101:3962:19116_J2_GACTCGT_CCGGGCCCTCGC_7.
+
+WARNING: IGHV1-62-2*01 was not found in the germline repository. IMGT-gapped sequence cannot be determined for HWI-M02293:267:000000000-B463D:1:1102:12244:19248_J2_GACTCGT_CTCCTATGGCCA_5.
+
+WARNING: IGHV5-6*01 was not found in the germline repository. IMGT-gapped sequence cannot be determined for HWI-M02293:267:000000000-B463D:1:1101:23781:7617_J1_GACTCGT_AGTAGGAGATGT_11.
+
+WARNING: IGHV1-62-2*01 was not found in the germline repository. IMGT-gapped sequence cannot be determined for HWI-M02293:267:000000000-B463D:1:1101:18206:7873_J3_GACTCGT_AATCGGGCCAGA_17.
+
+WARNING: IGHV1-62-2*01 was not found in the germline repository. IMGT-gapped sequence cannot be determined for HWI-M02293:267:000000000-B463D:1:1102:23709:11924_J3_GACTCGT_GTATCTATTCGA_6.
+
+WARNING: IGHV5-6*01 was not found in the germline repository. IMGT-gapped sequence cannot be determined for HWI-M02293:267:000000000-B463D:1:1104:12043:16537_J2_GACTCGT_TGACGAAGGGAC_7.
+
+WARNING: IGHV1-62-2*01 was not found in the germline repository. IMGT-gapped sequence cannot be determined for HWI-M02293:267:000000000-B463D:1:1113:10796:3787_J2_GACTCGT_TATGCGCAAAAC_3.
+
+WARNING: IGHV2-6*01 was not found in the germline repository. IMGT-gapped sequence cannot be determined for HWI-M02293:267:000000000-B463D:1:1101:16207:17232_J1_GACTCGT_AGTGAAACTACG_10.
+
+WARNING: IGHV5-6*01 was not found in the germline repository. IMGT-gapped sequence cannot be determined for HWI-M02293:267:000000000-B463D:1:1104:14219:11941_J2_GACTCGT_GATCCAGCCACA_3.
+
+WARNING: IGHV1-62-2*01 was not found in the germline repository. IMGT-gapped sequence cannot be determined for HWI-M02293:267:000000000-B463D:1:1101:23913:2259_J3_GACTCGT_AACAATTATTAT_7.
+
+WARNING: IGHV1-62-2*01 was not found in the germline repository. IMGT-gapped sequence cannot be determined for HWI-M02293:267:000000000-B463D:1:1101:15114:23263_J3_GACTCGT_CAGTTGTAACCC_14.
+
+WARNING: IGHV1-62-2*01 was not found in the germline repository. IMGT-gapped sequence cannot be determined for HWI-M02293:267:000000000-B463D:1:1109:19012:13462_J2_GACTCGT_CACGTTTCATAT_7.
+
+WARNING: IGHV1-62-2*01 was not found in the germline repository. IMGT-gapped sequence cannot be determined for HWI-M02293:267:000000000-B463D:1:1103:11057:24184_J3_GACTCGT_TGCAAGAACGGT_6.
+
+WARNING: IGHV1-62-2*01 was not found in the germline repository. IMGT-gapped sequence cannot be determined for HWI-M02293:267:000000000-B463D:1:1104:25939:4552_J4_GACTCGT_AATAAGCCAACA_5.
+
+WARNING: IGHV1-62-2*01 was not found in the germline repository. IMGT-gapped sequence cannot be determined for HWI-M02293:267:000000000-B463D:1:1103:12911:23548_J4_GACTCGT_CCCCCGCGTGCA_4.
+
+WARNING: IGHV1-62-2*01 was not found in the germline repository. IMGT-gapped sequence cannot be determined for HWI-M02293:267:000000000-B463D:1:1102:8585:13196_J2_GACTCGT_AACAACCTGCGC_8.
+
+WARNING: IGHV5-6*01 was not found in the germline repository. IMGT-gapped sequence cannot be determined for HWI-M02293:267:000000000-B463D:1:1101:14984:16773_J3_GACTCGT_ACTCTCAACATC_8.
+
+WARNING: IGHV1-62-2*01 was not found in the germline repository. IMGT-gapped sequence cannot be determined for HWI-M02293:267:000000000-B463D:1:1101:27641:17512_J1_GACTCGT_AACGTCGTCCCT_12.
+
+WARNING: IGHV1-62-2*01 was not found in the germline repository. IMGT-gapped sequence cannot be determined for HWI-M02293:267:000000000-B463D:1:1102:6524:19914_J4_GACTCGT_TCGCGCCCTGCC_7.
+
+WARNING: IGHV2-6*01 was not found in the germline repository. IMGT-gapped sequence cannot be determined for HWI-M02293:267:000000000-B463D:1:1102:21934:3650_J3_GACTCGT_CTGTATTCGAAA_13.
+
+WARNING: IGHV1-62-2*01 was not found in the germline repository. IMGT-gapped sequence cannot be determined for HWI-M02293:267:000000000-B463D:1:1104:18354:18180_J3_GACTCGT_GTATCAATCTTC_11.
+
+WARNING: IGHV1-62-2*01 was not found in the germline repository. IMGT-gapped sequence cannot be determined for HWI-M02293:267:000000000-B463D:1:1101:13546:20364_J3_GACTCGT_TGGCAACCCTCA_15.
+
+WARNING: IGHV1-62-2*01 was not found in the germline repository. IMGT-gapped sequence cannot be determined for HWI-M02293:267:000000000-B463D:1:1101:20009:12246_J2_GACTCGT_AAATTACAACTC_10.
+
+WARNING: IGHV1-62-2*01 was not found in the germline repository. IMGT-gapped sequence cannot be determined for HWI-M02293:267:000000000-B463D:1:1102:10034:9505_J2_GACTCGT_TCCCACAACTCT_9.
+
+WARNING: IGHV5-6*01 was not found in the germline repository. IMGT-gapped sequence cannot be determined for HWI-M02293:267:000000000-B463D:1:1103:25981:4738_J3_GACTCGT_CCGCCGCAATAC_14.
+
+WARNING: IGHV1-62-2*01 was not found in the germline repository. IMGT-gapped sequence cannot be determined for HWI-M02293:267:000000000-B463D:1:1103:5935:9969_unclear-J2-chw_GACTCGT_ATTATCACGTAT_5.
+
+WARNING: IGHV1-62-2*01 was not found in the germline repository. IMGT-gapped sequence cannot be determined for HWI-M02293:267:000000000-B463D:1:1101:19336:3998_J4_GACTCGT_AACAACTCGCAC_7.
+
+WARNING: IGHV1-62-2*01 was not found in the germline repository. IMGT-gapped sequence cannot be determined for HWI-M02293:267:000000000-B463D:1:1107:12520:2468_J4_GACTCGT_TAATCCAGAGTG_4.
+
+WARNING: IGHV1-62-2*01 was not found in the germline repository. IMGT-gapped sequence cannot be determined for HWI-M02293:267:000000000-B463D:1:1101:13387:13704_unclear-J2-chw_GACTCGT_GAGCCTGGCTTA_9.
+
+WARNING: IGHV5-6*01 was not found in the germline repository. IMGT-gapped sequence cannot be determined for HWI-M02293:267:000000000-B463D:1:1104:15220:24767_unclear-J2-chw_GACTCGT_GCCTTTATACGT_8.
+
+WARNING: IGHV5-6*01 was not found in the germline repository. IMGT-gapped sequence cannot be determined for HWI-M02293:267:000000000-B463D:1:1102:13785:19185_unclear-J2-chw_GACTCGT_CTCCCAGGCGTC_5.
+
+WARNING: IGHV5-6*01 was not found in the germline repository. IMGT-gapped sequence cannot be determined for HWI-M02293:267:000000000-B463D:1:1101:20287:12952_unclear-J2-chw_GACTCGT_TAATAGGTAGCT_7.
+
+WARNING: IGHV5-6*01 was not found in the germline repository. IMGT-gapped sequence cannot be determined for HWI-M02293:267:000000000-B463D:1:1104:3936:18835_J1_GACTCGT_TGTATATTGTAT_9.
+
+WARNING: IGHV1-62-2*01 was not found in the germline repository. IMGT-gapped sequence cannot be determined for HWI-M02293:267:000000000-B463D:1:1101:3177:14556_J3_GACTCGT_CCTGAATTTTTT_10.
+
+WARNING: IGHV2-6*01 was not found in the germline repository. IMGT-gapped sequence cannot be determined for HWI-M02293:267:000000000-B463D:1:1101:8093:21806_J1_GACTCGT_CAGTTGTTCTCT_12.
+
+WARNING: IGHV1-62-2*01 was not found in the germline repository. IMGT-gapped sequence cannot be determined for HWI-M02293:267:000000000-B463D:1:1103:22829:18831_J3_GACTCGT_GCAGCGAACTAT_4.
+
+WARNING: IGHV5-6*01 was not found in the germline repository. IMGT-gapped sequence cannot be determined for HWI-M02293:267:000000000-B463D:1:1101:18383:4113_unclear-J2-chw_GACTCGT_GGGGCAGGCCTC_5.
+
+PROGRESS> 12:15:04 [######              ]  30% ( 3,948) 0.0 min
+PROGRESS> 12:15:04 [#######             ]  35% ( 4,606) 0.0 min
+PROGRESS> 12:15:04 [########            ]  40% ( 5,264) 0.0 min
+PROGRESS> 12:15:04 [#########           ]  45% ( 5,922) 0.0 min
+WARNING: IGHV5-6*01 was not found in the germline repository. IMGT-gapped sequence cannot be determined for HWI-M02293:267:000000000-B463D:1:1102:10979:13869_J1_GACTCGT_CCGCGCTGGAAA_9.
+
+WARNING: IGHV1-62-2*01 was not found in the germline repository. IMGT-gapped sequence cannot be determined for HWI-M02293:267:000000000-B463D:1:1101:4570:19029_J4_GACTCGT_CCGCCCCCTACT_8.
+
+WARNING: IGHV5-6*01 was not found in the germline repository. IMGT-gapped sequence cannot be determined for HWI-M02293:267:000000000-B463D:1:1101:27974:8603_J3_GACTCGT_AAACCCGATAGA_8.
+
+WARNING: IGHV5-6*01 was not found in the germline repository. IMGT-gapped sequence cannot be determined for HWI-M02293:267:000000000-B463D:1:1105:13669:18714_J2_GACTCGT_TTTGTGCAATGC_4.
+
+WARNING: IGHV2-6*01 was not found in the germline repository. IMGT-gapped sequence cannot be determined for HWI-M02293:267:000000000-B463D:1:1104:11035:14245_unclear-J3-chw_GACTCGT_CCCTACATTTCC_4.
+
+WARNING: IGHV5-6*01 was not found in the germline repository. IMGT-gapped sequence cannot be determined for HWI-M02293:267:000000000-B463D:1:1102:4059:8123_unclear-J4-chw_GACTCGT_TGCACTCTCCTT_3.
+
+WARNING: IGHV1-62-2*01 was not found in the germline repository. IMGT-gapped sequence cannot be determined for HWI-M02293:267:000000000-B463D:1:1101:20643:16053_J4_GACTCGT_GACTAGCCGCAC_13.
+
+WARNING: IGHV1-62-2*01 was not found in the germline repository. IMGT-gapped sequence cannot be determined for HWI-M02293:267:000000000-B463D:1:1104:11910:16539_J3_GACTCGT_CCCAAACCGCAT_6.
+
+WARNING: IGHV1-62-2*01 was not found in the germline repository. IMGT-gapped sequence cannot be determined for HWI-M02293:267:000000000-B463D:1:1104:15371:12047_unclear-J3-chw_GACTCGT_CAGAGAATATAT_6.
+
+WARNING: IGHV2-6*01 was not found in the germline repository. IMGT-gapped sequence cannot be determined for HWI-M02293:267:000000000-B463D:1:1104:18721:21681_J1_GACTCGT_AGCGCAGTTATA_9.
+
+WARNING: IGHV2-6*01 was not found in the germline repository. IMGT-gapped sequence cannot be determined for HWI-M02293:267:000000000-B463D:1:1101:23525:13059_J3_GACTCGT_AGATACGAGGAA_9.
+
+WARNING: IGHV1-62-2*01 was not found in the germline repository. IMGT-gapped sequence cannot be determined for HWI-M02293:267:000000000-B463D:1:1101:8582:12817_J1_GACTCGT_GCAAGTAATGGG_18.
+
+WARNING: IGHV5-6*01 was not found in the germline repository. IMGT-gapped sequence cannot be determined for HWI-M02293:267:000000000-B463D:1:1103:9302:13883_J3_GACTCGT_TTTTGTTGCTAG_3.
+
+WARNING: IGHV5-6*01 was not found in the germline repository. IMGT-gapped sequence cannot be determined for HWI-M02293:267:000000000-B463D:1:1101:7881:17081_J2_GACTCGT_GTCGACACAGCT_9.
+
+WARNING: IGHV2-6*01 was not found in the germline repository. IMGT-gapped sequence cannot be determined for HWI-M02293:267:000000000-B463D:1:1101:2115:11018_J4_GACTCGT_GCCGATGCATCA_6.
+
+WARNING: IGHV1-62-2*01 was not found in the germline repository. IMGT-gapped sequence cannot be determined for HWI-M02293:267:000000000-B463D:1:1107:22412:7640_J1_GACTCGT_CCCTCCTAACCC_5.
+
+WARNING: IGHV5-6*01 was not found in the germline repository. IMGT-gapped sequence cannot be determined for HWI-M02293:267:000000000-B463D:1:1103:21938:5971_J2_GACTCGT_ACCACACCAATC_5.
+
+WARNING: IGHV1-62-2*01 was not found in the germline repository. IMGT-gapped sequence cannot be determined for HWI-M02293:267:000000000-B463D:1:1101:16496:1566_J2_GACTCGT_ATCACCAGCCCT_6.
+
+WARNING: IGHV1-62-2*01 was not found in the germline repository. IMGT-gapped sequence cannot be determined for HWI-M02293:267:000000000-B463D:1:1102:9901:22265_J4_GACTCGT_AGCTCCAATGTT_11.
+
+WARNING: IGHV1-62-2*01 was not found in the germline repository. IMGT-gapped sequence cannot be determined for HWI-M02293:267:000000000-B463D:1:1104:5752:10191_J4_GACTCGT_TGCTACTAAGCT_8.
+
+WARNING: IGHV5-6*01 was not found in the germline repository. IMGT-gapped sequence cannot be determined for HWI-M02293:267:000000000-B463D:1:1106:23188:14851_unclear-J2-chw_GACTCGT_CGCGGGCGCCCC_4.
+
+WARNING: IGHV1-62-2*01 was not found in the germline repository. IMGT-gapped sequence cannot be determined for HWI-M02293:267:000000000-B463D:1:1102:26032:14330_J3_GACTCGT_AGAATTTTTATG_21.
+
+WARNING: IGHV5-6*01 was not found in the germline repository. IMGT-gapped sequence cannot be determined for HWI-M02293:267:000000000-B463D:1:1103:14526:7425_J4_GACTCGT_CTTATCGACTGC_4.
+
+WARNING: IGHV2-6*01 was not found in the germline repository. IMGT-gapped sequence cannot be determined for HWI-M02293:267:000000000-B463D:1:1104:15421:11858_J1_GACTCGT_GTCGTCTAAAAA_7.
+
+WARNING: IGHV2-6*01 was not found in the germline repository. IMGT-gapped sequence cannot be determined for HWI-M02293:267:000000000-B463D:1:1105:6472:18550_J4_GACTCGT_AGCCATAATTTG_3.
+
+WARNING: IGHV5-6*01 was not found in the germline repository. IMGT-gapped sequence cannot be determined for HWI-M02293:267:000000000-B463D:1:1102:24325:13660_J3_GACTCGT_AGTGGTGCTCTC_8.
+
+WARNING: IGHV2-6*01 was not found in the germline repository. IMGT-gapped sequence cannot be determined for HWI-M02293:267:000000000-B463D:1:1105:5076:14572_J4_GACTCGT_CTAAATGTATAC_3.
+
+WARNING: IGHV1-62-2*01 was not found in the germline repository. IMGT-gapped sequence cannot be determined for HWI-M02293:267:000000000-B463D:1:1103:16791:14158_J2_GACTCGT_CCCGCTCCCCCC_6.
+
+WARNING: IGHV1-62-2*01 was not found in the germline repository. IMGT-gapped sequence cannot be determined for HWI-M02293:267:000000000-B463D:1:1104:17277:14858_J1_GACTCGT_ACGGCCGCGCCC_7.
+
+WARNING: IGHV2-6*01 was not found in the germline repository. IMGT-gapped sequence cannot be determined for HWI-M02293:267:000000000-B463D:1:1103:16030:7834_unclear-J2-chw_GACTCGT_CTACCTACGGAT_3.
+
+WARNING: IGHV5-6*01 was not found in the germline repository. IMGT-gapped sequence cannot be determined for HWI-M02293:267:000000000-B463D:1:1101:5465:13098_unclear-J3-chw_GACTCGT_GCTCCAAGACCC_3.
+
+WARNING: IGHV2-6*01 was not found in the germline repository. IMGT-gapped sequence cannot be determined for HWI-M02293:267:000000000-B463D:1:1101:27885:11805_unclear-J4-chw_GACTCGT_GGTACTAATGGT_6.
+
+WARNING: IGHV2-6*01 was not found in the germline repository. IMGT-gapped sequence cannot be determined for HWI-M02293:267:000000000-B463D:1:1101:2080:13366_J1_GACTCGT_CCAGCTTGAGGC_24.
+
+WARNING: IGHV2-6*01 was not found in the germline repository. IMGT-gapped sequence cannot be determined for HWI-M02293:267:000000000-B463D:1:1106:16325:24467_J1_GACTCGT_AACCAGTTGAAT_4.
+
+WARNING: IGHV5-6*01 was not found in the germline repository. IMGT-gapped sequence cannot be determined for HWI-M02293:267:000000000-B463D:1:1103:28540:8430_J4_GACTCGT_AACTACACTTAT_10.
+
+WARNING: IGHV1-62-2*01 was not found in the germline repository. IMGT-gapped sequence cannot be determined for HWI-M02293:267:000000000-B463D:1:1101:15607:20676_J4_GACTCGT_AACCTTTATAAT_7.
+
+WARNING: IGHV1-62-2*01 was not found in the germline repository. IMGT-gapped sequence cannot be determined for HWI-M02293:267:000000000-B463D:1:1103:12029:6674_J1_GACTCGT_TTAGAATCAGCT_11.
+
+WARNING: IGHV1-62-2*01 was not found in the germline repository. IMGT-gapped sequence cannot be determined for HWI-M02293:267:000000000-B463D:1:1101:20996:10517_J4_CTGCTCCT_CCATTTCGCAGA_5.
+
+WARNING: IGHV1-62-2*01 was not found in the germline repository. IMGT-gapped sequence cannot be determined for HWI-M02293:267:000000000-B463D:1:1105:22205:1951_unclear-J3-chw_CTGCTCCT_GTAAGGACCTCA_3.
+
+WARNING: IGHV5-6*01 was not found in the germline repository. IMGT-gapped sequence cannot be determined for HWI-M02293:267:000000000-B463D:1:1103:25711:3910_J2_CTGCTCCT_GACCGTAAGGCC_7.
+
+WARNING: IGHV5-6*01 was not found in the germline repository. IMGT-gapped sequence cannot be determined for HWI-M02293:267:000000000-B463D:1:1101:12649:13157_J4_CTGCTCCT_CGGCTTCCCACC_9.
+
+WARNING: IGHV2-6*01 was not found in the germline repository. IMGT-gapped sequence cannot be determined for HWI-M02293:267:000000000-B463D:1:1102:15696:24957_J4_CTGCTCCT_TCTTTAGCCTCC_5.
+
+WARNING: IGHV2-6*01 was not found in the germline repository. IMGT-gapped sequence cannot be determined for HWI-M02293:267:000000000-B463D:1:1102:21398:9138_J4_CTGCTCCT_CTCCCTCACTTC_13.
+
+WARNING: IGHV2-6*01 was not found in the germline repository. IMGT-gapped sequence cannot be determined for HWI-M02293:267:000000000-B463D:1:1108:8151:9618_J4_CTGCTCCT_GCCGCGGCCGCT_8.
+
+PROGRESS> 12:15:05 [##########          ]  50% ( 6,580) 0.0 min
+PROGRESS> 12:15:05 [###########         ]  55% ( 7,238) 0.1 min
+PROGRESS> 12:15:05 [############        ]  60% ( 7,896) 0.1 min
+PROGRESS> 12:15:06 [#############       ]  65% ( 8,554) 0.1 min
+WARNING: IGHV1-62-2*01 was not found in the germline repository. IMGT-gapped sequence cannot be determined for HWI-M02293:267:000000000-B463D:1:1102:19967:1359_J1_CTGCTCCT_CAGCATGGTGGA_12.
+
+WARNING: IGHV5-6*01 was not found in the germline repository. IMGT-gapped sequence cannot be determined for HWI-M02293:267:000000000-B463D:1:1102:21639:5745_J2_CTGCTCCT_GGCCTGTCCCCC_3.
+
+WARNING: IGHV5-6*01 was not found in the germline repository. IMGT-gapped sequence cannot be determined for HWI-M02293:267:000000000-B463D:1:1102:14106:24260_J2_CTGCTCCT_TTAGCCAATTGC_7.
+
+WARNING: IGHV2-6*01 was not found in the germline repository. IMGT-gapped sequence cannot be determined for HWI-M02293:267:000000000-B463D:1:1103:19357:8790_J4_CTGCTCCT_GTGACCGTTCAA_13.
+
+WARNING: IGHV1-62-2*01 was not found in the germline repository. IMGT-gapped sequence cannot be determined for HWI-M02293:267:000000000-B463D:1:1101:12061:15329_J4_CTGCTCCT_GGCGAATATCGC_5.
+
+WARNING: IGHV1-62-2*01 was not found in the germline repository. IMGT-gapped sequence cannot be determined for HWI-M02293:267:000000000-B463D:1:1104:28323:18508_J1_CTGCTCCT_CTCGACTTTTTC_7.
+
+WARNING: IGHV1-62-2*01 was not found in the germline repository. IMGT-gapped sequence cannot be determined for HWI-M02293:267:000000000-B463D:1:1102:17387:22132_J4_CTGCTCCT_GGATCTGGGAGA_6.
+
+WARNING: IGHV2-6*01 was not found in the germline repository. IMGT-gapped sequence cannot be determined for HWI-M02293:267:000000000-B463D:1:1101:22028:21567_J4_CTGCTCCT_CCTTGGAATCTG_4.
+
+WARNING: IGHV1-62-2*01 was not found in the germline repository. IMGT-gapped sequence cannot be determined for HWI-M02293:267:000000000-B463D:1:1101:18835:15172_J3_CTGCTCCT_GACCCCTTTTGC_5.
+
+WARNING: IGHV1-62-2*01 was not found in the germline repository. IMGT-gapped sequence cannot be determined for HWI-M02293:267:000000000-B463D:1:1102:26849:12127_J4_CTGCTCCT_ACAGGACGGCCG_9.
+
+WARNING: IGHV5-6*01 was not found in the germline repository. IMGT-gapped sequence cannot be determined for HWI-M02293:267:000000000-B463D:1:1103:7861:23598_J3_CTGCTCCT_TAGCATCGTGCG_5.
+
+WARNING: IGHV2-6*01 was not found in the germline repository. IMGT-gapped sequence cannot be determined for HWI-M02293:267:000000000-B463D:1:1103:19744:7953_J2_CTGCTCCT_TGATCGGACGTG_7.
+
+WARNING: IGHV1-62-2*01 was not found in the germline repository. IMGT-gapped sequence cannot be determined for HWI-M02293:267:000000000-B463D:1:1106:8432:16114_J2_CTGCTCCT_GTTTGTATGGCC_4.
+
+WARNING: IGHV1-62-2*01 was not found in the germline repository. IMGT-gapped sequence cannot be determined for HWI-M02293:267:000000000-B463D:1:1105:20831:11122_J4_CTGCTCCT_AGTCTATTTTCA_4.
+
+WARNING: IGHV1-62-2*01 was not found in the germline repository. IMGT-gapped sequence cannot be determined for HWI-M02293:267:000000000-B463D:1:1101:6913:6939_J2_CTGCTCCT_CTCACCTGCCCG_10.
+
+WARNING: IGHV5-6*01 was not found in the germline repository. IMGT-gapped sequence cannot be determined for HWI-M02293:267:000000000-B463D:1:1105:26096:11021_J4_CTGCTCCT_CACTACTCCCCG_8.
+
+WARNING: IGHV5-6*01 was not found in the germline repository. IMGT-gapped sequence cannot be determined for HWI-M02293:267:000000000-B463D:1:1105:12443:5718_J1_CTGCTCCT_GCCACCCTGGGT_6.
+
+WARNING: IGHV1-62-2*01 was not found in the germline repository. IMGT-gapped sequence cannot be determined for HWI-M02293:267:000000000-B463D:1:1102:22034:21037_J2_CTGCTCCT_CAGCCTTCACTG_4.
+
+WARNING: IGHV1-62-2*01 was not found in the germline repository. IMGT-gapped sequence cannot be determined for HWI-M02293:267:000000000-B463D:1:1109:12154:12050_J3_CTGCTCCT_GCAGTCTGCCGT_6.
+
+WARNING: IGHV1-62-2*01 was not found in the germline repository. IMGT-gapped sequence cannot be determined for HWI-M02293:267:000000000-B463D:1:1101:22666:2624_J1_CTGCTCCT_TCCCCCTCCCCC_7.
+
+WARNING: IGHV5-6*01 was not found in the germline repository. IMGT-gapped sequence cannot be determined for HWI-M02293:267:000000000-B463D:1:1103:8663:10032_J2_CTGCTCCT_CCCGCTGTCGCC_4.
+
+WARNING: IGHV1-62-2*01 was not found in the germline repository. IMGT-gapped sequence cannot be determined for HWI-M02293:267:000000000-B463D:1:1103:26664:10725_J1_CTGCTCCT_GTATCTAGCCCT_8.
+
+WARNING: IGHV1-62-2*01 was not found in the germline repository. IMGT-gapped sequence cannot be determined for HWI-M02293:267:000000000-B463D:1:1101:28723:16112_J4_CTGCTCCT_AAGCCGCTTGAA_10.
+
+WARNING: IGHV1-62-2*01 was not found in the germline repository. IMGT-gapped sequence cannot be determined for HWI-M02293:267:000000000-B463D:1:1107:22264:12667_J1_CTGCTCCT_CTGCCCCTCCCG_7.
+
+WARNING: IGHV1-62-2*01 was not found in the germline repository. IMGT-gapped sequence cannot be determined for HWI-M02293:267:000000000-B463D:1:1105:17889:13765_J3_CTGCTCCT_CGGGAGGGCTAT_3.
+
+WARNING: IGHV1-62-2*01 was not found in the germline repository. IMGT-gapped sequence cannot be determined for HWI-M02293:267:000000000-B463D:1:1106:4969:7406_J3_CTGCTCCT_TGTATCCGAAAC_6.
+
+WARNING: IGHV1-62-2*01 was not found in the germline repository. IMGT-gapped sequence cannot be determined for HWI-M02293:267:000000000-B463D:1:1103:22119:15047_J4_CTGCTCCT_GCCGTCCACCTG_6.
+
+WARNING: IGHV5-6*01 was not found in the germline repository. IMGT-gapped sequence cannot be determined for HWI-M02293:267:000000000-B463D:1:1103:17656:6792_J4_CTGCTCCT_GGGATACTGCAC_20.
+
+WARNING: IGHV5-6*01 was not found in the germline repository. IMGT-gapped sequence cannot be determined for HWI-M02293:267:000000000-B463D:1:1111:5481:11978_J2_CTGCTCCT_GCCACAAAGATG_3.
+
+WARNING: IGHV1-62-2*01 was not found in the germline repository. IMGT-gapped sequence cannot be determined for HWI-M02293:267:000000000-B463D:1:1103:10926:20540_J1_CTGCTCCT_TCCACACATCGA_8.
+
+WARNING: IGHV1-62-2*01 was not found in the germline repository. IMGT-gapped sequence cannot be determined for HWI-M02293:267:000000000-B463D:1:1104:27324:6773_J3_CTGCTCCT_TGGGAGGGCTAT_4.
+
+WARNING: IGHV2-6*01 was not found in the germline repository. IMGT-gapped sequence cannot be determined for HWI-M02293:267:000000000-B463D:1:1104:11581:17187_J3_CTGCTCCT_TGCGCTGGGATC_12.
+
+WARNING: IGHV1-62-2*01 was not found in the germline repository. IMGT-gapped sequence cannot be determined for HWI-M02293:267:000000000-B463D:1:1103:23186:7318_J3_CTGCTCCT_CCCCCCCCACCG_5.
+
+WARNING: IGHV1-62-2*01 was not found in the germline repository. IMGT-gapped sequence cannot be determined for HWI-M02293:267:000000000-B463D:1:1112:13575:17382_J1_CTGCTCCT_GCGCCTTGCGCA_7.
+
+WARNING: IGHV2-6*01 was not found in the germline repository. IMGT-gapped sequence cannot be determined for HWI-M02293:267:000000000-B463D:1:1101:8968:12920_J1_CTGCTCCT_GCCGATAACTCT_11.
+
+WARNING: IGHV1-62-2*01 was not found in the germline repository. IMGT-gapped sequence cannot be determined for HWI-M02293:267:000000000-B463D:1:1102:22958:2613_J1_CTGCTCCT_CTCACCGATGTC_14.
+
+WARNING: IGHV2-6*01 was not found in the germline repository. IMGT-gapped sequence cannot be determined for HWI-M02293:267:000000000-B463D:1:1103:19389:24886_J4_CTGCTCCT_CGTAGCTCCCCC_3.
+
+WARNING: IGHV1-62-2*01 was not found in the germline repository. IMGT-gapped sequence cannot be determined for HWI-M02293:267:000000000-B463D:1:1101:25013:17941_J3_CTGCTCCT_TCGCTCGCCAAC_6.
+
+WARNING: IGHV2-6*01 was not found in the germline repository. IMGT-gapped sequence cannot be determined for HWI-M02293:267:000000000-B463D:1:1101:25721:20136_J1_CTGCTCCT_CCTGCCTTGGGT_11.
+
+WARNING: IGHV1-62-2*01 was not found in the germline repository. IMGT-gapped sequence cannot be determined for HWI-M02293:267:000000000-B463D:1:1101:27705:12933_J3_CTGCTCCT_CCTGGCCCGTCA_6.
+
+WARNING: IGHV1-62-2*01 was not found in the germline repository. IMGT-gapped sequence cannot be determined for HWI-M02293:267:000000000-B463D:1:1102:6859:10343_J3_CTGCTCCT_GCTTCCTGGGAG_5.
+
+WARNING: IGHV1-62-2*01 was not found in the germline repository. IMGT-gapped sequence cannot be determined for HWI-M02293:267:000000000-B463D:1:1103:8072:12190_J2_CTGCTCCT_GCACTGCGACGC_5.
+
+WARNING: IGHV5-6*01 was not found in the germline repository. IMGT-gapped sequence cannot be determined for HWI-M02293:267:000000000-B463D:1:1101:10249:8994_J3_CTGCTCCT_TGCCGGGGCCCG_9.
+
+WARNING: IGHV1-62-2*01 was not found in the germline repository. IMGT-gapped sequence cannot be determined for HWI-M02293:267:000000000-B463D:1:1105:27462:12095_J2_CTGCTCCT_CCCCTCATAGTC_3.
+
+PROGRESS> 12:15:06 [##############      ]  70% ( 9,212) 0.1 min
+PROGRESS> 12:15:06 [###############     ]  75% ( 9,870) 0.1 min
+PROGRESS> 12:15:06 [################    ]  80% (10,528) 0.1 min
+PROGRESS> 12:15:07 [#################   ]  85% (11,186) 0.1 min
+WARNING: IGHV1-62-2*01 was not found in the germline repository. IMGT-gapped sequence cannot be determined for HWI-M02293:267:000000000-B463D:1:1101:19202:20499_J2_CTGCTCCT_CCGCCTTCTGAT_8.
+
+WARNING: IGHV5-6*01 was not found in the germline repository. IMGT-gapped sequence cannot be determined for HWI-M02293:267:000000000-B463D:1:1101:23111:5854_J4_CTGCTCCT_GTCGTTTTGTAC_10.
+
+WARNING: IGHV2-6*01 was not found in the germline repository. IMGT-gapped sequence cannot be determined for HWI-M02293:267:000000000-B463D:1:1104:16488:3280_J1_CTGCTCCT_TACGACTCAGCT_6.
+
+WARNING: IGHV1-62-2*01 was not found in the germline repository. IMGT-gapped sequence cannot be determined for HWI-M02293:267:000000000-B463D:1:1103:4449:16998_J3_CTGCTCCT_TCTCACCGCTGC_5.
+
+WARNING: IGHV5-6*01 was not found in the germline repository. IMGT-gapped sequence cannot be determined for HWI-M02293:267:000000000-B463D:1:1101:20216:8982_J1_CTGCTCCT_ACTCCCTGCCTC_8.
+
+WARNING: IGHV5-6*01 was not found in the germline repository. IMGT-gapped sequence cannot be determined for HWI-M02293:267:000000000-B463D:1:1102:20496:16409_unclear-J3-chw_CTGCTCCT_CCTTCGCTGTGC_7.
+
+WARNING: IGHV1-62-2*01 was not found in the germline repository. IMGT-gapped sequence cannot be determined for HWI-M02293:267:000000000-B463D:1:1102:27118:15158_J4_CTGCTCCT_ATGCGACGATCG_9.
+
+WARNING: IGHV5-6*01 was not found in the germline repository. IMGT-gapped sequence cannot be determined for HWI-M02293:267:000000000-B463D:1:1103:25970:9686_J3_CTGCTCCT_GCCCGCCTCAAA_8.
+
+WARNING: IGHV5-6*01 was not found in the germline repository. IMGT-gapped sequence cannot be determined for HWI-M02293:267:000000000-B463D:1:1105:12071:8917_J3_CTGCTCCT_CTCTAGCTGTCT_3.
+
+WARNING: IGHV1-62-2*01 was not found in the germline repository. IMGT-gapped sequence cannot be determined for HWI-M02293:267:000000000-B463D:1:1102:2560:12513_J4_CTGCTCCT_CCCCCCACGTCC_7.
+
+WARNING: IGHV2-6*01 was not found in the germline repository. IMGT-gapped sequence cannot be determined for HWI-M02293:267:000000000-B463D:1:1101:11439:21190_J1_CTGCTCCT_CGGGCACTTGAC_6.
+
+WARNING: IGHV5-6*01 was not found in the germline repository. IMGT-gapped sequence cannot be determined for HWI-M02293:267:000000000-B463D:1:1102:21556:10090_J2_CTGCTCCT_AAGCGTTCAGGT_8.
+
+WARNING: IGHV1-62-2*01 was not found in the germline repository. IMGT-gapped sequence cannot be determined for HWI-M02293:267:000000000-B463D:1:1101:14661:1521_J3_CTGCTCCT_CGTCATGGGCAA_6.
+
+WARNING: IGHV5-6*01 was not found in the germline repository. IMGT-gapped sequence cannot be determined for HWI-M02293:267:000000000-B463D:1:1102:10531:14777_J3_CTGCTCCT_ACCCGGAGGCGA_15.
+
+WARNING: IGHV5-6*01 was not found in the germline repository. IMGT-gapped sequence cannot be determined for HWI-M02293:267:000000000-B463D:1:1101:25938:4425_J4_CTGCTCCT_TGGCCATCCTGT_14.
+
+WARNING: IGHV1-62-2*01 was not found in the germline repository. IMGT-gapped sequence cannot be determined for HWI-M02293:267:000000000-B463D:1:1101:11521:3456_unclear-J3-chw_CTGCTCCT_GTCCAGGGTGAA_9.
+
+WARNING: IGHV5-6*01 was not found in the germline repository. IMGT-gapped sequence cannot be determined for HWI-M02293:267:000000000-B463D:1:1101:27529:13085_J3_CTGCTCCT_CATCCGCGCGGG_3.
+
+WARNING: IGHV1-62-2*01 was not found in the germline repository. IMGT-gapped sequence cannot be determined for HWI-M02293:267:000000000-B463D:1:1101:24120:20783_J3_CTGCTCCT_GTCGCGGACCAC_8.
+
+WARNING: IGHV1-62-2*01 was not found in the germline repository. IMGT-gapped sequence cannot be determined for HWI-M02293:267:000000000-B463D:1:1105:13491:9777_J4_CTGCTCCT_ACACCCCCCCAC_3.
+
+WARNING: IGHV2-6*01 was not found in the germline repository. IMGT-gapped sequence cannot be determined for HWI-M02293:267:000000000-B463D:1:1102:11819:15499_J3_CTGCTCCT_GACATTTGAAGC_8.
+
+WARNING: IGHV2-6*01 was not found in the germline repository. IMGT-gapped sequence cannot be determined for HWI-M02293:267:000000000-B463D:1:1101:4245:8798_J2_CTGCTCCT_CCCCTTGCACAC_5.
+
+WARNING: IGHV1-62-2*01 was not found in the germline repository. IMGT-gapped sequence cannot be determined for HWI-M02293:267:000000000-B463D:1:1102:20625:19046_J1_CTGCTCCT_GCGCGCCGTTTC_8.
+
+WARNING: IGHV5-6*01 was not found in the germline repository. IMGT-gapped sequence cannot be determined for HWI-M02293:267:000000000-B463D:1:1108:14271:12144_J2_CTGCTCCT_TGGAAGGGTAAA_4.
+
+WARNING: IGHV1-62-2*01 was not found in the germline repository. IMGT-gapped sequence cannot be determined for HWI-M02293:267:000000000-B463D:1:1105:24518:18778_J2_CTGCTCCT_GCAGAGATAGAG_3.
+
+WARNING: IGHV1-62-2*01 was not found in the germline repository. IMGT-gapped sequence cannot be determined for HWI-M02293:267:000000000-B463D:1:1104:8497:4881_J1_CTGCTCCT_CTAATGCGTATA_14.
+
+WARNING: IGHV1-62-2*01 was not found in the germline repository. IMGT-gapped sequence cannot be determined for HWI-M02293:267:000000000-B463D:1:1101:20627:11717_J3_CTGCTCCT_CGCCGCCTACCG_18.
+
+WARNING: IGHV2-6*01 was not found in the germline repository. IMGT-gapped sequence cannot be determined for HWI-M02293:267:000000000-B463D:1:1105:10870:6569_J4_CTGCTCCT_AAGCCTGGATAG_9.
+
+WARNING: IGHV1-62-2*01 was not found in the germline repository. IMGT-gapped sequence cannot be determined for HWI-M02293:267:000000000-B463D:1:1101:15693:10074_J2_CTGCTCCT_TCCGGCACGTGG_6.
+
+WARNING: IGHV1-62-2*01 was not found in the germline repository. IMGT-gapped sequence cannot be determined for HWI-M02293:267:000000000-B463D:1:1108:28056:13572_J4_CTGCTCCT_ACCTGCTCGTGC_5.
+
+WARNING: IGHV1-62-2*01 was not found in the germline repository. IMGT-gapped sequence cannot be determined for HWI-M02293:267:000000000-B463D:1:1102:17073:8396_unclear-J2-chw_CTGCTCCT_GGCAGGGCGATC_11.
+
+WARNING: IGHV5-6*01 was not found in the germline repository. IMGT-gapped sequence cannot be determined for HWI-M02293:267:000000000-B463D:1:1104:17715:9797_J2_CTGCTCCT_GTTCACGGCTCG_3.
+
+WARNING: IGHV5-6*01 was not found in the germline repository. IMGT-gapped sequence cannot be determined for HWI-M02293:267:000000000-B463D:1:1102:5845:4024_J3_CTGCTCCT_GTGACGCCTATC_8.
+
+WARNING: IGHV2-6*01 was not found in the germline repository. IMGT-gapped sequence cannot be determined for HWI-M02293:267:000000000-B463D:1:1101:9854:10800_J2_CTGCTCCT_CGCATCTCCGCT_10.
+
+WARNING: IGHV5-6*01 was not found in the germline repository. IMGT-gapped sequence cannot be determined for HWI-M02293:267:000000000-B463D:1:1101:24243:7935_unclear-J2-chw_CTGCTCCT_CTACCCTCCATC_4.
+
+WARNING: IGHV1-62-2*01 was not found in the germline repository. IMGT-gapped sequence cannot be determined for HWI-M02293:267:000000000-B463D:1:1101:2057:13774_unclear-J2-chw_CTGCTCCT_TTACTAGCCTCA_8.
+
+WARNING: IGHV1-62-2*01 was not found in the germline repository. IMGT-gapped sequence cannot be determined for HWI-M02293:267:000000000-B463D:1:1109:15084:14238_J2_CTGCTCCT_GCCAAGCCGCTA_3.
+
+WARNING: IGHV5-6*01 was not found in the germline repository. IMGT-gapped sequence cannot be determined for HWI-M02293:267:000000000-B463D:1:1101:10769:22421_J3_CTGCTCCT_TGAATTTTCTCT_11.
+
+WARNING: IGHV1-62-2*01 was not found in the germline repository. IMGT-gapped sequence cannot be determined for HWI-M02293:267:000000000-B463D:1:1102:9357:23149_J2_CTGCTCCT_TCTCTCCCTACT_4.
+
+WARNING: IGHV1-62-2*01 was not found in the germline repository. IMGT-gapped sequence cannot be determined for HWI-M02293:267:000000000-B463D:1:1101:13251:10611_J3_CTGCTCCT_CGCTGGACCTAG_9.
+
+WARNING: IGHV1-62-2*01 was not found in the germline repository. IMGT-gapped sequence cannot be determined for HWI-M02293:267:000000000-B463D:1:1104:9135:16261_unclear-J3-chw_CTGCTCCT_GCCGCGGCTCTT_6.
+
+WARNING: IGHV1-62-2*01 was not found in the germline repository. IMGT-gapped sequence cannot be determined for HWI-M02293:267:000000000-B463D:1:1103:9129:15832_J1_CTGCTCCT_CTCCACGTTTCC_7.
+
+WARNING: IGHV5-6*01 was not found in the germline repository. IMGT-gapped sequence cannot be determined for HWI-M02293:267:000000000-B463D:1:1101:14219:3603_J1_CTGCTCCT_CCAGCAGCGCGC_19.
+
+WARNING: IGHV1-62-2*01 was not found in the germline repository. IMGT-gapped sequence cannot be determined for HWI-M02293:267:000000000-B463D:1:1107:12371:11931_J2_CTGCTCCT_CAATGCCTGCTT_3.
+
+WARNING: IGHV5-6*01 was not found in the germline repository. IMGT-gapped sequence cannot be determined for HWI-M02293:267:000000000-B463D:1:1103:18391:3301_J2_CTGCTCCT_AAGGTTTCAGGT_12.
+
+PROGRESS> 12:15:07 [##################  ]  90% (11,844) 0.1 min
+PROGRESS> 12:15:07 [################### ]  95% (12,502) 0.1 min
+PROGRESS> 12:15:08 [####################] 100% (13,146) 0.1 min
+
+
+WARNING: IGHV5-6*01 was not found in the germline repository. IMGT-gapped sequence cannot be determined for HWI-M02293:267:000000000-B463D:1:1101:16171:2392_J2_CTGCTCCT_CGGCCCAGACCG_8.
+
+WARNING: IGHV1-62-2*01 was not found in the germline repository. IMGT-gapped sequence cannot be determined for HWI-M02293:267:000000000-B463D:1:1105:20751:7068_J4_CTGCTCCT_GGAGTCACTCCC_4.
+
+WARNING: IGHV5-6*01 was not found in the germline repository. IMGT-gapped sequence cannot be determined for HWI-M02293:267:000000000-B463D:1:1104:6298:11785_J4_CTGCTCCT_CTGCTGAACCTC_4.
+
+WARNING: IGHV1-62-2*01 was not found in the germline repository. IMGT-gapped sequence cannot be determined for HWI-M02293:267:000000000-B463D:1:1101:11062:24000_J4_CTGCTCCT_ATGAATTATTAA_5.
+
+WARNING: IGHV1-62-2*01 was not found in the germline repository. IMGT-gapped sequence cannot be determined for HWI-M02293:267:000000000-B463D:1:1101:10491:19609_unclear-J2-chw_CTGCTCCT_ACTCACCTTGGA_4.
+
+WARNING: IGHV5-6*01 was not found in the germline repository. IMGT-gapped sequence cannot be determined for HWI-M02293:267:000000000-B463D:1:1103:18155:13606_J3_CTGCTCCT_CATCCGCATATT_12.
+
+WARNING: IGHV1-62-2*01 was not found in the germline repository. IMGT-gapped sequence cannot be determined for HWI-M02293:267:000000000-B463D:1:1102:14428:10232_J2_CTGCTCCT_CCCGTCGCTAAT_9.
+
+WARNING: IGHV2-6*01 was not found in the germline repository. IMGT-gapped sequence cannot be determined for HWI-M02293:267:000000000-B463D:1:1101:16286:24729_J1_CTGCTCCT_CGATATCTTGTG_5.
+
+WARNING: IGHV1-62-2*01 was not found in the germline repository. IMGT-gapped sequence cannot be determined for HWI-M02293:267:000000000-B463D:1:1107:28977:15274_J4_CTGCTCCT_ACCCCCCCTGTC_5.
+
+WARNING: IGHV1-62-2*01 was not found in the germline repository. IMGT-gapped sequence cannot be determined for HWI-M02293:267:000000000-B463D:1:1101:17743:9482_J4_CTGCTCCT_CTCGTCTGGCGC_5.
+
+WARNING: IGHV5-6*01 was not found in the germline repository. IMGT-gapped sequence cannot be determined for HWI-M02293:267:000000000-B463D:1:1101:6943:3198_J1_CTGCTCCT_GCCCCTTTGCGA_7.
+
+WARNING: IGHV5-6*01 was not found in the germline repository. IMGT-gapped sequence cannot be determined for HWI-M02293:267:000000000-B463D:1:1102:17673:21887_unclear-J2-chw_CTGCTCCT_GCCGCGGCGTGA_7.
+
+WARNING: IGHV2-6*01 was not found in the germline repository. IMGT-gapped sequence cannot be determined for HWI-M02293:267:000000000-B463D:1:1102:7995:6855_J4_CTGCTCCT_CGGGCACGCTCA_4.
+
+WARNING: IGHV5-6*01 was not found in the germline repository. IMGT-gapped sequence cannot be determined for HWI-M02293:267:000000000-B463D:1:1102:12070:21978_J3_CTGCTCCT_CCTTCGAATTGT_6.
+
+WARNING: IGHV1-62-2*01 was not found in the germline repository. IMGT-gapped sequence cannot be determined for HWI-M02293:267:000000000-B463D:1:1101:24599:19231_J1_CTGCTCCT_AGTCGGCGGGTA_15.
+
+WARNING: IGHV1-62-2*01 was not found in the germline repository. IMGT-gapped sequence cannot be determined for HWI-M02293:267:000000000-B463D:1:1101:24667:11122_J1_CTGCTCCT_CCACAGGCTTGC_14.
+
+WARNING: IGHV1-62-2*01 was not found in the germline repository. IMGT-gapped sequence cannot be determined for HWI-M02293:267:000000000-B463D:1:1103:14432:3588_J3_CTGCTCCT_GCGGCCCCCGCT_7.
+
+WARNING: IGHV1-62-2*01 was not found in the germline repository. IMGT-gapped sequence cannot be determined for HWI-M02293:267:000000000-B463D:1:1101:28920:10992_J3_CTGCTCCT_CCTACGTCCTAA_15.
+OUTPUT> /tmp/tmpmmklt0go/igblast_db-pass.tab
+  PASS> 12986
+  FAIL> 160
+   END> MakeDb
+
+
+2017-11-09 12:15:08,125 INFO     Changeo subprocess finished
+2017-11-09 12:15:08,406 INFO     Low V and J score:4617
+2017-11-09 12:15:08,410 INFO     Number of reads without CDR3:4
+2017-11-09 12:15:08,413 INFO     Out reads:8365

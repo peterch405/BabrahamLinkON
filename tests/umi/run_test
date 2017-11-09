@@ -1,0 +1,12 @@
+preclean.py umi \
+-v ./test_R1.fq.gz \
+-j ./test_R3.fq.gz \
+--species mmu --threads 8 --verbose
+
+deduplicate.py umi \
+--input_dir ./test_R1_preclean \
+--stats --threads 8
+
+assemble_clones.py umi -fa ./test_R1_Deduplicated/test_R1_dedup.fasta \
+--threads 8 --full_name
+

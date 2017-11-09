@@ -1,0 +1,7 @@
+2017-11-09 12:10:38,597 INFO     Namespace(action='umi', an1='GACTCGT', an2='CTGCTCCT', cons_no_qual=False, fq=False, gtratio=1, ignore_umi=False, in_dir='./test_R1_preclean', in_len=0, j_len=0, keep_mh=False, minreads=2, mismatch=5, no_anchor=False, no_consensus=False, no_msa=False, nthreads=8, out_dir=None, rev_comp=False, seqlogo=False, short=False, skip_unclear=False, stats=True, threshold=1, umi_correction=False, use_j=False, use_v=False, v_len=0)
+2017-11-09 12:10:44,392 INFO     Unclear skipped:14
+2017-11-09 12:10:44,393 INFO     Low quality UMI:0
+2017-11-09 12:11:19,546 INFO     Number of input reads:110081
+2017-11-09 12:11:19,546 INFO     Number of output reads:13146
+2017-11-09 12:11:19,546 INFO     Number of clusters with low ratio discarded:560
+2017-11-09 12:11:19,546 INFO     Number of low UMI count groups:7315
