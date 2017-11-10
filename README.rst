@@ -149,3 +149,5 @@ A small dataset can be found in the test folder. This can be used to test your i
  . run_test
 
 The expected output is in `expected_test_output` folder
+
+Run time for test data on a i7-4790 running on all 8 threads: ~9 minutes
