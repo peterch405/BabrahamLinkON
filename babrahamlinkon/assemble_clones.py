@@ -19,7 +19,6 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 '''
 
 from collections import defaultdict, Counter
-
 #Do not hard code matplotlib backend, use export MPLBACKEND=pdf instead if running on headless node
 # import matplotlib
 # matplotlib.use('pdf')
@@ -28,7 +27,7 @@ from matplotlib.backends.backend_pdf import PdfPages
 import pandas as pd
 import numpy as np
 import Levenshtein
-from babrahamlinkon import deduplicate, general, igblast_wrapper, umi_correction
+from babrahamlinkon import general, igblast_wrapper, umi_correction
 import os
 import argparse
 import glob
@@ -37,6 +36,7 @@ import shutil
 import logging
 import pyximport
 from tqdm import tqdm
+import json
 from babrahamlinkon._dedup_umi import edit_distance
 from babrahamlinkon.version import __version__
 # %matplotlib inline
@@ -105,54 +105,59 @@ def adj_list_adjacency(umis, counts, threshold=1):
 
 
 
-def change_v_call(row):
-    count = 0
-    if row['V_SCORE'] <= 50:
-        count += 1
-        v_gene = row['SEQUENCE_ID'].split('_')[-3].upper() #would normally be the barcode!
-        #replace v gene call with bowtie alignment call
+# def change_v_call(row):
+#     count = 0
+#     if row['V_SCORE'] <= 50:
+#         count += 1
+#         v_gene = row['SEQUENCE_ID'].split('_')[-3].upper() #would normally be the barcode!
+#         #replace v gene call with bowtie alignment call
+#
+#         if len(v_gene) < 1:
+#             return np.NaN
+#     else:
+#         v_gene = row['V_CALL']
+#     return v_gene
 
-        if len(v_gene) < 1:
-            return np.NaN
-    else:
-        v_gene = row['V_CALL']
-    return v_gene
 
 
-
-def v_identity_igblast(V_fastq, fasta, custom_ref, thread_num, spe, aux, dj):
+def v_identity_igblast(V_end, J_end_fasta, custom_ref, thread_num, spe, aux, dj):
     '''
     :param V_fastq: original fastq
-    :param fasta: deduplicate.py fasta output
+    :param fasta: deduplicate.py fasta output (J end)
     :param thread_num: number of threads to use
     :param spe: species (mmu, hsa)
     '''
     #retain full name
     subset_reads = defaultdict()
-    for name, seq in general.fasta_iter(fasta):
+    for name, seq in general.fasta_iter(J_end_fasta):
         subset_reads[name.split('_')[0]] = name
-
-    #fastq to fasta
-    fasta = ''
-    reads_fasta = 0
-    with general.file_open(V_fastq) as fq:
-        for item in general.fastq_parse(fq):
-            title = item[0]
-            seq = item[1]
-
-            try:
-                fasta += '>' + subset_reads[title.split(' ')[0][1:]] + '\n' + seq + '\n'
-                reads_fasta += 1
-            except:
-                pass
 
     #make tmp directory with igblast run files
     tmp_dir = tempfile.mkdtemp()
     tmp_fmt = os.path.join(tmp_dir, "igblast.fmt7")
 
-    #need to write out fasta for changeo (find alternative which accepts stdin?)
-    with open(tmp_dir + '/igblast.fasta', 'w') as fa_out:
-        fa_out.write(fasta)
+    if V_end.endswith('fastq'):
+        #fastq to fasta
+        fasta = ''
+        reads_fasta = 0
+        with general.file_open(V_end) as fq:
+            for item in general.fastq_parse(fq):
+                title = item[0]
+                seq = item[1]
+
+                try:
+                    fasta += '>' + subset_reads[title.split(' ')[0][1:]] + '\n' + seq + '\n'
+                    reads_fasta += 1
+                except:
+                    pass
+
+        #need to write out fasta for changeo (find alternative which accepts stdin?)
+        with open(tmp_dir + '/igblast.fasta', 'w') as fa_out:
+            fa_out.write(fasta)
+
+    elif V_end.endswith('fasta'):
+        shutil.copy(V_end, tmp_dir + '/igblast.fasta')
+
 
     igblast_wrapper.run_igblast(tmp_dir + '/igblast.fasta', tmp_fmt, 10000, spe, thread_num, custom_ref, dj, aux_file=aux, additional_flags=['-num_alignments_V', '1'])
     igblast_wrapper.parse_igblast(tmp_fmt, tmp_dir + '/igblast.fasta', spe, custom_ref, dj)
@@ -168,6 +173,7 @@ def v_identity_igblast(V_fastq, fasta, custom_ref, thread_num, spe, aux, dj):
     shutil.rmtree(tmp_dir)
 
     return sub_df
+
 
 #
 # v_identity_igblast('/media/chovanec/My_Passport/Old_vdj_seq_data/Deduplicated_all/A1BC/lane1_A2BC_TGACCA_L001_R1_val_1.fq.gz',
@@ -196,7 +202,7 @@ def read_changeo_out(tab_file, out, prefix, fasta, v_fastq=None, plot=False, ret
         df_list.append(df)
     igblast_out = pd.concat(df_list)
     igblast_out.reset_index(drop=True, inplace=True)
-    print('called reads', len(igblast_out.index))
+    print('Called reads', len(igblast_out.index))
 
     #Seperate out DJ calls into seperate dataframe
     igblast_dj = igblast_out[igblast_out['V_CALL'].str.contains('IGHVD', na=False)]
@@ -254,7 +260,6 @@ def read_changeo_out(tab_file, out, prefix, fasta, v_fastq=None, plot=False, ret
                 pdf_out.savefig(my_plot)
 
 
-    #if low quality replace by bowtie call in qname
     if short:
 
         #drop low scoring V genes that don't have idenitity
@@ -278,7 +283,10 @@ def read_changeo_out(tab_file, out, prefix, fasta, v_fastq=None, plot=False, ret
         #DJ filtering
         #Drop DJ without a J calls, suggests misidentification of D
         igblast_dj_na = igblast_dj.dropna(subset = ['J_CALL'])
-        igblast_dj_out = igblast_dj_na[(igblast_dj_na['V_SCORE'] > v_cutoff)]
+        if short:
+            igblast_dj_out = igblast_dj_na[(igblast_dj_na['V_SCORE'] > v_cutoff) | (igblast_out_na['V_SCORE_VEND'] > v_cutoff)]
+        else:
+            igblast_dj_out = igblast_dj_na[(igblast_dj_na['V_SCORE'] > v_cutoff)]
 
         dj_filt = len(igblast_dj.index)-len(igblast_dj_out.index)
         logging.info('Number of DJ reads filtered:' + str(dj_filt))
@@ -331,8 +339,6 @@ def read_changeo_out(tab_file, out, prefix, fasta, v_fastq=None, plot=False, ret
 
 def make_bundle(pd_data_frame, only_v=False):
     '''Make dictionary of V-CRD3-J (bundle)
-    Distinquish between same recombination happening multiple times and clonal expansion
-    by including the junction sequence V-CDR3+Junction-J
     '''
     clonotype_dict = defaultdict(lambda: defaultdict(dict))
 
@@ -392,7 +398,8 @@ def assemble_colonotype(pd_data_frame, bundles, threshold):
                 #write into original pandas table
                 for qname in bundle[cdr3]['qname']:
                     row_loc = pd_data_frame.SEQUENCE_ID[pd_data_frame.SEQUENCE_ID == qname].index.tolist()[0]
-                    pd_data_frame.set_value(row_loc, 'clonotype', str(bundle_count) + '_' + str(cluster_count))
+                    # pd_data_frame.set_value(row_loc, 'clonotype', str(bundle_count) + '_' + str(cluster_count))
+                    pd_data_frame.at[row_loc, 'clonotype'] = str(bundle_count) + '_' + str(cluster_count)
                     # pd_data_frame.iloc[:,('clonotype', row_loc)] = str(bundle_count) + '_' + str(cluster_count)
             cluster_count += 1
         bundle_count += 1
@@ -408,6 +415,22 @@ def write_out(pd_data_frame, out):
 # pd_data_frame.to_csv('/media/chovanec/My_Passport/Dan_VDJ-seq_cycles_new/J_merged_1c_Deduplicated_test/J_merged_1c_dedup.0.fasta_db-pass_assembled.tab', sep='\t')
 
 
+def add_assembled_column(df, json_path):
+    #add @ to read name to a new tmp column
+    df['SEQUENCE_ID_tmp'] = '@' + df['SEQUENCE_ID'].astype(str)
+
+    with open(json_path, 'r') as in_json:
+        assembled_dict = json.load(in_json)
+
+    #split str and take only first part (read name) and check if it in assembled on unassembled list
+    df.loc[df['SEQUENCE_ID_tmp'].str.split('_').str.get(0).isin(assembled_dict['unassembled']), 'Status'] = 'Unassembled'
+    df.loc[df['SEQUENCE_ID_tmp'].str.split('_').str.get(0).isin(assembled_dict['assembled']), 'Status'] = 'Assembled'
+    #delete tmp column
+    del df['SEQUENCE_ID_tmp']
+
+    return(df)
+
+
 
 #parser
 def parse_args():
@@ -419,6 +442,7 @@ def parse_args():
 
     sp1 = sub.add_parser('umi')
     sp2 = sub.add_parser('short')
+    sp3 = sub.add_parser('assemble_only')
     # sp3 = sub.add_parser('short_anchor')
     # sp4 = sub.add_parser('no_anchor')
 
@@ -428,9 +452,6 @@ def parse_args():
         sp.add_argument('-fa', '--fasta', dest='fasta', type=str, help='Input fasta file from deduplication.py')
 
         sp.add_argument('--plot', action='store_true', help='Plot V and J scores with cutoff')
-        sp.add_argument('--out', dest='out_dir', type=str, help='Output directory, default: creates Deduplicated in main directory')
-        sp.add_argument('--threshold', dest='thres', type=int, default=1, help='Number of differences allowed between CDR3 sequences [1]')
-        sp.add_argument('--only_v', action='store_true', help='Use only V idenity and CDR3 for clone assembly')
         sp.add_argument('--full_name', action='store_true', help='Retain full name of first V and J genes')
         sp.add_argument('--minimal', action='store_true', help='Work with and output only a minimal table')
 
@@ -444,11 +465,21 @@ def parse_args():
         sp.add_argument('--skip_assembly', dest='skip_assembly', action='store_true', help='Do not perform clone assembly into clonotypes')
         sp.add_argument('--call_dj', dest='call_dj', action='store_true', help='Call DJ recombination, else only VDJ will be called')
 
-    sp2.add_argument('-fq', '--v_fastq', dest='v_fastq', type=str, help='V end fastq file')
+    sp2.add_argument('--json_path', dest='json_path', type=str, help='JSON file produced during precleaning that contains identity of assembled and unassembled reads')
+    sp3.add_argument('-tsv', '--tsv_files', dest='tsv_files', type=str, metavar='x.tsv', nargs='+', help='Input tsv files from previous run of assemble_clones.py')
+
+    for sp in [sp1, sp2, sp3]:
+        sp.add_argument('--threshold', dest='thres', type=int, default=1, help='Number of differences allowed between CDR3 sequences [1]')
+        sp.add_argument('--only_v', action='store_true', help='Use only V idenity and CDR3 for clone assembly')
+        sp.add_argument('--out', dest='out_dir', type=str, help='Output directory, default: creates Deduplicated in main directory')
+
+    sp2.add_argument('-v', '--v_end', dest='v_fastq', type=str, help='V end fastq or fasta file')
     # parser.add_argument('--short', action='store_true', help='Analysing short sequences')
 
-    sp1.set_defaults(short=False, v_fastq=None)
-    sp2.set_defaults(short=True)
+
+    sp1.set_defaults(short=False, v_fastq=None, assemble_only=False)
+    sp2.set_defaults(short=True, assemble_only=False)
+    sp3.set_defaults(short=False, v_fastq=None, assemble_only=True, call_dj=False, skip_assembly=False, minimal=False)
 
     opts = parser.parse_args()
 
@@ -460,54 +491,102 @@ def main():
     #argparse
     opts = parse_args()
 
-    # files = glob.glob(opts.in_file)
-    # functional_cln, non_functional_cln = read_changeo_out(opts.in_file, plot=opts.plot)
-    full_path = os.path.abspath(opts.fasta) #put in same folder as deduplication
-    prefix = os.path.basename(opts.fasta).split('.')[0]
-
-    if opts.out_dir == None:
-        out_dir = os.path.dirname(full_path)
+    if opts.short and opts.json_path is None:
+        print('No JSON input provided, short reads will not be marked as assembled or unassembled')
     else:
-        out_dir = opts.out_dir
-        #create out dir if it doesn't exist
-        try:
-            os.mkdir(out_dir)
-        except FileExistsError:
-            pass
+        mark_reads = True
+
+    if opts.assemble_only:
+        #add file name column and then merge all input files
+        df_list = []
+        prefixes = set()
+        out_dirs = set()
+        for item in opts.tsv_files:
+            full_path = os.path.abspath(item) #put in same folder as deduplication
+            file_name = os.path.basename(item).split('.')[0]
+            prefixes.add(file_name)
+            ac_df = pd.read_csv(full_path, sep='\t', index_col=0)
+            ac_df = ac_df.assign(file_name=pd.Series([file_name]*len(ac_df)).values)
+            df_list.append(ac_df)
+
+            if opts.out_dir == None:
+                out_dirs.add(os.path.dirname(full_path))
+
+        igblast_cln = pd.concat(df_list, ignore_index=True)
+
+        #output file prefix, if more than 1 file supplied use merged output name
+        if len(opts.tsv_files) > 1:
+            prefix = 'Merged_' + str(len(prefixes))
+        else:
+            prefix = list(prefixes)[0]
+
+        if opts.out_dir == None:
+            out_dir = list(out_dirs)[0] #if there are multiple paths just pick first
+        else:
+            out_dir = opts.out_dir
+            #create out dir if it doesn't exist
+            try:
+                os.mkdir(out_dir)
+            except FileExistsError:
+                pass
+
+    else:
+        # files = glob.glob(opts.in_file)
+        # functional_cln, non_functional_cln = read_changeo_out(opts.in_file, plot=opts.plot)
+        full_path = os.path.abspath(opts.fasta) #put in same folder as deduplication
+        prefix = os.path.basename(opts.fasta).split('.')[0]
+
+        if opts.out_dir == None:
+            out_dir = os.path.dirname(full_path)
+        else:
+            out_dir = opts.out_dir
+            #create out dir if it doesn't exist
+            try:
+                os.mkdir(out_dir)
+            except FileExistsError:
+                pass
 
 
-    logging.basicConfig(level=logging.DEBUG, filename=out_dir +'/' + prefix + '_assembled_clones.log', filemode='a+',
-                        format='%(asctime)-15s %(levelname)-8s %(message)s')
+        logging.basicConfig(level=logging.DEBUG, filename=out_dir +'/' + prefix + '_assembled_clones.log', filemode='a+',
+                            format='%(asctime)-15s %(levelname)-8s %(message)s')
 
 
-    #make tmp directory with igblast run files
-    tmp_dir = tempfile.mkdtemp()
-    tmp_fmt = os.path.join(tmp_dir, "igblast.fmt7")
+        #make tmp directory with igblast run files
+        tmp_dir = tempfile.mkdtemp()
+        tmp_fmt = os.path.join(tmp_dir, "igblast.fmt7")
 
 
-    igblast_wrapper.run_igblast(opts.fasta, tmp_fmt, 10000, opts.species, opts.nthreads, opts.custom_ref, dj=opts.call_dj, aux_file=opts.aux)
-    igblast_wrapper.parse_igblast(tmp_fmt, opts.fasta, opts.species, opts.custom_ref, opts.call_dj)
+        igblast_wrapper.run_igblast(opts.fasta, tmp_fmt, 10000, opts.species, opts.nthreads, opts.custom_ref, dj=opts.call_dj, aux_file=opts.aux)
+        igblast_wrapper.parse_igblast(tmp_fmt, opts.fasta, opts.species, opts.custom_ref, opts.call_dj)
 
-    #need to find the output of changeo
-    tmp_tab = glob.glob(tmp_dir + '/*.tab')
+        #need to find the output of changeo
+        tmp_tab = glob.glob(tmp_dir + '/*.tab')
 
-    igblast_cln, igblast_dj = read_changeo_out(tmp_tab, out_dir, prefix, opts.fasta, v_fastq=opts.v_fastq, plot=opts.plot,
-                                   retain_nam=opts.full_name, minimal=opts.minimal, short=opts.short, thread_num=opts.nthreads,
-                                   spe=opts.species, aux=opts.aux, custom_ref=opts.custom_ref, j_cutoff=opts.j_cutoff, v_cutoff=opts.v_cutoff,
-                                   dj=opts.call_dj)
-    # igblast_cln = read_changeo_out(files, out_dir, prefix)
-    out_reads_count = len(igblast_cln.index)
-    logging.info('Out reads:' + str(out_reads_count))
-    print('Out reads:', out_reads_count)
+        igblast_cln, igblast_dj = read_changeo_out(tmp_tab, out_dir, prefix, opts.fasta, v_fastq=opts.v_fastq, plot=opts.plot,
+                                       retain_nam=opts.full_name, minimal=opts.minimal, short=opts.short, thread_num=opts.nthreads,
+                                       spe=opts.species, aux=opts.aux, custom_ref=opts.custom_ref, j_cutoff=opts.j_cutoff, v_cutoff=opts.v_cutoff,
+                                       dj=opts.call_dj)
+        # igblast_cln = read_changeo_out(files, out_dir, prefix)
+        out_reads_count = len(igblast_cln.index)
+        logging.info('Out reads:' + str(out_reads_count))
+        print('Out reads:', out_reads_count)
 
     if opts.call_dj:
         dj_count = len(igblast_dj.index)
         logging.info('DJ reads:' + str(dj_count))
         print('DJ reads:', dj_count)
+
+        #for short reads add an additional column marking reads that have been assembled
+        if mark_reads:
+            igblast_dj = add_assembled_column(igblast_dj, opts.json_path)
+
         write_out(igblast_dj, out_dir + '/' + prefix + '_annotated_dj.tsv')
 
 
     if opts.skip_assembly:
+        if mark_reads:
+            igblast_cln = add_assembled_column(igblast_cln, opts.json_path)
+
         if opts.minimal:
             write_out(igblast_cln, out_dir + '/' + prefix + '_annotated_clones_min.tsv')
         else:
@@ -519,6 +598,8 @@ def main():
 
         ig_blast_asm = assemble_colonotype(igblast_cln, clonotype_dict, opts.thres)
 
+        if mark_reads:
+            ig_blast_asm = add_assembled_column(ig_blast_asm, opts.json_path)
 
         if opts.minimal:
             write_out(ig_blast_asm, out_dir + '/' + prefix + '_assembled_clones_min.tsv')
@@ -527,7 +608,8 @@ def main():
 
 
     #delete tmp dir
-    shutil.rmtree(tmp_dir)
+    if not opts.assemble_only:
+        shutil.rmtree(tmp_dir)
 
 if __name__ == "__main__":
     main()

@@ -33,6 +33,8 @@ import logging
 import shutil
 import tempfile
 from tqdm import tqdm
+import json
+from pathlib import Path
 from babrahamlinkon.version import __version__
 
 
@@ -89,20 +91,32 @@ def assemble(V_region, J_region, out_dir, threads=1, prefix=None, short=False):
     # prefix.unassembled.reverse.fastq
 
     out_file_name = out_dir + '/' + prefix
+    dict_out = {'assembled':[], 'unassembled':[]}
 
     if short:
+
         #Create merge file, basically do a fancy cat
         with open(out_dir + '/' + prefix + '.unassembled.forward.fastq', 'r') as forward, \
         open(out_dir + '/' + prefix + '.assembled.fastq', 'r') as assembled, \
-        open(out_dir + '/' + prefix + '.all_J.fastq', 'w') as out_file:
+        open(out_dir + '/' + prefix + '.all_J.fastq', 'w') as out_file, \
+        open(out_dir + '/' + prefix + '.json', 'w') as json_out:
 
             #first write out assembled reads
-            out_file.write(assembled.read())
+            # out_file.write(assembled.read())
 
             #write out J unasembled reads
-            out_file.write(forward.read())
+            # out_file.write(forward.read())
 
-    return out_file_name
+            #write out json dict with assembled and unassembled sets
+            for qname, seq, thrd, qual in general.fastq_parse(assembled):
+                out_file.write(qname + '\n' + seq + '\n' + thrd + '\n' + qual + '\n')
+                dict_out['assembled'].append(qname.rstrip('\n').split(' ')[0])
+            for qname, seq, thrd, qual in general.fastq_parse(forward):
+                out_file.write(qname + '\n' + seq + '\n' + thrd + '\n' + qual + '\n')
+                dict_out['unassembled'].append(qname.rstrip('\n').split(' ')[0])
+            json.dump(dict_out, json_out) #output dict as json file so assembled and unassembed can be distinguished for merging
+
+    return out_file_name, dict_out
 
 
 
@@ -167,6 +181,11 @@ class fastqHolder:
         self.misprimed = defaultdict(lambda: dict())
         self.original_id = defaultdict(set)
         self.fastq_split = defaultdict(list)
+        self.assembled = ''
+        self.anchor_dict = defaultdict()
+        self.umi_dict = defaultdict()
+        self.j_umi_dict = defaultdict()
+        self.rec_skip = set()
 
     # def add_to_gene(self, gene, qname):
     #     '''Add to gene_split dictionary
@@ -177,10 +196,10 @@ class fastqHolder:
 
     def add_to_misprimed(self, orig_gene, gene, cor_seq, qname):
         '''Add to gene_split dictionary
-        :param gene: name of key
         :param orig_gene: initial identity of J before mispriming correction
-        :param qname: fastq qname to be stored under key
+        :param gene: name of key
         :param cor_seq: corrected misprimed sequence to be stored under key
+        :param qname: fastq qname to be stored under key
         '''
         self.misprimed[gene][qname] = cor_seq
         self.original_id[qname] = orig_gene
@@ -220,7 +239,9 @@ class fastqHolder:
 
 
 
-    def write_demultiplex_umi_extract_assembled(self, jv_fastq, gene_list, out_path, an1, an2, umi_len, beyond_anchor, q_score, verbose):
+    def write_demultiplex_umi_extract_assembled(self, jv_fastq, gene_list, out_path, an1, an2,
+                                                umi_len, beyond_anchor, q_score, verbose, j_len,
+                                                in_len):
         '''Write everything into single fastq file and extract umi
         :param fastq: fastq to subset
         :param gene_list: what to subset by (J gene in split_gene)
@@ -235,7 +256,10 @@ class fastqHolder:
         an2_count = 0
         gene_count = defaultdict(int)
 
-        with general.file_open(jv_fastq) as jv_fq, open(out_path + '_' + an1, 'w') as an1_out_file, open(out_path + '_' + an2, 'w') as an2_out_file:
+        with general.file_open(jv_fastq) as jv_fq, \
+        open(out_path + '_' + an1, 'w') as an1_out_file, \
+        open(out_path + '_' + an2, 'w') as an2_out_file:
+
             for qname, seq, thrd, qual in general.fastq_parse(jv_fq):
                 for gene in gene_list: #J1 J2 J3 J4...
                     if qname.split(' ')[0][1:] in self.demultiplex[gene]:
@@ -247,7 +271,10 @@ class fastqHolder:
 
                         umi = seq[-umi_len:] #last 6 bases NNNNNN (it is in reverse complement configuration compared to original V read)
                         umi += seq[-umi_len-anchor_len-beyond_anchor:-umi_len-anchor_len]
-
+                        #If you don't have anchor you do not have a UMI, but if you have UMI you should not need J end (CDR3) sequences
+                        #to further diversify the UMI so no need to add j_len parameter here (for long sequences without anchor UMI)
+                        if j_len > 0:
+                            umi += seq[:in_len][-j_len:]
 
                         # umi_dict[qname.split(' ')[0][1:]] = umi #add to dict so can add to J qname too
                         if self.misprimed: #empty dict evals to False
@@ -277,16 +304,17 @@ class fastqHolder:
                                 continue #skip low quality record
 
                         #Remove UMI and barcode from seq (keeping it in read qname only)
+                        #Do not remove sequnce beyond the anchor as it holds value in annotation stage
                         if an1 in gene:
                             an1_out_file.write(qname.split(' ')[0] + '_' + gene + '_' + umi + ' ' +
-                            ''.join(qname.split(' ')[1:]) + '\n' + seq[:-(anchor_len+umi_len+beyond_anchor)] +
-                            '\n' + thrd + '\n' + qual[:-(anchor_len+umi_len+beyond_anchor)] + '\n')
+                            ''.join(qname.split(' ')[1:]) + '\n' + seq[:-(anchor_len+umi_len)] +
+                            '\n' + thrd + '\n' + qual[:-(anchor_len+umi_len)] + '\n')
                             an1_count += 1
                             gene_count[gene] += 1
                         else:
                             an2_out_file.write(qname.split(' ')[0] + '_' + gene + '_' + umi + ' ' +
-                            ''.join(qname.split(' ')[1:]) + '\n' + seq[:-(anchor_len+umi_len+beyond_anchor)] +
-                            '\n' + thrd + '\n' + qual[:-(anchor_len+umi_len+beyond_anchor)] + '\n')
+                            ''.join(qname.split(' ')[1:]) + '\n' + seq[:-(anchor_len+umi_len)] +
+                            '\n' + thrd + '\n' + qual[:-(anchor_len+umi_len)] + '\n')
                             an2_count += 1
                             gene_count[gene] += 1
 
@@ -301,34 +329,33 @@ class fastqHolder:
         return [low_qual_UMI, an1_count, an2_count]
 
 
-    #for short sequences only
-    #TODO: Don't hardcode the anchor sequences
-    def write_preclean_short(self, fastq_path_v, fastq_path_jv, genes, out_path, v_iden_dict, umi_len, merge, q_score, anchor, beyond_anchor):
-        '''Write fastq file and extract UMI (V start) from V fastq
-        assumes UMI before anchor is 6N
-        :param fastq: fastq to subset (V for UMI extraction)
-        :param gene: what to subset by (J gene in split_gene)
-        :param path: write path
-        '''
-        anchor_dict = defaultdict()
-        umi_dict = defaultdict()
-        rec_skip = set()
+    #for short sequences only --------------------------------------------------
+    def j_end_umi(self, fastq_path_jv, j_len, in_len):
+
+        with general.file_open(fastq_path_jv) as j_fq:
+            for qname, seq, thrd, qual in general.fastq_parse(j_fq):
+                self.j_umi_dict[qname.split(' ')[0]] = seq[:in_len][-j_len:]
+
+
+    def process_v_end(self, fastq_path_v, umi_len, out_path, v_iden_dict, genes, q_score, anchor, beyond_anchor):
+
         low_qual_UMI = 0
         no_anchor = 0
         v_short = 0
-        out_reads = 0
+        assembled = 0
 
         with general.file_open(fastq_path_v) as v_fq:
+
             for qname, seq, thrd, qual in general.fastq_parse(v_fq):
                 if anchor: #if anochor present verify it is correct
                     if seq[umi_len:umi_len+7] == 'GACTCGT':
-                        anchor_dict[qname.split(' ')[0]] = 'GACTCGT'
+                        self.anchor_dict[qname.split(' ')[0]] = 'GACTCGT'
                         anchor_len = 7
                     elif seq[umi_len:umi_len+8] == 'CTGCTCCT':
-                        anchor_dict[qname.split(' ')[0]] = 'CTGCTCCT'
+                        self.anchor_dict[qname.split(' ')[0]] = 'CTGCTCCT'
                         anchor_len = 8
                     else:
-                        rec_skip.add(qname.split(' ')[0][1:])
+                        self.rec_skip.add(qname.split(' ')[0][1:])
                         no_anchor += 1
                         continue
 
@@ -344,69 +371,161 @@ class fastqHolder:
                     if general.check_qual(umi_qual, q_score):
                         #poor quality skip record
                         low_qual_UMI += 1
-                        rec_skip.add(qname.split(' ')[0][1:])
+                        self.rec_skip.add(qname.split(' ')[0][1:])
                     else:
                         if len(umi_seq) == umi_len+beyond_anchor: #if V read is too short skip it
-                            umi_dict[qname.split(' ')[0]] = umi_seq
+                            self.umi_dict[qname.split(' ')[0]] = umi_seq
                         else:
                             v_short += 1
-                            rec_skip.add(qname.split(' ')[0][1:])
+                            self.rec_skip.add(qname.split(' ')[0][1:])
                 else:
                     umi_seq = seq[:umi_len]
                     umi_qual = qual[:umi_len]
                     if general.check_qual(umi_qual, q_score):
                         #poor quality skip record
                         low_qual_UMI += 1
-                        rec_skip.add(qname.split(' ')[0][1:])
+                        self.rec_skip.add(qname.split(' ')[0][1:])
                     else:
                         if len(umi_seq) == umi_len: #if V read is too short skip it
-                            umi_dict[qname.split(' ')[0]] = umi_seq
+                            self.umi_dict[qname.split(' ')[0]] = umi_seq
                         else:
                             v_short += 1
-                            rec_skip.add(qname.split(' ')[0][1:])
+                            self.rec_skip.add(qname.split(' ')[0][1:])
+
+        #write out v end for non-assembled reads
+        #loop through file again, TODO: figure out a better way
+        if anchor:
+            with open(out_path + '_GACTCGT', 'w') as out_GACTCGT, \
+            open(out_path + '_CTGCTCCT', 'w') as out_CTGCTCCT, \
+            general.file_open(fastq_path_v) as v_fq:
+                for qname, seq, thrd, qual in general.fastq_parse(v_fq):
+
+                    if len(self.j_umi_dict) > 0:
+                        umi = self.j_umi_dict.get(qname.split(' ')[0], 'not_present') + \
+                              self.umi_dict.get(qname.split(' ')[0], 'not_present')
+                    else:
+                        umi = self.umi_dict.get(qname.split(' ')[0], 'not_present')
+
+                    #skip sequences without a umi
+                    if 'not_present' in umi:
+                        continue
+                    #UMI is not removed from sequence as it hold value at the annotation stage
+                    for gene in genes:
+                        if 'germline' not in gene and 'other' not in gene:
+                            if qname.split(' ')[0][1:] in self.gene_split[gene] or qname.split(' ')[0][1:] in self.misprimed[gene]:
+
+                                v_iden_out = v_iden_dict.get(qname.split(' ')[0][1:], '')
+
+                                if qname.split(' ')[0][1:] not in self.rec_skip and qname.split(' ')[0] not in self.assembled['assembled']:
+                                    if self.anchor_dict.get(qname.split(' ')[0], '') == 'GACTCGT':
+                                        out_GACTCGT.write(qname.split(' ')[0] + '_' + gene + '_' + + v_iden_out.upper() + '_GACTCGT_' +
+                                                          umi + ' ' + ''.join(qname.split(' ')[1:]) +
+                                                          '\n' + seq + '\n' + thrd + '\n' + qual + '\n')
+                                    elif self.anchor_dict.get(qname.split(' ')[0],'') == 'CTGCTCCT':
+                                        out_CTGCTCCT.write(qname.split(' ')[0] + '_' + gene + '_' + + v_iden_out.upper() + '_CTGCTCCT_' +
+                                                           umi + ' ' + ''.join(qname.split(' ')[1:]) +
+                                                           '\n' + seq + '\n' + thrd + '\n' + qual + '\n')
+                                elif qname.split(' ')[0] in self.assembled['assembled'] and qname.split(' ')[0][1:] not in self.rec_skip:
+                                    assembled += 1
+        else:
+            with open(out_path, 'w') as v_fq_filt, \
+            general.file_open(fastq_path_v) as v_fq:
+                for qname, seq, thrd, qual in general.fastq_parse(v_fq):
+
+                    if len(self.j_umi_dict) > 0:
+                        umi = self.j_umi_dict.get(qname.split(' ')[0], 'not_present') + \
+                              self.umi_dict.get(qname.split(' ')[0], 'not_present')
+                    else:
+                        umi = self.umi_dict.get(qname.split(' ')[0], 'not_present')
+
+                    #skip sequences without a umi
+                    if 'not_present' in umi:
+                        continue
+
+                    for gene in genes:
+                        if 'germline' not in gene and 'other' not in gene:
+                            if qname.split(' ')[0][1:] in self.gene_split[gene] or \
+                               qname.split(' ')[0][1:] in self.misprimed[gene]:
+
+                                v_iden_out = v_iden_dict.get(qname.split(' ')[0][1:], '')
+
+                                if qname.split(' ')[0][1:] not in self.rec_skip and qname.split(' ')[0] not in self.assembled['assembled']:
+                                    v_fq_filt.write(qname.split(' ')[0] + '_' + gene + '_' + v_iden_out.upper() + '_' + umi +
+                                                    ' ' + ''.join(qname.split(' ')[1:]) +
+                                                    '\n' + seq + '\n' + thrd + '\n' + qual + '\n')
+                                elif qname.split(' ')[0] in self.assembled['assembled'] and qname.split(' ')[0][1:] not in self.rec_skip:
+                                    assembled += 1
+
+        return low_qual_UMI, no_anchor, v_short, assembled
+
+    #make a decorator to gzip files if specified (TODO: when you have more time)
+    # def _write_gzip_or_not(func):
+    #     def my_wrapper(self, fastq_path_jv, genes, out_path, v_iden_dict,
+    #                              merge, anchor):
+    #https://stackoverflow.com/questions/1263451/python-decorators-in-classes
+
+    #TODO: Don't hardcode the anchor sequences
+    def write_preclean_short(self, fastq_path_jv, genes, out_path, v_iden_dict,
+                             merge, anchor):
+        '''Write fastq file and extract UMI (V start) from V fastq
+        assumes UMI before anchor is 6N
+        :param fastq: fastq to subset (V for UMI extraction)
+        :param gene: what to subset by (J gene in split_gene)
+        :param path: write path
+        '''
+        out_reads = 0
 
         if merge:
             if anchor:
-                with general.file_open(fastq_path_jv) as fq, open(out_path + '_GACTCGT', 'w') as out_an1, open(out_path + '_CTGCTCCT', 'w') as out_an2:
+                with general.file_open(fastq_path_jv) as fq, \
+                open(out_path + '_GACTCGT', 'w') as out_an1, \
+                open(out_path + '_CTGCTCCT', 'w') as out_an2:
                     for qname, seq, thrd, qual in general.fastq_parse(fq):
-                        if qname.split(' ')[0][1:] in rec_skip:
+                        if qname.split(' ')[0][1:] in self.rec_skip:
                             continue
-                        try:
-                            v_iden_out = v_iden_dict[qname.split(' ')[0][1:]]
-                        except KeyError:
-                            v_iden_out = ''
-                        try:
-                            umi = umi_dict[qname.split(' ')[0]]
-                        except KeyError:
-                            print('no umi')
+
+                        v_iden_out = v_iden_dict.get(qname.split(' ')[0][1:], '')
+
+                        if len(self.j_umi_dict) > 0:
+                            umi = self.j_umi_dict.get(qname.split(' ')[0], 'not_present') + \
+                                  self.umi_dict.get(qname.split(' ')[0], 'not_present')
+                        else:
+                            umi = self.umi_dict.get(qname.split(' ')[0], 'not_present')
+
+                        #skip sequences without a umi
+                        if 'not_present' in umi:
                             continue
 
                         for gene in genes:
                             if 'germline' not in gene and 'other' not in gene:
                                 if qname.split(' ')[0][1:] in self.gene_split[gene] or qname.split(' ')[0][1:] in self.misprimed[gene]:
-                                    if anchor_dict[qname.split(' ')[0]] == 'GACTCGT':
+                                    if self.anchor_dict.get(qname.split(' ')[0], '') == 'GACTCGT':
                                         out_an1.write(qname.split(' ')[0] + '_' + gene + '_' + v_iden_out.upper() + '_' +
-                                                       anchor_dict[qname.split(' ')[0]] + '_' + umi + ' ' +
+                                                       self.anchor_dict.get(qname.split(' ')[0]) + '_' + umi + ' ' +
                                                        ''.join(qname.split(' ')[1:]) + '\n' + seq + '\n' + thrd + '\n' + qual + '\n')
 
-                                    elif anchor_dict[qname.split(' ')[0]] == 'CTGCTCCT':
+                                    elif self.anchor_dict.get(qname.split(' ')[0],'') == 'CTGCTCCT':
                                         out_an2.write(qname.split(' ')[0] + '_' + gene + '_' + v_iden_out.upper() + '_' +
-                                                       anchor_dict[qname.split(' ')[0]] + '_' + umi + ' ' +
+                                                       self.anchor_dict.get(qname.split(' ')[0]) + '_' + umi + ' ' +
                                                        ''.join(qname.split(' ')[1:]) + '\n' + seq + '\n' + thrd + '\n' + qual + '\n')
                                     out_reads += 1
 
             else:
                 with general.file_open(fastq_path_jv) as fq, open(out_path, 'w') as out_file:
                     for qname, seq, thrd, qual in general.fastq_parse(fq):
-                        if qname.split(' ')[0][1:] in rec_skip:
+                        if qname.split(' ')[0][1:] in self.rec_skip:
                             continue
-                        try:
-                            v_iden_out = v_iden_dict[qname.split(' ')[0][1:]]
-                        except KeyError:
-                            v_iden_out = ''
-                        try:
-                            umi = umi_dict[qname.split(' ')[0]]
-                        except KeyError:
+
+                        v_iden_out = v_iden_dict.get(qname.split(' ')[0][1:], '')
+
+                        if len(self.j_umi_dict) > 0:
+                            umi = self.j_umi_dict.get(qname.split(' ')[0], 'not_present') + \
+                                  self.umi_dict.get(qname.split(' ')[0], 'not_present')
+                        else:
+                            umi = self.umi_dict.get(qname.split(' ')[0], 'not_present')
+
+                        #skip sequences without a umi
+                        if 'not_present' in umi:
                             continue
 
                         for gene in genes:
@@ -429,24 +548,35 @@ class fastqHolder:
 
             with general.file_open(fastq_path_jv) as fq, open(out_path, 'w') as out_file:
                 for qname, seq, thrd, qual in general.fastq_parse(fq):
-                    try:
-                        umi = umi_dict[qname.split(' ')[0]]
-                    except KeyError:
+                    # try:
+                    if len(self.j_umi_dict) > 0:
+                        umi = self.j_umi_dict.get(qname.split(' ')[0], 'not_present') + \
+                              self.umi_dict.get(qname.split(' ')[0], 'not_present')
+                    else:
+                        umi = self.umi_dict.get(qname.split(' ')[0], 'not_present')
+
+                    #skip sequences without a umi
+                    if 'not_present' in umi:
                         continue
-                    if qname.split(' ')[0][1:] in rec_skip:
+
+                    if qname.split(' ')[0][1:] in self.rec_skip:
                         continue
                     if qname.split(' ')[0][1:] in self.gene_split[genes]:
                         out_file.write(qname.split(' ')[0] + '_' + genes + '_' + umi + ' ' +
                                        ''.join(qname.split(' ')[1:]) + '\n' + seq + '\n' + thrd + '\n' + qual + '\n')
+                        out_reads += 1
 
-        return low_qual_UMI, no_anchor, v_short, out_reads
+        return out_reads
+
+
+
 
 ################################################################################
 
 
 #Don't need to remove germline other than to reduce file size (speed up)
 #Almost half the data is germline, required for germline mispriming.
-def germline(J_region, thread_num, spe='mmu', plot=False, write=False, verbose=True):
+def germline(J_region, thread_num, spe='mmu', plot=False, write=False, verbose=True, if_assembled=None):
     '''Extract reads aligning to J genes i.e. germline (used to correct mispriming)
     :param J_region: R2 fastq file with J end sequences
     :param spe: which species
@@ -458,6 +588,9 @@ def germline(J_region, thread_num, spe='mmu', plot=False, write=False, verbose=T
     ref_index = presets.prs(spe).bowtie_index()
 
     fq_data = fastqHolder()
+
+    #add if read has been assembled or not (only for short)
+    fq_data.assembled = if_assembled
 
     #for mm take only first 21 nts (smallest J)
     j_size_ord = sorted(presets.prs(spe).J_seq().values(), key=len)
@@ -471,7 +604,9 @@ def germline(J_region, thread_num, spe='mmu', plot=False, write=False, verbose=T
     run_bowtie2.align_single(fastq=fp_J_region, nthreads=thread_num, trim5=str(shortest_J), spe=spe, verbose=verbose)
 
     if plot:
-        run_bowtie2.plot(plot_region=germ[0] + ':' + str(germ[1]) + '-' + str(germ[2]), spe=spe)
+        plot_file = run_bowtie2.plot(plot_region=germ[0] + ':' + str(germ[1]) + '-' + str(germ[2]), spe=spe)
+        if not Path(plot_file).is_file():
+            print('No plot produced')
 
     sam_file_j = run_bowtie2.pysam_out(region=germ, fetch=True)
 
@@ -479,7 +614,6 @@ def germline(J_region, thread_num, spe='mmu', plot=False, write=False, verbose=T
         run_bowtie2.write(region=germ)
 
     run_bowtie2.del_tmp()
-
 
     #get rid of everything aligning to J genes
     count = 0
@@ -710,7 +844,8 @@ def demultiplex_assembled(jv_region, fq_dict_pcln, umi_len, anchor_1='GACTCGT', 
 
 
 def write_assembled(jv_region, fq_dict_demult, umi_len, prefix=None, out_dir=None,
-                    anchor_1='GACTCGT', anchor_2='CTGCTCCT', beyond_anchor=0, q_score=30, verbose=False):
+                    anchor_1='GACTCGT', anchor_2='CTGCTCCT', beyond_anchor=0, q_score=30,
+                    verbose=False, j_len=0, in_len=0):
     '''Write out precleaned fastq files
     :param jv_region: (PEAR) assembled fastq file with J and V end sequences
     :param fq_dict: a fastqHolder object from demultiplex
@@ -744,11 +879,13 @@ def write_assembled(jv_region, fq_dict_demult, umi_len, prefix=None, out_dir=Non
         else: #write unassigned into a seperate file
             fq_dict_demult.write_demultiplex_unassigned(fp_jv_region, key, out_dir + '/' + prefix_jv + '_' + key)
 
+    if j_len > 0:
+        fq_dict_pcln.j_end_umi(jv_region, j_len, in_len)
     #Write out everything else
     low_qual, an1_count, an2_count = fq_dict_demult.write_demultiplex_umi_extract_assembled(fp_jv_region, key_list,
                                                            out_path=out_dir + '/' + prefix_jv + '_' + 'all_jv',
                                                            an1=anchor_1, an2=anchor_2, umi_len=umi_len, beyond_anchor=beyond_anchor,
-                                                           q_score=q_score, verbose=verbose)
+                                                           q_score=q_score, verbose=verbose, j_len=j_len, in_len=in_len)
 
     logging.info('Number of ' + anchor_1 + ' reads written out:' + str(an1_count))
     logging.info('Number of ' + anchor_2 + ' reads written out:' + str(an2_count))
@@ -763,15 +900,19 @@ def write_assembled(jv_region, fq_dict_demult, umi_len, prefix=None, out_dir=Non
 
 
 
-def write_short(V_region, jv_region, fq_dict_pcln, v_iden_out, umi_len, prefix=None, out_dir=None, q_score=30, anchor=False, beyond_anchor=0):
+def write_short(V_region, jv_region, fq_dict_pcln, v_iden_out, umi_len, j_len, in_len,
+                prefix=None, out_dir=None, q_score=30, anchor=False, beyond_anchor=0):
     '''Write out short reads
-    :param umi_len: how many bases to use from V read as the umi
     :param V_region: path to v end fastq
     :param JV_region: path to jv assembled fastq
+    :param fq_dict_pcln: fastqHolder object from preclean function
+    :param umi_len: how many bases to use from V read as the UMI
+    :param j_len: how many bases to use from J read as the UMI
+    :param in_len: how many bases into the J read to take bases from
     '''
 
-    out_files = set(list(fq_dict_pcln.gene_split.keys()) + list(fq_dict_pcln.misprimed.keys()))
-    print(out_files)
+    genes = set(list(fq_dict_pcln.gene_split.keys()) + list(fq_dict_pcln.misprimed.keys()))
+
     fp_v_region = os.path.abspath(V_region)
     fp_jv_region = os.path.abspath(jv_region)
 
@@ -780,26 +921,46 @@ def write_short(V_region, jv_region, fq_dict_pcln, v_iden_out, umi_len, prefix=N
     else:
         prefix_jv = prefix
 
+    #get umi from j end
+    if j_len > 0:
+        fq_dict_pcln.j_end_umi(jv_region, j_len, in_len)
+
+    #process v end first; V end file will be smaller than J end as it doesn't contain assembled reads
+    #need v_end as deduplication removes all_v
+    low_qual_UMI, no_anchor, v_short, assembled = fq_dict_pcln.process_v_end(fp_v_region, umi_len,
+                                                                  out_dir + '/' + prefix_jv + '_' + 'v_end_all_v',
+                                                                  v_iden_out, list(genes),
+                                                                  q_score=q_score, anchor=anchor,
+                                                                  beyond_anchor=beyond_anchor)
+
     #write out, get umi from v end
-    for key in out_files:
+    key_out_reads = defaultdict()
+    for key in genes:
         if 'germline' in key or 'other' in key:
-            low_qual_UMI_n, no_anochor_n, v_short_n, out_reads_n = fq_dict_pcln.write_preclean_short(fp_v_region, fp_jv_region, key,
-                                              out_dir + '/' + prefix_jv + '_' + key, v_iden_out,
-                                              umi_len, merge=False, q_score=0, anchor=anchor, beyond_anchor=beyond_anchor)
+            out_reads_n = fq_dict_pcln.write_preclean_short(fp_jv_region, key,
+                                                            out_dir + '/' + prefix_jv + '_' + key,
+                                                            v_iden_out, merge=False,
+                                                            anchor=anchor)
+            key_out_reads[key] = out_reads_n
     #else write everything else in the same file
-    low_qual_UMI, no_anchor, v_short, out_reads = fq_dict_pcln.write_preclean_short(fp_v_region, fp_jv_region, list(out_files),
-                                                     out_dir + '/' + prefix_jv + '_' + 'all_jv',
-                                                     v_iden_out, umi_len, merge=True, q_score=q_score, anchor=anchor,
-                                                     beyond_anchor=beyond_anchor)
+    out_reads = fq_dict_pcln.write_preclean_short(fp_jv_region, list(genes),
+                                                  out_dir + '/' + prefix_jv + '_' + 'all_j',
+                                                  v_iden_out, merge=True, anchor=anchor)
+
+    other_stats = ', '.join("{!s}: {!r}".format(key,val) for (key,val) in key_out_reads.items())
 
     print('Number of low quality UMIs:', low_qual_UMI)
     print('Number of missing anchors:', no_anchor)
     print('Number of short V reads:', v_short)
-    print('Number of J reads written out:', out_reads)
+    print('Number of J reads written out', out_reads)
+    print('Number of germline and other reads written out -', other_stats)
+    print('Number of assembled read not included in V end', assembled)
     logging.info('Number of low quality UMIs:' + str(low_qual_UMI))
     logging.info('Number of missing anchors:' + str(no_anchor))
     logging.info('Number of short V reads:' + str(v_short))
     logging.info('Number of J reads written out:' + str(out_reads))
+    logging.info('Number of germline and other reads written out -' + other_stats)
+    logging.info('Number of assembled read not included in V end' + str(assembled))
 
 
 def gemline_removed_qc(V_region, out_dir, spe='mmu', prefix=None, thread_num=8, verbose=False):
@@ -973,6 +1134,9 @@ def parse_args():
         sp.add_argument('--plot', action='store_true', help='Plot alignments')
         sp.add_argument('-q', '--q_score', dest='q_score', type=int, default=30, help='Minimum Phred quality score for bases in UMI')
         sp.add_argument('-ul', '--umi_len', dest='umi_len', type=int, default=12, help='Length of the UMI')
+        sp.add_argument('--j_len', dest='j_len', type=int, default=0, help='Length of J end sequence, 50bp into read (-), \
+                                                                            to add to the UMI to further diversify the UMI [0]')
+        sp.add_argument('--in_len', dest='in_len', type=int, default=50, help='Length into the J end sequence to go, xbp into read (+umi) [50]')
 
         sp.add_argument('--an1', dest='an1', default='GACTCGT', type=str, help='Adaptor 1 anchor sequence [GACTCGT]')
         sp.add_argument('--an2', dest='an2', default='CTGCTCCT', type=str, help='Adaptor 2 anchor sequence [CTGCTCCT]')
@@ -1003,7 +1167,7 @@ def parse_args():
     return opts
 
 
-#TODO: remove files not needed (output from PEAR)
+#TODO: compress output?
 def main():
 
 
@@ -1065,7 +1229,8 @@ def main():
                             format='%(asctime)-15s %(levelname)-8s %(message)s')
 
 
-        assembled_file = assemble(opts.input_V, opts.input_J, out_dir, threads=opts.nthreads, prefix=opts.prefix, short=opts.short)
+        assembled_file, if_assembled = assemble(opts.input_V, opts.input_J, out_dir, threads=opts.nthreads,
+                                                prefix=opts.prefix, short=opts.short)
 
         # os.chdir('/media/chovanec/My_Passport/Old_vdj_seq_data/')
         # assembled_file = assemble('/media/chovanec/My_Passport/Old_vdj_seq_data/lane5_TGACCA_WT_BC_L005_R1_val_1.fq.gz',
@@ -1080,11 +1245,14 @@ def main():
         # prefix.all_assembled.fastq
 
         if opts.short:
-            germ_assembled = germline(assembled_file + '.all_J.fastq', spe=opts.species, thread_num=opts.nthreads, plot=opts.plot, verbose=opts.verbose)
+            germ_assembled = germline(assembled_file + '.all_J.fastq', spe=opts.species, thread_num=opts.nthreads,
+                                      plot=opts.plot, verbose=opts.verbose, if_assembled=if_assembled)
 
             #Merge the two files into one (pairing unassembled reads)
-            fq_clean = preclean_assembled(assembled_file + '.all_J.fastq', germ_assembled, q_score=opts.q_score, umi_len=opts.umi_len, spe=opts.species, verbose=opts.verbose,
-                                          no_misprime_correct=opts.no_mispriming, discard_germline=opts.keep_germline, fast=opts.fast, short=opts.short)
+            fq_clean = preclean_assembled(assembled_file + '.all_J.fastq', germ_assembled, q_score=opts.q_score,
+                                          umi_len=opts.umi_len, spe=opts.species, verbose=opts.verbose,
+                                          no_misprime_correct=opts.no_mispriming, discard_germline=opts.keep_germline,
+                                          fast=opts.fast, short=opts.short)
 
             #get identity of V end using bowtie2 alignment, if ref not specified skip this step.
             if opts.ref_path == None:
@@ -1095,8 +1263,11 @@ def main():
             # v_iden_dict = v_identity_igblast(opts.input_V[0], thread_num=opts.nthreads, spe=opts.species)
 
             #Old short reads don't have any anchor (short reads with anchor ignore for now)
-            write_short(opts.input_V, assembled_file + '.all_J.fastq', fq_clean, v_iden_dict, umi_len=opts.umi_len,
-                        prefix=opts.prefix, out_dir=out_dir, q_score=opts.q_score, anchor=opts.anchor, beyond_anchor=opts.beyond_anchor)
+            write_short(opts.input_V, assembled_file + '.all_J.fastq', fq_clean,
+                        v_iden_dict, umi_len=opts.umi_len,
+                        j_len=opts.j_len, in_len=opts.in_len,
+                        prefix=opts.prefix, out_dir=out_dir, q_score=opts.q_score,
+                        anchor=opts.anchor, beyond_anchor=opts.beyond_anchor)
 
             if opts.keep_pear:
                 print('Removing files')
@@ -1108,15 +1279,20 @@ def main():
 
 
         else:
-            germ_assembled = germline(assembled_file + '.assembled.fastq', spe=opts.species, thread_num=opts.nthreads, plot=opts.plot, verbose=opts.verbose)
+            germ_assembled = germline(assembled_file + '.assembled.fastq', spe=opts.species, thread_num=opts.nthreads,
+                                      plot=opts.plot, verbose=opts.verbose, if_assembled=if_assembled)
 
-            fq_clean = preclean_assembled(assembled_file + '.assembled.fastq', germ_assembled, q_score=opts.q_score, umi_len=opts.umi_len, spe=opts.species, verbose=opts.verbose,
-                                          no_misprime_correct=opts.no_mispriming, discard_germline=opts.keep_germline, fast=opts.fast)
+            fq_clean = preclean_assembled(assembled_file + '.assembled.fastq', germ_assembled, q_score=opts.q_score,
+                                          umi_len=opts.umi_len, spe=opts.species, verbose=opts.verbose,
+                                          no_misprime_correct=opts.no_mispriming, discard_germline=opts.keep_germline,
+                                          fast=opts.fast)
 
-            fq_demultiplex = demultiplex_assembled(assembled_file + '.assembled.fastq', fq_clean, umi_len=opts.umi_len, anchor_1=opts.an1, anchor_2=opts.an2, verbose=opts.verbose)
+            fq_demultiplex = demultiplex_assembled(assembled_file + '.assembled.fastq', fq_clean, umi_len=opts.umi_len,
+                                                   anchor_1=opts.an1, anchor_2=opts.an2, verbose=opts.verbose)
 
-            write_assembled(assembled_file + '.assembled.fastq', fq_demultiplex, umi_len=opts.umi_len, prefix=opts.prefix, out_dir=out_dir,
-                            beyond_anchor=opts.beyond_anchor, q_score=opts.q_score, verbose=opts.verbose)
+            write_assembled(assembled_file + '.assembled.fastq', fq_demultiplex, umi_len=opts.umi_len, prefix=opts.prefix,
+                            out_dir=out_dir, beyond_anchor=opts.beyond_anchor, q_score=opts.q_score, verbose=opts.verbose,
+                            j_len=opts.j_len, in_len=opts.in_len)
 
             if opts.keep_pear:
                 print('Removing files')

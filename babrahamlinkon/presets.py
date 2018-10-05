@@ -242,9 +242,9 @@ class prs:
                     'J4':{'J1':[8]}}
         elif self.name == 'mmuk' or self.name == 'mouse kappa' or self.name == 'mus musculus kappa':
             return {'J1':{'J1':[10], 'J4':[-2], 'J5':[9]},
-                    'J2':{'J2':[5], 'J5':[4]},
+                    'J2':{'J5':[4]},
                     'J4':{},
-                    'J5':{'J2':[1], 'J4':[2], 'J5':[5]},
+                    'J5':{'J2':[1], 'J4':[3]},
                     'J5.c':{}}
         elif self.name == 'hsa' or self.name == 'human' or self.name == 'homo sapien':
             return {'J1':{'J2':[4], 'J3':[6], 'J4.1':[1], 'J5.1':[7], 'J5.2':[7]},

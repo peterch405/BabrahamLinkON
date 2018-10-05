@@ -354,7 +354,7 @@ def resolve_clusters(bundle, clusters, counts, differences, gt_threshold, no_msa
 
 
 
-def run_dir_adj(bundle, threshold, stat, mismatches, gt_threshold, qual_dict, no_msa, short, cons_no_qual):
+def run_dir_adj(bundle, threshold, stat, mismatches, gt_threshold, qual_dict, no_msa, short, cons_no_qual, with_N):
     #threshold=1, stats=True, further_stats=True, mismatches=5
     umis = bundle.keys()
     # print(umis)
@@ -381,7 +381,8 @@ def run_dir_adj(bundle, threshold, stat, mismatches, gt_threshold, qual_dict, no
     print('Reducing clusters')
     # if nprocs == 1: #if no additional cores available
     reads, consensus_seqs, consensus_quals, final_umis, umi_counts, low_gt, corrected, low_gt_corrected, cons_dffs =\
-    deduplicate.reduce_clusters_single(bundle, rclusters, counts, mismatches, gt_threshold, qual_dict, no_msa, short, cons_no_qual)
+    deduplicate.reduce_clusters_single(bundle, rclusters, counts, mismatches,
+                                       gt_threshold, qual_dict, no_msa, short, cons_no_qual, with_N)
 
 
     # print('Unique:', len(set(reads)), 'All:', len(reads))

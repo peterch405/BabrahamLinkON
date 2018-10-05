@@ -170,6 +170,7 @@ class bowtie2:
         #TODO: capture error here
         subprocess.call(plot_igh_bef)
 
+        return self.dir_nam + '/' + self.prefix + '.pdf'
 
     def pysam_out(self, region=None, algn=False, fetch=False):
         '''Pysam objects out

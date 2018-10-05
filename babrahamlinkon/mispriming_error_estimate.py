@@ -93,7 +93,7 @@ def mispriming_matrix(seq_dict, spe):
         print('Indentify priming sequence:')
         align_J = mispriming_correction.SSW_align()
         ref = align_J.reference(spe)
-        J_len = len(presets.prs(spe).J_seq()[j])
+        # J_len = len(presets.prs(spe).J_seq()[j])
 
         # after_j_counts = defaultdict(int)
         # before_j_counts = defaultdict(int)
@@ -115,8 +115,57 @@ def mispriming_matrix(seq_dict, spe):
 
     return(before, after)
 
+# test_df = pd.read_csv('/media/chovanec/My_Passport/CS_VDJ_seq/lane4850_ACAGTG_5_BC_L001_R1_val_1_preclean/tmp.csv', index_col=0)
+# df_after = pd.read_csv('/media/chovanec/My_Passport/CS_VDJ_seq/df_after_sub.csv', index_col=0)
+# df_before = pd.read_csv('/media/chovanec/My_Passport/CS_VDJ_seq/df_before_sub.csv', index_col=0)
+#
+# test_df_sub = test_df.loc[:,test_df.columns[~test_df.columns.str.contains('other|unclear')]]
+# test_df_sub.fillna(float(0), inplace=True)
+# df_after_sub = variant_merge(df_after, 'hsa')
+# df_before_sub = variant_merge(df_before, 'hsa')
+# spe = 'hsa'
+#
+# sum_df = defaultdict()
+# for k in df_after.index:
+#     to_merge = df_after.columns.str.contains('^' + '$|^'.join(j_merge.get(k)) + '$')
+#     sum_df[k] = df_after.loc[:,to_merge].sum(axis=1)
+#
+# #combine all dfs
+# simple_df = pd.DataFrame.from_dict(sum_df)
+
+
+def variant_merge(m_df, spe):
+    #for human, the mispriming is more complicated with multiple variants
+    #in order to get a value merge variants into groups to reflect the index
+    all_js = sorted(list(presets.prs(spe).J_seq().keys()))
+    #make merge dict
+    j_merge = defaultdict(set)
+    for i in all_js:
+        if '.' in i:
+            j_merge[i.split('.')[0]].add(i)
+        else:
+            j_merge[i].add(i)
+    #also add J2P into dict
+    j_merge['J2P'] = {'J2P'}
+
+    #sum rows of columns to merge
+    sum_df = defaultdict()
+    for k in m_df.index:
+        if j_merge.get(k) is None:
+            sum_df[k] = 0
+        else:
+            to_merge = m_df.columns.str.contains('^' + '$|^'.join(j_merge.get(k)) + '$')
+            sum_df[k] = m_df.loc[:,to_merge].sum(axis=1)
+
+    #combine all dfs
+    simple_df = pd.DataFrame.from_dict(sum_df)
+
+    return(simple_df)
+
+
 #make a table of clear and unclear, before and after
 def make_table(before, after, spe, out_file):
+
 
     all_js = sorted(list(presets.prs(spe).J_location().keys()))
 
@@ -128,22 +177,33 @@ def make_table(before, after, spe, out_file):
     df_after_cols = sorted(df_after.columns.tolist())
     df_after = df_after[df_after_cols]
 
-        #subset table to only properly identified J's
-        #after
-    df_after_sub = df_after[all_js]
+    #for small datasets if NaN present change to 0
+    df_before.fillna(float(0), inplace=True)
+    df_after.fillna(float(0), inplace=True)
+
+    if spe == 'hsa':
+        df_after_sub = variant_merge(df_after, spe)
+        df_before_sub = variant_merge(df_before, spe)
+    else:
+        df_after_sub = df_after[all_js]
+        df_before_sub = df_before[all_js]
+
+    #subset table to only properly identified J's
+    #after
+
     df_after_sum = pd.DataFrame(df_after_sub.sum())
 
-    diag = pd.DataFrame(np.diag(df_after_sub), index=[df_after_sub.columns])
+    diag = pd.DataFrame(np.diag(df_after_sub), index=df_after_sub.index)
 
     out_df_after = pd.concat([df_after_sum, abs(df_after_sum.subtract(diag))], axis=1)
     out_df_after.columns = ['Total', 'Misprimed']
     out_df_after['Percent error'] = (out_df_after['Misprimed']/out_df_after['Total'])*100
 
     #before
-    df_before_sub = df_before[all_js]
+
     df_before_sum = pd.DataFrame(df_before_sub.sum())
 
-    diag_before = pd.DataFrame(np.diag(df_before_sub), index=[df_before_sub.columns])
+    diag_before = pd.DataFrame(np.diag(df_before_sub), index=df_before_sub.index)
 
     out_df_before = pd.concat([df_before_sum, abs(df_before_sum.subtract(diag_before))], axis=1)
     out_df_before.columns = ['Total', 'Misprimed']
