@@ -19,7 +19,7 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 
 
-from babrahamlinkon import deduplicate, general
+from babrahamlinkon import deduplication_general, general
 import pyximport
 from collections import defaultdict, Counter
 import itertools
@@ -79,25 +79,6 @@ def breadth_first_search(node, adj_list):
     return found
 
 
-######## "get_best" methods ##########
-
-def get_best_higher_counts(cluster, counts):
-    ''' return the UMI with the highest counts'''
-    count = 0
-
-    if len(cluster) == 1:
-        return list(cluster)[0]
-    else:
-
-        sorted_nodes = sorted(cluster, key=lambda x: counts[x],
-                              reverse=True)
-        return sorted_nodes[0]
-
-
-
-######## "get_adj_list" methods ##########
-
-
 def ham_adj_list_directional_adjacency(umis, counts, threshold=1):
     ''' identify all umis within the hamming distance threshold (1 is best)
     and where the counts of the first umi is > (2 * second umi counts)-1
@@ -123,7 +104,6 @@ def ham_adj_list_directional_adjacency(umis, counts, threshold=1):
                     adj_list[umi2].append(umi)
     return adj_list
 
-######## "get_connected_components" methods ##########
 
 def get_connected_components_adjacency(umis, graph, counts):
     ''' find the connected UMIs within an adjacency dictionary'''
@@ -159,8 +139,8 @@ def consensus_difference(seq_counter_dict, no_msa=True, short=False):
         lst_lists_1 = [list(item) for item in cntr_1.elements()]
         lst_lists_2 = [list(item) for item in cntr_2.elements()]
 
-        cons_seq_1 = deduplicate.consensus_unequal(lst_lists_1)
-        cons_seq_2 = deduplicate.consensus_unequal(lst_lists_2)
+        cons_seq_1 = deduplication_general.consensus_unequal(lst_lists_1)
+        cons_seq_2 = deduplication_general.consensus_unequal(lst_lists_2)
 
         if short: #need to trim sequence
             min_len = min(len(cons_seq_1),len(cons_seq_2))
@@ -199,8 +179,8 @@ def consensus_difference(seq_counter_dict, no_msa=True, short=False):
         lst_lists_2 = [list(item) for item in lst_2]
 
         #without quality should be sufficient here
-        cons_seq_1 = deduplicate.consensus(lst_lists_1)
-        cons_seq_2 = deduplicate.consensus(lst_lists_2)
+        cons_seq_1 = deduplication_general.consensus(lst_lists_1)
+        cons_seq_2 = deduplication_general.consensus(lst_lists_2)
 
 
     num_diffs = edit_distance(cons_seq_1.encode('utf-8'), cons_seq_2.encode('utf-8'))
@@ -308,11 +288,11 @@ def resolve_clusters(bundle, clusters, counts, differences, gt_threshold, no_msa
                         else:
 
                             #Align head 1 and value
-                            algn_1, qual_1 = deduplicate.kalign_msa(resolve_dict_1)
+                            algn_1, qual_1 = deduplication_general.kalign_msa(resolve_dict_1)
                             diff_1 = consensus_difference(algn_1, no_msa=False)
 
                             #Align head 2 and value
-                            algn_2, qual_2 = deduplicate.kalign_msa(resolve_dict_2)
+                            algn_2, qual_2 = deduplication_general.kalign_msa(resolve_dict_2)
                             diff_2 = consensus_difference(algn_2, no_msa=False)
 
 
@@ -354,7 +334,7 @@ def resolve_clusters(bundle, clusters, counts, differences, gt_threshold, no_msa
 
 
 
-def run_dir_adj(bundle, threshold, stat, mismatches, gt_threshold, qual_dict, no_msa, short, cons_no_qual, with_N):
+def run_dir_adj(bundle, threshold, mismatches, gt_threshold, qual_dict, no_msa, short, cons_no_qual, with_N, j_trim):
     #threshold=1, stats=True, further_stats=True, mismatches=5
     umis = bundle.keys()
     # print(umis)
@@ -380,9 +360,10 @@ def run_dir_adj(bundle, threshold, stat, mismatches, gt_threshold, qual_dict, no
 
     print('Reducing clusters')
     # if nprocs == 1: #if no additional cores available
-    reads, consensus_seqs, consensus_quals, final_umis, umi_counts, low_gt, corrected, low_gt_corrected, cons_dffs =\
-    deduplicate.reduce_clusters_single(bundle, rclusters, counts, mismatches,
-                                       gt_threshold, qual_dict, no_msa, short, cons_no_qual, with_N)
+    reads, consensus_seqs, consensus_quals, final_umis, umi_counts, low_gt, corrected, low_gt_corrected, cons_dffs, cons_algn =\
+    deduplication_general.reduce_clusters_single(bundle, rclusters, counts, mismatches,
+                                       gt_threshold, qual_dict, j_trim, no_msa, short,
+                                       cons_no_qual, with_N)
 
 
     # print('Unique:', len(set(reads)), 'All:', len(reads))
@@ -392,4 +373,4 @@ def run_dir_adj(bundle, threshold, stat, mismatches, gt_threshold, qual_dict, no
 
     # (bundle, clusters, counts, stats, mismtch)
 
-    return reads, consensus_seqs, consensus_quals, final_umis, umi_counts, low_gt, corrected, low_gt_corrected, cons_dffs
+    return reads, consensus_seqs, consensus_quals, final_umis, umi_counts, low_gt, corrected, low_gt_corrected, cons_dffs, cons_algn

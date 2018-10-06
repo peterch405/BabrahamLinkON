@@ -17,7 +17,7 @@ You should have received a copy of the GNU General Public License
 along with this program.  If not, see <https://www.gnu.org/licenses/>.
 '''
 
-from babrahamlinkon import general, presets, bowtie2_wrapper, mispriming_correction, deduplicate
+from babrahamlinkon import general, presets, bowtie2_wrapper, mispriming_correction
 from collections import defaultdict
 import os
 from tqdm import tqdm

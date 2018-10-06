@@ -1,6 +1,6 @@
 #BabrahamLinkON 0.2
 
-Most changes pertain to the short pipeline.
+Most changes pertain to the short pipeline. Moved main scripts into bin folder.
 
 ##Precleaning
 
@@ -20,10 +20,16 @@ Most changes pertain to the short pipeline.
 * Option to output sequences with ambiguous N nucleotides (normally these are filled in with basepairs from sequences best matching the consensus).
 * Fixed bug in UMI report tables (most likely cause by pandas update).
 * Simplified options, made MSA available to all pipelines.
+* Moved general functions into deduplicattion_general.py and split deduplicate_bundle_parallel for clarity.
+* Updated UMI correction to work with latest version.
 
 ##Annotation and clone assembly
 * Added json option so output reads can be marked assembled or unassembled.
 * DJ reads are also filtered by the V end IgBlast calls, instead on just J end.
+
+##Setup
+
+* Moved package data into MANIFEST.in to enable `pip --editable` mode to work with pkg_resources.resource_filename.
 
 
 #BabrahamLinkON 0.1
