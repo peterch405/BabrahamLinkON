@@ -1,11 +1,11 @@
 
-#BabrahamLinkON: Analysis pipeline for VDJ-seq
+# BabrahamLinkON: Analysis pipeline for VDJ-seq
 
 
 Babrahamlinkon is a tool for the analysis of immunoglobulin receptor
 sequences from NGS data generated using the DNA VDJ-seq assay.
 
-####Relevant publications:
+#### Relevant publications:
 -----------------------------
 
 Chovanec, P., Bolland, D.J., Matheson, L.S., Wood, A.L., Corcoran, A.E. (2018). Unbiased quantification of
@@ -20,14 +20,14 @@ Stubbs, B.A., Tabbada, K., Andrews, S.R., Spivakov, M., Corcoran, A.E. (2016). T
 Chromatin States Drive Efficient V(D)J Recombination. [Cell Rep. 15, 2475–2487.](https://doi.org/10.1016/j.celrep.2016.05.020)
 
 
-###Installation
+### Installation
 
 Babrahamlinkon is only compatible with Python 3.
 
 
-##Pre-requisites
+## Pre-requisites
 
-###Software:
+### Software:
 
 
 With [bioconda](https://bioconda.github.io/) (recommended) or follow tool specific instructions available on their website:
@@ -62,7 +62,7 @@ Ubuntu install:
 [Pear](http://www.exelixis-lab.org/web/software/pear)
 
 
-###Python modules:
+### Python modules:
 
 BabrahamLinkON is dependent on:
  * numpy>=1.11.0,
@@ -78,7 +78,7 @@ BabrahamLinkON is dependent on:
 
 Installation time with all dependencies: ~5 minutes
 
-###Enviroment variables:
+### Enviroment variables:
 
 ```bash
   export BOWTIE2_INDEXES='/path/to/bowtie2/indexes'
@@ -101,7 +101,7 @@ If running in cluster enviroment:
   export TMPDIR='/state/partition1'
 ```
 
-##Setup
+## Setup
 
 
 To install Babrahamlinkon straight from the git repository:
@@ -113,30 +113,30 @@ To install Babrahamlinkon straight from the git repository:
   pip install .
 ```
 
-##Basic usage for data with Unique Molecular Identifiers (UMI's)
+## Basic usage for data with Unique Molecular Identifiers (UMI's)
 
 
-###Precleaning
+### Precleaning
 
 
 ```bash
   preclean.py umi -v <v_end.fastq> -j <j_end_fastq> --species <mmu or hsa or mmuk> --threads <int> --umi_len <int>
 ```
 
-###Deduplication
+### Deduplication
 
 ```bash
   deduplicate.py umi --input_dir <preclean output directory> --stats --threads <int>
 ```
 
 
-###Annotation and clone assembly
+### Annotation and clone assembly
 
 ```bash
  assemble_clones.py umi -fa <fasta from deduplication> --full_name --threads <int> --species <mmu or hsa or mmuk>
 ```
 
-###Running partis
+### Running partis
 
 
 Partis expects sequences to be input in the VDJ direction. BabrahamLinkON returns reads in the JDV orientation.
@@ -149,7 +149,7 @@ To make the fasta/q compatible with partis, simply run:
 If providing a fastq, use the `--fq` flag.
 
 
-##Test dataset
+## Test dataset
 
 
 A small dataset can be found in the test folder. This can be used to test your installation:
