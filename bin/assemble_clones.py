@@ -284,7 +284,11 @@ def read_changeo_out(tab_file, out, prefix, fasta, v_fastq=None, plot=False, ret
         #Drop DJ without a J calls, suggests misidentification of D
         igblast_dj_na = igblast_dj.dropna(subset = ['J_CALL'])
         if short:
-            igblast_dj_out = igblast_dj_na[(igblast_dj_na['V_SCORE'] > v_cutoff) | (igblast_out_na['V_SCORE_VEND'] > v_cutoff)]
+            #merge V end calls with J end calls
+            igblast_out_na_sub = igblast_out_na[['SEQUENCE_ID', 'V_CALL_VEND', 'V_SCORE_VEND']]
+            igblast_dj_na_all = igblast_dj_na.set_index('SEQUENCE_ID').join(igblast_out_na_sub.set_index('SEQUENCE_ID'))
+            #keep only those with high scores
+            igblast_dj_out = igblast_dj_na_all[(igblast_dj_na_all['V_SCORE'] > v_cutoff) | (igblast_dj_na_all['V_SCORE_VEND'] > v_cutoff)]
         else:
             igblast_dj_out = igblast_dj_na[(igblast_dj_na['V_SCORE'] > v_cutoff)]
 
@@ -492,6 +496,7 @@ def main():
     opts = parse_args()
 
     if opts.short and opts.json_path is None:
+        mark_reads = False
         print('No JSON input provided, short reads will not be marked as assembled or unassembled')
     else:
         mark_reads = True

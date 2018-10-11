@@ -35,6 +35,7 @@ import tempfile
 from tqdm import tqdm
 import json
 from pathlib import Path
+from contextlib import ExitStack
 from babrahamlinkon.version import __version__
 
 
@@ -345,8 +346,7 @@ class fastqHolder:
         assembled = 0
 
         with general.file_open(fastq_path_v) as v_fq:
-
-            for qname, seq, thrd, qual in general.fastq_parse(v_fq):
+            for qname, seq, thrd, qual in tqdm(general.fastq_parse(v_fq)):
                 if anchor: #if anochor present verify it is correct
                     if seq[umi_len:umi_len+7] == 'GACTCGT':
                         self.anchor_dict[qname.split(' ')[0]] = 'GACTCGT'
@@ -394,29 +394,42 @@ class fastqHolder:
 
         #write out v end for non-assembled reads
         #loop through file again, TODO: figure out a better way
-        if anchor:
-            with open(out_path + '_GACTCGT', 'w') as out_GACTCGT, \
-            open(out_path + '_CTGCTCCT', 'w') as out_CTGCTCCT, \
-            general.file_open(fastq_path_v) as v_fq:
-                for qname, seq, thrd, qual in general.fastq_parse(v_fq):
 
-                    if len(self.j_umi_dict) > 0:
-                        umi = self.j_umi_dict.get(qname.split(' ')[0], 'not_present') + \
-                              self.umi_dict.get(qname.split(' ')[0], 'not_present')
-                    else:
-                        umi = self.umi_dict.get(qname.split(' ')[0], 'not_present')
+        #remove @ from self.assembled
+        assembled_seqs = set([i[1:] for i in self.assembled['assembled']])
+        #make single set with all seqs to be written out
+        skip_seqs = set.union(self.rec_skip, assembled_seqs)
 
-                    #skip sequences without a umi
-                    if 'not_present' in umi:
-                        continue
-                    #UMI is not removed from sequence as it hold value at the annotation stage
-                    for gene in genes:
-                        if 'germline' not in gene and 'other' not in gene:
-                            if qname.split(' ')[0][1:] in self.gene_split[gene] or qname.split(' ')[0][1:] in self.misprimed[gene]:
+        with ExitStack() as stack:
+            v_fq = stack.enter_context(general.file_open(fastq_path_v))
+            if anchor:
+                out_GACTCGT = stack.enter_context(open(out_path + '_GACTCGT', 'w'))
+                out_CTGCTCCT = stack.enter_context(open(out_path + '_CTGCTCCT', 'w'))
+            else:
+                v_fq_filt = stack.enter_context(open(out_path, 'w'))
 
-                                v_iden_out = v_iden_dict.get(qname.split(' ')[0][1:], '')
+            for qname, seq, thrd, qual in tqdm(general.fastq_parse(v_fq)):
 
-                                if qname.split(' ')[0][1:] not in self.rec_skip and qname.split(' ')[0] not in self.assembled['assembled']:
+                if len(self.j_umi_dict) > 0:
+                    umi = self.j_umi_dict.get(qname.split(' ')[0], 'not_present') + \
+                          self.umi_dict.get(qname.split(' ')[0], 'not_present')
+                else:
+                    umi = self.umi_dict.get(qname.split(' ')[0], 'not_present')
+
+                #skip sequences without a umi
+                if 'not_present' in umi:
+                    continue
+                #UMI is not removed from sequence as it hold value at the annotation stage
+                for gene in genes:
+                    if 'germline' not in gene and 'other' not in gene:
+                        if qname.split(' ')[0][1:] in self.gene_split[gene] or \
+                           qname.split(' ')[0][1:] in self.misprimed[gene]:
+
+                            v_iden_out = v_iden_dict.get(qname.split(' ')[0][1:], '')
+
+                            # if qname.split(' ')[0][1:] not in self.rec_skip and qname.split(' ')[0] not in self.assembled['assembled']:
+                            if qname.split(' ')[0][1:] not in skip_seqs:
+                                if anchor:
                                     if self.anchor_dict.get(qname.split(' ')[0], '') == 'GACTCGT':
                                         out_GACTCGT.write(qname.split(' ')[0] + '_' + gene + '_' + + v_iden_out.upper() + '_GACTCGT_' +
                                                           umi + ' ' + ''.join(qname.split(' ')[1:]) +
@@ -425,36 +438,13 @@ class fastqHolder:
                                         out_CTGCTCCT.write(qname.split(' ')[0] + '_' + gene + '_' + + v_iden_out.upper() + '_CTGCTCCT_' +
                                                            umi + ' ' + ''.join(qname.split(' ')[1:]) +
                                                            '\n' + seq + '\n' + thrd + '\n' + qual + '\n')
-                                elif qname.split(' ')[0] in self.assembled['assembled'] and qname.split(' ')[0][1:] not in self.rec_skip:
-                                    assembled += 1
-        else:
-            with open(out_path, 'w') as v_fq_filt, \
-            general.file_open(fastq_path_v) as v_fq:
-                for qname, seq, thrd, qual in general.fastq_parse(v_fq):
-
-                    if len(self.j_umi_dict) > 0:
-                        umi = self.j_umi_dict.get(qname.split(' ')[0], 'not_present') + \
-                              self.umi_dict.get(qname.split(' ')[0], 'not_present')
-                    else:
-                        umi = self.umi_dict.get(qname.split(' ')[0], 'not_present')
-
-                    #skip sequences without a umi
-                    if 'not_present' in umi:
-                        continue
-
-                    for gene in genes:
-                        if 'germline' not in gene and 'other' not in gene:
-                            if qname.split(' ')[0][1:] in self.gene_split[gene] or \
-                               qname.split(' ')[0][1:] in self.misprimed[gene]:
-
-                                v_iden_out = v_iden_dict.get(qname.split(' ')[0][1:], '')
-
-                                if qname.split(' ')[0][1:] not in self.rec_skip and qname.split(' ')[0] not in self.assembled['assembled']:
+                                else:
                                     v_fq_filt.write(qname.split(' ')[0] + '_' + gene + '_' + v_iden_out.upper() + '_' + umi +
                                                     ' ' + ''.join(qname.split(' ')[1:]) +
                                                     '\n' + seq + '\n' + thrd + '\n' + qual + '\n')
-                                elif qname.split(' ')[0] in self.assembled['assembled'] and qname.split(' ')[0][1:] not in self.rec_skip:
-                                    assembled += 1
+                            elif qname.split(' ')[0][1:] in assembled_seqs:
+                                assembled += 1
+
 
         return low_qual_UMI, no_anchor, v_short, assembled
 
@@ -476,29 +466,35 @@ class fastqHolder:
         out_reads = 0
 
         if merge:
-            if anchor:
-                with general.file_open(fastq_path_jv) as fq, \
-                open(out_path + '_GACTCGT', 'w') as out_an1, \
-                open(out_path + '_CTGCTCCT', 'w') as out_an2:
-                    for qname, seq, thrd, qual in general.fastq_parse(fq):
-                        if qname.split(' ')[0][1:] in self.rec_skip:
-                            continue
 
-                        v_iden_out = v_iden_dict.get(qname.split(' ')[0][1:], '')
+            with ExitStack() as stack:
+                fq = stack.enter_context(general.file_open(fastq_path_jv))
+                if anchor:
+                    out_an1 = stack.enter_context(open(out_path + '_GACTCGT', 'w'))
+                    out_an2 = stack.enter_context(open(out_path + '_CTGCTCCT', 'w'))
+                else:
+                    out_file = stack.enter_context(open(out_path, 'w'))
 
-                        if len(self.j_umi_dict) > 0:
-                            umi = self.j_umi_dict.get(qname.split(' ')[0], 'not_present') + \
-                                  self.umi_dict.get(qname.split(' ')[0], 'not_present')
-                        else:
-                            umi = self.umi_dict.get(qname.split(' ')[0], 'not_present')
+                for qname, seq, thrd, qual in tqdm(general.fastq_parse(fq)):
+                    if qname.split(' ')[0][1:] in self.rec_skip:
+                        continue
 
-                        #skip sequences without a umi
-                        if 'not_present' in umi:
-                            continue
+                    v_iden_out = v_iden_dict.get(qname.split(' ')[0][1:], '')
 
-                        for gene in genes:
-                            if 'germline' not in gene and 'other' not in gene:
-                                if qname.split(' ')[0][1:] in self.gene_split[gene] or qname.split(' ')[0][1:] in self.misprimed[gene]:
+                    if len(self.j_umi_dict) > 0:
+                        umi = self.j_umi_dict.get(qname.split(' ')[0], 'not_present') + \
+                              self.umi_dict.get(qname.split(' ')[0], 'not_present')
+                    else:
+                        umi = self.umi_dict.get(qname.split(' ')[0], 'not_present')
+
+                    #skip sequences without a umi
+                    if 'not_present' in umi:
+                        continue
+
+                    for gene in genes:
+                        if 'germline' not in gene and 'other' not in gene:
+                            if qname.split(' ')[0][1:] in self.gene_split[gene] or qname.split(' ')[0][1:] in self.misprimed[gene]:
+                                if anchor:
                                     if self.anchor_dict.get(qname.split(' ')[0], '') == 'GACTCGT':
                                         out_an1.write(qname.split(' ')[0] + '_' + gene + '_' + v_iden_out.upper() + '_' +
                                                        self.anchor_dict.get(qname.split(' ')[0]) + '_' + umi + ' ' +
@@ -508,38 +504,10 @@ class fastqHolder:
                                         out_an2.write(qname.split(' ')[0] + '_' + gene + '_' + v_iden_out.upper() + '_' +
                                                        self.anchor_dict.get(qname.split(' ')[0]) + '_' + umi + ' ' +
                                                        ''.join(qname.split(' ')[1:]) + '\n' + seq + '\n' + thrd + '\n' + qual + '\n')
-                                    out_reads += 1
-
-            else:
-                with general.file_open(fastq_path_jv) as fq, open(out_path, 'w') as out_file:
-                    for qname, seq, thrd, qual in general.fastq_parse(fq):
-                        if qname.split(' ')[0][1:] in self.rec_skip:
-                            continue
-
-                        v_iden_out = v_iden_dict.get(qname.split(' ')[0][1:], '')
-
-                        if len(self.j_umi_dict) > 0:
-                            umi = self.j_umi_dict.get(qname.split(' ')[0], 'not_present') + \
-                                  self.umi_dict.get(qname.split(' ')[0], 'not_present')
-                        else:
-                            umi = self.umi_dict.get(qname.split(' ')[0], 'not_present')
-
-                        #skip sequences without a umi
-                        if 'not_present' in umi:
-                            continue
-
-                        for gene in genes:
-                            if 'germline' not in gene and 'other' not in gene:
-                                if qname.split(' ')[0][1:] in self.gene_split[gene] or qname.split(' ')[0][1:] in self.misprimed[gene]:
-                                    # if anchor:
-                                    #     out_file.write(qname.split(' ')[0] + '_' + gene + '_' + v_iden_out.upper() + '_' +
-                                    #                    anchor_dict[qname.split(' ')[0]] + '_' + umi + ' ' +
-                                    #                    ''.join(qname.split(' ')[1:]) + '\n' + seq + '\n' + thrd + '\n' + qual + '\n')
-                                    #     out_reads += 1
-                                    # else:
+                                else:
                                     out_file.write(qname.split(' ')[0] + '_' + gene + '_' + v_iden_out.upper() + '_' + umi + ' ' +
                                                    ''.join(qname.split(' ')[1:]) + '\n' + seq + '\n' + thrd + '\n' + qual + '\n')
-                                    out_reads += 1
+                                out_reads += 1
 
 
         else:
@@ -949,16 +917,16 @@ def write_short(V_region, jv_region, fq_dict_pcln, v_iden_out, umi_len, j_len, i
 
     other_stats = ', '.join("{!s}: {!r}".format(key,val) for (key,val) in key_out_reads.items())
 
-    print('Number of low quality UMIs:', low_qual_UMI)
-    print('Number of missing anchors:', no_anchor)
-    print('Number of short V reads:', v_short)
+    print('Number of low quality UMIs: ', low_qual_UMI)
+    print('Number of missing anchors: ', no_anchor)
+    print('Number of short V reads: ', v_short)
     print('Number of J reads written out', out_reads)
-    print('Number of germline and other reads written out -', other_stats)
-    print('Number of assembled read not included in V end', assembled)
+    print('Number of germline and other reads written out - ', other_stats)
+    print('Number of assembled read not included in V end ', assembled)
     logging.info('Number of low quality UMIs:' + str(low_qual_UMI))
     logging.info('Number of missing anchors:' + str(no_anchor))
     logging.info('Number of short V reads:' + str(v_short))
-    logging.info('Number of J reads written out:' + str(out_reads))
+    logging.info('Number of J reads written out: ' + str(out_reads))
     logging.info('Number of germline and other reads written out -' + other_stats)
     logging.info('Number of assembled read not included in V end' + str(assembled))
 
