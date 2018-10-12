@@ -136,7 +136,10 @@ def v_identity_igblast(V_end, J_end_fasta, custom_ref, thread_num, spe, aux, dj)
     tmp_dir = tempfile.mkdtemp()
     tmp_fmt = os.path.join(tmp_dir, "igblast.fmt7")
 
-    if V_end.endswith('fastq'):
+    fq_ext = ('fastq', 'fq', 'fastq.gz', 'fq.gz')
+    fa_ext = ('fasta', 'fa')
+
+    if V_end.endswith(fq_ext):
         #fastq to fasta
         fasta = ''
         reads_fasta = 0
@@ -155,7 +158,7 @@ def v_identity_igblast(V_end, J_end_fasta, custom_ref, thread_num, spe, aux, dj)
         with open(tmp_dir + '/igblast.fasta', 'w') as fa_out:
             fa_out.write(fasta)
 
-    elif V_end.endswith('fasta'):
+    elif V_end.endswith(fa_ext):
         shutil.copy(V_end, tmp_dir + '/igblast.fasta')
 
 
