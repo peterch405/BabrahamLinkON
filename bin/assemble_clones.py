@@ -222,7 +222,7 @@ def read_changeo_out(tab_file, out, prefix, fasta, v_fastq=None, plot=False, ret
         # igblast_out['V_END_CALL'] = v_iden
         # igblast_out['V_END_SCORE'] = v_score
         if v_fastq == None:
-            raise Exception('Short option requires the V end fastq file')
+            raise Exception('Short option requires the V end fastq/fasta file')
 
         #run igblast on the v end
         v_end_calls = v_identity_igblast(v_fastq, fasta, custom_ref, thread_num, spe, aux, dj)
@@ -286,10 +286,10 @@ def read_changeo_out(tab_file, out, prefix, fasta, v_fastq=None, plot=False, ret
         #DJ filtering
         #Drop DJ without a J calls, suggests misidentification of D
         igblast_dj_na = igblast_dj.dropna(subset = ['J_CALL'])
+
         if short:
             #merge V end calls with J end calls
-            igblast_out_na_sub = igblast_out_na[['SEQUENCE_ID', 'V_CALL_VEND', 'V_SCORE_VEND']]
-            igblast_dj_na_all = igblast_dj_na.set_index('SEQUENCE_ID').join(igblast_out_na_sub.set_index('SEQUENCE_ID'))
+            igblast_dj_na_all = pd.merge(igblast_dj_na, v_end_calls, how='left', on=['SEQUENCE_ID'])
             #keep only those with high scores
             igblast_dj_out = igblast_dj_na_all[(igblast_dj_na_all['V_SCORE'] > v_cutoff) | (igblast_dj_na_all['V_SCORE_VEND'] > v_cutoff)]
         else:
