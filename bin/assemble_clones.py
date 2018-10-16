@@ -162,7 +162,7 @@ def v_identity_igblast(V_end, J_end_fasta, custom_ref, thread_num, spe, aux, dj)
         shutil.copy(V_end, tmp_dir + '/igblast.fasta')
 
 
-    igblast_wrapper.run_igblast(tmp_dir + '/igblast.fasta', tmp_fmt, 10000, spe, thread_num, custom_ref, dj, aux_file=aux, additional_flags=['-num_alignments_V', '1'])
+    igblast_wrapper.run_igblast(tmp_dir + '/igblast.fasta', tmp_fmt, 10000, spe, thread_num, custom_ref, dj, aux_file=aux)#, additional_flags=['-num_alignments_V', '1'])
     igblast_wrapper.parse_igblast(tmp_fmt, tmp_dir + '/igblast.fasta', spe, custom_ref, dj)
     #make v_identity dict key=qname value=idenity
 
@@ -178,15 +178,32 @@ def v_identity_igblast(V_end, J_end_fasta, custom_ref, thread_num, spe, aux, dj)
     return sub_df
 
 
-#
-# v_identity_igblast('/media/chovanec/My_Passport/Old_vdj_seq_data/Deduplicated_all/A1BC/lane1_A2BC_TGACCA_L001_R1_val_1.fq.gz',
-# '/media/chovanec/My_Passport/Old_vdj_seq_data/Deduplicated_all/A1BC/lane1_A2BC_TGACCA_L001_R1_val_1_dedup.fasta', 7, 'mmu', aux=None)
-#
-#
+
 # def add_v_call(row):
 #     V_END = row['SEQUENCE_ID'].split('_')[-3]
 #     V_END_IDENTITY, V_END_SCORE = V_END.split('.')
 #     return [V_END_IDENTITY, V_END_SCORE]
+
+
+def filter_score(pd_df):
+    '''
+    Short reads V_CALL V_CALL_VEND make new column with highest score call
+    V_CALL_CN
+    V_SCORE_CN
+    '''
+    #chose whichever has higher score
+    conditions = [pd_df['V_SCORE'] >= pd_df['V_SCORE_VEND'],
+                pd_df['V_SCORE'] <= pd_df['V_SCORE_VEND']]
+
+    choices_genes = [pd_df['V_CALL'], pd_df['V_CALL_VEND']]
+    choices_score = [pd_df['V_SCORE'], pd_df['V_SCORE_VEND']]
+
+    pd_df['V_CALL_CN'] = np.select(conditions, choices_genes, default=np.nan)
+    pd_df['V_SCORE_CN'] = np.select(conditions, choices_score, default=np.nan)
+
+    return pd_df
+
+
 
 def read_changeo_out(tab_file, out, prefix, fasta, v_fastq=None, plot=False, retain_nam=False,
                      minimal=False, short=False, thread_num=1, spe='mmu', aux=None, custom_ref=False,
@@ -207,20 +224,10 @@ def read_changeo_out(tab_file, out, prefix, fasta, v_fastq=None, plot=False, ret
     igblast_out.reset_index(drop=True, inplace=True)
     print('Called reads', len(igblast_out.index))
 
-    #Seperate out DJ calls into seperate dataframe
-    igblast_dj = igblast_out[igblast_out['V_CALL'].str.contains('IGHVD', na=False)]
-    # igblast_dj.reset_index(drop=True, inplace=True)
-    igblast_out = igblast_out[~igblast_out['V_CALL'].str.contains('IGHVD', na=False)]
-    # igblast_out.reset_index(drop=True, inplace=True)
 
     if short:
         # HWI-1KL136:214:D1MR5ACXX:5:1103:17395:138047_J4_Ighv13-2_GTGTCTAC_11
 
-        # igblast_out_v = igblast_out.apply(change_v_call, axis=1)
-        # igblast_out['V_CALL'] = igblast_out_v
-        # v_iden, v_score = igblast_out.apply(add_v_call, axis=1)
-        # igblast_out['V_END_CALL'] = v_iden
-        # igblast_out['V_END_SCORE'] = v_score
         if v_fastq == None:
             raise Exception('Short option requires the V end fastq/fasta file')
 
@@ -229,6 +236,38 @@ def read_changeo_out(tab_file, out, prefix, fasta, v_fastq=None, plot=False, ret
         # logging.info('igblast_out', len(igblast_out), 'v_end_calls', len(v_end_calls))
         #merge data fragments
         igblast_out_m = pd.merge(igblast_out, v_end_calls, how='left', on=['SEQUENCE_ID'])
+
+        #add CN columns
+        igblast_out_cn = filter_score(igblast_out_m)
+        #seperate out VDJ DJ
+        igblast_dj = igblast_out_cn[igblast_out_cn['V_CALL_CN'].str.contains('IGHVD', na=False)]
+        igblast_out_f = igblast_out_cn[~igblast_out_cn['V_CALL_CN'].str.contains('IGHVD', na=False)]
+
+        #drop low scoring V genes that don't have idenitity
+        igblast_out_na = igblast_out_f.dropna(subset = ['V_CALL_CN'], how='all')
+        #drop low quality J calls
+        igblast_out_hs = igblast_out_na[(igblast_out_na['J_SCORE'] > j_cutoff) & (igblast_out_na['V_SCORE_CN'] > v_cutoff)]
+
+        low_score = len(igblast_out_f.index) - len(igblast_out_hs.index)
+        #how many filtered out?
+        logging.info('Low V and J score:' + str(low_score))
+        print('Low V and J score:', low_score)
+
+
+
+    else:
+        igblast_dj = igblast_out[igblast_out['V_CALL'].str.contains('IGHVD', na=False)]
+        igblast_out = igblast_out[~igblast_out['V_CALL'].str.contains('IGHVD', na=False)]
+
+        #Filter out low quality scores
+        igblast_out_hs = igblast_out[(igblast_out['V_SCORE'] > v_cutoff) & (igblast_out['J_SCORE'] > j_cutoff)]
+        low_score = len(igblast_out.index) - len(igblast_out_hs.index)
+        #how many filtered out?
+        logging.info('Low V and J score:' + str(low_score))
+        print('Low V and J score:', low_score)
+
+        #Seperate out DJ calls into seperate dataframe
+
 
 
     if plot:
@@ -262,36 +301,14 @@ def read_changeo_out(tab_file, out, prefix, fasta, v_fastq=None, plot=False, ret
                 my_plot = plt.axvline(v_cutoff, linestyle='dashed', linewidth=2).get_figure()
                 pdf_out.savefig(my_plot)
 
-
-    if short:
-
-        #drop low scoring V genes that don't have idenitity
-        igblast_out_na = igblast_out_m.dropna(subset = ['V_CALL', 'V_CALL_VEND'], how='all')
-        #drop low quality J calls
-        igblast_out_hs = igblast_out_na[(igblast_out_na['J_SCORE'] > j_cutoff) & ((igblast_out_na['V_SCORE'] > v_cutoff) | (igblast_out_na['V_SCORE_VEND'] > v_cutoff))]
-        low_score = len(igblast_out_m.index) - len(igblast_out_hs.index)
-        #how many filtered out?
-        logging.info('Low V and J score:' + str(low_score))
-        print('Low V and J score:', low_score)
-
-    else:
-        #Filter out low quality scores
-        igblast_out_hs = igblast_out[(igblast_out['V_SCORE'] > v_cutoff) & (igblast_out['J_SCORE'] > j_cutoff)]
-        low_score = len(igblast_out.index) - len(igblast_out_hs.index)
-        #how many filtered out?
-        logging.info('Low V and J score:' + str(low_score))
-        print('Low V and J score:', low_score)
-
     if dj:
         #DJ filtering
         #Drop DJ without a J calls, suggests misidentification of D
         igblast_dj_na = igblast_dj.dropna(subset = ['J_CALL'])
 
         if short:
-            #merge V end calls with J end calls
-            igblast_dj_na_all = pd.merge(igblast_dj_na, v_end_calls, how='left', on=['SEQUENCE_ID'])
-            #keep only those with high scores
-            igblast_dj_out = igblast_dj_na_all[(igblast_dj_na_all['V_SCORE'] > v_cutoff) | (igblast_dj_na_all['V_SCORE_VEND'] > v_cutoff)]
+            # #keep only those with high scores
+            igblast_dj_out = igblast_dj_na[(igblast_dj_na['V_SCORE_CN'] > v_cutoff)]
         else:
             igblast_dj_out = igblast_dj_na[(igblast_dj_na['V_SCORE'] > v_cutoff)]
 
@@ -498,11 +515,18 @@ def main():
     #argparse
     opts = parse_args()
 
-    if opts.short and opts.json_path is None:
-        mark_reads = False
-        print('No JSON input provided, short reads will not be marked as assembled or unassembled')
+    if opts.short:
+        try:
+            if opts.json_path is not None:
+                mark_reads = True
+            else:
+                mark_reads = False
+                print('No JSON input provided, short reads will not be marked as assembled or unassembled')
+        except AttributeError:
+            mark_reads = False
+            print('No JSON input provided, short reads will not be marked as assembled or unassembled')
     else:
-        mark_reads = True
+        mark_reads = False
 
     if opts.assemble_only:
         #add file name column and then merge all input files
