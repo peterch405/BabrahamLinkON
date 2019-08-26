@@ -646,7 +646,7 @@ class deduplicate:
 
 
     def create_dirs_assembled(self, out_dir=None):
-        '''#Create directories
+        '''Create directories
         '''
 
         dir_main = Path(os.path.abspath(self.jv_fastq_an1)).parents[1] #1 dir up, create outside of preclean directory
@@ -875,8 +875,24 @@ class deduplicate:
 
 
 def rev_comp_fq(path, fq):
-    fname_path, fname_end = path.split('.')
-    with general.file_open(path) as in_fname, open(fname_path + '_rv.' + fname_end, 'w') as out_fname:
+    '''Reverse complement a fastx file
+
+    Args:
+        path (str): path to fastx file
+        fq (logical): is the supplied file a fastq file?
+
+    Example:
+        path = '/tset/sava/af.aef.fastq.gz'
+
+    Return:
+        Writes out a fastx file with _rv.fastx appended in the same directory as the
+        input path.
+    '''
+    if path.endswith('.gz'):
+        *fname_path, fname_end, fname_gz = path.split('.')
+    else:
+        *fname_path, fname_end = path.split('.')
+    with general.file_open(path) as in_fname, open('.'.join(fname_path) + '_rv.' + fname_end, 'w') as out_fname:
         if fq:
             for qname, seq, thrd, qual in general.fastq_parse(in_fname):
                 rv_seq = general.reverse_complement(seq)

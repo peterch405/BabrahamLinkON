@@ -86,33 +86,68 @@ def fastq_parse(fp):
 
 
 
+# def fasta_parse(fp):
+#     '''
+#     Parse fasta file
+#     '''
+#     linecount = 0
+#     name, seq = [None] * 2
+#     for line in fp:
+#
+#         linecount += 1
+#         if linecount % 2 == 1:
+#
+#             try:
+#                 name = line.decode('UTF-8').rstrip()
+#             except AttributeError:
+#                 name = line.rstrip()
+#
+#             assert name.startswith('>'),\
+#                    "ERROR: The 1st line in fasta element does not start with '>'.\n\
+#                    Please check Fasta file near line number %s" % (linecount)
+#         elif linecount % 2 == 0:
+#             try:
+#                 seq = line.decode('UTF-8').rstrip()
+#             except AttributeError:
+#                 seq = line.rstrip()
+#
+#             yield name, seq
+#             name, seq = [None] * 2
+
+
 def fasta_parse(fp):
+    '''Parse fasta files
+
+    Args:
+        fp (str): Open fasta file
     '''
-    Parse fasta file
-    '''
-    linecount = 0
-    name, seq = [None] * 2
+
+    record_out = 0
+    record_count = 0
+    name, seq = [''] * 2
+
     for line in fp:
 
-        linecount += 1
-        if linecount % 2 == 1:
+        try:
+            rec = line.decode('utf-8').rstrip()
+        except AttributeError:
+            rec = line.rstrip()
 
-            try:
-                name = line.decode('UTF-8').rstrip()
-            except AttributeError:
-                name = line.rstrip()
+        if rec.startswith('>'):
+            if record_count - record_out > 0:
+                 yield name, seq
+                 name, seq = [''] * 2
 
-            assert name.startswith('>'),\
-                   "ERROR: The 1st line in fasta element does not start with '>'.\n\
-                   Please check FastQ file near line number %s" % (linecount)
-        elif linecount % 2 == 0:
-            try:
-                seq = line.decode('UTF-8').rstrip()
-            except AttributeError:
-                seq = line.rstrip()
+            name = rec
+            record_count += 1
+        elif line.startswith('@'):
+            raise Exception('Input starts with @ suggesting this is a fastq no fasta')
+        else:
+            seq += rec
 
-            yield name, seq
-            name, seq = [None] * 2
+
+
+
 
 #TODO: better fasta parser in case sequence is not all on the same line
 def fasta_iter(fasta_name):
