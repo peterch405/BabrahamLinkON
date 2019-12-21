@@ -55,6 +55,169 @@ from babrahamlinkon.version import __version__
 # from memory_profiler import profile
 
 
+
+
+def parse_args():
+    parser = argparse.ArgumentParser(description='BabrahamLinkON Deduplicate')
+
+    parser.add_argument('--version', action='version', version='%(prog)s ' + __version__)
+
+    sub = parser.add_subparsers(dest='action', description='Choose pipeline')
+
+    sp1 = sub.add_parser('umi')
+    sp2 = sub.add_parser('short')
+    sp3 = sub.add_parser('short_anchor')
+    sp4 = sub.add_parser('no_anchor')
+    sp5 = sub.add_parser('umi_seq_logo')
+    sp6 = sub.add_parser('reverse_complement')
+
+    for sp in [sp1,sp2,sp3,sp4,sp5]: #common to all 3
+
+        sp.add_argument('--input_dir', dest='input', type=str, required=True, help='Input directory (created for/by preclean) or can specify a file')
+        sp.add_argument('--out', dest='out_dir', type=str, help='Output directory, default: creates Deduplicated in main directory')
+
+    for sp in [sp1,sp2,sp3,sp4]:
+        sp.add_argument('--threads', dest='nthreads', default=1, type=int, help='Number of threads to use (if aligning), default: 1')
+
+        sp.add_argument('--mismatch', dest='mismatch', type=int, default=5, help='Number of mismatches allowed in consensus sequence comparison [5]')
+        sp.add_argument('--min_reads', dest='minreads', type=int, default=2, help='Minimum number of reads in UMI group, if less than or equal to [2] then discard')
+        sp.add_argument('--gt_ratio', dest='gtratio', type=float, default=1, help='Ratio of good to total reads to mark UMI group as erroneous 0-1 [1]')
+
+        sp.add_argument('--stats', action='store_true', help='Output stats from UMI deduplication [False]')
+
+        sp.add_argument('--umi_correction', action='store_true', help='Perform correction of errors that might be present in UMI')
+        sp.add_argument('--threshold', dest='threshold', type=int, default=1, help='Number of mismatches allowed in UMI when doing UMI correction [1]')
+
+        sp.add_argument('--skip_unclear', action='store_true', help='Skip unclear J reads [False]')
+        sp.add_argument('--keep_mh', action='store_true', help='Keep multiple hit unclear J reads [False]')
+
+        sp.add_argument('--use_j', action='store_true', help='Deduplicate using J identity')
+        sp.add_argument('--ignore_umi', action='store_true', help='Deduplicate without using UMI')
+
+        sp.add_argument('--j_trim', dest='j_trim', default=25, type=int, help='Trim J primer when comparing to consensus, default: 25')
+  
+        sp.add_argument('--no_msa', dest='no_msa', action='store_true', help='Don\'t use msa to derive consensus sequence [False]')
+        sp.add_argument('--fq', dest='fq', action='store_true', help='Output fastq instead of fasta')
+        sp.add_argument('--cons_no_qual', dest='cons_no_qual', action='store_true', help='Make consensus without using quality scores')
+        sp.add_argument('--with_N', dest='with_N', action='store_true', help='Output consensus sequences with ambigious N bases')
+
+    for sp in [sp1, sp3, sp5, sp6]:
+
+
+        sp.add_argument('--an1', dest='an1', default='GACTCGT', type=str, help='Default: GACTCGT')
+        sp.add_argument('--an2', dest='an2', default='CTGCTCCT', type=str, help='Default: CTGCTCCT')
+
+
+
+    sp6.add_argument('--input', dest='input', type=str, required=True, help='Input file/directory with files')
+    sp6.add_argument('--fq', dest='fq', action='store_true', help='Convert fastq')
+
+
+    sp1.set_defaults(short=False, no_anchor=False, seqlogo=False, rev_comp=False)
+    sp2.set_defaults(short=True, no_anchor=True, fq=False, seqlogo=False, rev_comp=False)
+    sp3.set_defaults(short=True, no_anchor=False, seqlogo=False, rev_comp=False)
+    sp4.set_defaults(short=False, no_anchor=True, seqlogo=False, rev_comp=False)
+    sp5.set_defaults(seqlogo=True, rev_comp=False, cons_no_qual=False, no_msa=False, no_anchor=False)
+    sp6.set_defaults(seqlogo=False, rev_comp=True, cons_no_qual=False, no_msa=False, no_anchor=False, in_dir=None)
+
+
+    opts = parser.parse_args()
+
+    return opts
+
+
+
+def main():
+
+    #argparse
+    opts = parse_args()
+
+    #combinations which can't be used together
+    if opts.cons_no_qual and opts.fq:
+        raise Exception('Can\'t output fastq without producing consensus quality')
+    if opts.no_msa and opts.fq:
+        raise Exception('Can\'t output fastq without producing consensus quality which is only used with msa at the moment')
+
+    if opts.no_anchor:
+        an1 = ''
+        an2 = ''
+    # elif opts.short:
+    #     an1 = ''
+    #     an2 = ''
+    else:
+        an1 = opts.an1
+        an2 = opts.an2
+
+    #directory or file submitted
+    if os.path.isfile(opts.input):
+        in_dir = os.path.basename(opts.input)
+        in_file = True
+    #if only directory provided
+    elif os.path.isdir(opts.input):
+        in_dir = opts.input
+        in_file = False
+
+
+    if not opts.rev_comp:
+        #initiate deduplication object
+        dedup = deduplicate(file_directory=opts.input, an1=an1, an2=an2)
+        dedup.create_dirs_assembled(out_dir=opts.out_dir)
+
+
+    if opts.seqlogo:
+        if opts.no_anchor:
+            if in_file:
+                jv_fastq = opts.input
+            else:
+                jv_fastq = glob.glob(in_dir + '/*all_j')[0]
+            UMI_seqlogo.umi_seq_logo(jv_fastq, dedup.out_dir + '/' + dedup.jv_prefix + '.eps')
+        else:
+            if in_file:
+                raise ValueError('Cannot submit multiple file paths, use directory instead')
+            else:
+                jv_fastq_an1 = glob.glob(in_dir + '/*all_j*' + an1)[0]
+                jv_fastq_an2 = glob.glob(in_dir + '/*all_j*' + an2)[0]
+            UMI_seqlogo.umi_seq_logo(jv_fastq_an1, dedup.out_dir + '/' + dedup.jv_prefix + '_' + an1 + '.eps')
+            UMI_seqlogo.umi_seq_logo(jv_fastq_an2, dedup.out_dir + '/' + dedup.jv_prefix + '_' + an2 + '.eps')
+
+    #reverse complement for partis (needs to be VDJ, default output is JDV)
+    elif opts.rev_comp:
+        #if file path is provided
+        if opts.input.endswith('fastq'):
+            print('Reverse complementing:', opts.input)
+            rev_comp_fq(os.path.abspath(opts.input), fq=True)
+        elif opts.input.endswith('fasta'):
+            print('Reverse complementing:', opts.input)
+            rev_comp_fq(os.path.abspath(opts.input), fq=False)
+        #if only directory provided
+        else:
+            if opts.fq:
+                jv_fnames = glob.glob(opts.input + '/*.fastq')
+            else:
+                jv_fnames = glob.glob(opts.input + '/*.fasta')
+            for jv_fname in jv_fnames:
+                print('Reverse complementing:', jv_fname)
+                rev_comp_fq(os.path.abspath(jv_fname), fq=opts.fq)
+
+    else:
+
+        logging.basicConfig(level=logging.DEBUG, filename=dedup.out_dir +'/' + dedup.jv_prefix + '.log', filemode='a+',
+                            format='%(asctime)-15s %(levelname)-8s %(message)s')
+
+        logging.info(opts)
+        print('Starting deduplication')
+        dedup.deduplicate_reads(threshold=opts.threshold, min_reads=opts.minreads, threads=opts.nthreads,
+                                            mismatch=opts.mismatch, gt_threshold=opts.gtratio,
+                                            j_trim=opts.j_trim, stats=opts.stats,
+                                            ignore_umi=opts.ignore_umi, use_j=opts.use_j,
+                                            skip_unclear=opts.skip_unclear, keep_mh=opts.keep_mh, no_msa=opts.no_msa,
+                                            umi_cor=opts.umi_correction,
+                                            no_anchor=opts.no_anchor, short=opts.short, fq=opts.fq,
+                                            cons_no_qual=opts.cons_no_qual, with_N=opts.with_N)
+
+
+
+
 ################################################################################
 #Aggregate reads and bundle with read name seq count
 ################################################################################
@@ -251,6 +414,7 @@ def deduplication_worker_umi(bundle, threshold, stats, mismatch, gt_threshold, j
             num_input, stats_pre_df_dict, cons_diffs, cons_algn, consensus_quals] #, pre_average_distance]
 
 
+
 def deduplication_worker(bundle, threshold, stats, mismatch, gt_threshold, j_trim,
                          no_msa, short, qual_dict, cons_no_qual, with_N):
     ''' worker for deduplicate_bundle_parallel without umi correction'''
@@ -442,8 +606,10 @@ def deduplicate_bundle_parallel(reads_dict, qual_dict, threshold,
     return dir_adj_results
 
 
+
+
 def write_out_deduplicated(dir_adj_results, low_umi_out, out, stats, min_reads,
-                           no_anchor, fq, no_consensus, pdf_out):
+                           no_anchor, fq, pdf_out):
     '''
     Write out reads from result object produced from deduplication and
     return stats
@@ -511,9 +677,6 @@ def write_out_deduplicated(dir_adj_results, low_umi_out, out, stats, min_reads,
                                       dir_adj_results[bundle].consensus_seqs[indx] + '\n' +
                                       '+' + '\n' +
                                       dir_adj_results[bundle].consensus_quals[indx] + '\n')
-                elif no_consensus:
-                    low_umi_out.write(reads_dict[bundle][dir_adj_results[bundle].final_umis[indx]]['read'].split(' ')[0].replace('@', '>') +
-                    '_' + str(count) +'\n' + reads_dict[bundle][dir_adj_results[bundle].final_umis[indx]]['seq'][0] + '\n')
                 else:
                     #write out fasta
                     low_umi_out.write(dir_adj_results[bundle].reads[indx].split(' ')[0].replace('@', '>') + '_' + str(count) +'\n' +
@@ -528,9 +691,6 @@ def write_out_deduplicated(dir_adj_results, low_umi_out, out, stats, min_reads,
                               dir_adj_results[bundle].consensus_seqs[indx] + '\n' +
                               '+' + '\n' +
                               dir_adj_results[bundle].consensus_quals[indx] + '\n')
-                elif no_consensus:
-                    low_umi_out.write(reads_dict[bundle][dir_adj_results[bundle].final_umis[indx]]['read'].split(' ')[0].replace('@', '>') +
-                    '_' + str(count) +'\n' + reads_dict[bundle][dir_adj_results[bundle].final_umis[indx]]['seq'][0] + '\n')
                 else:
                     #write out fasta
                     out.write(dir_adj_results[bundle].reads[indx].split(' ')[0].replace('@', '>') + '_' + str(count) + '\n' +
@@ -548,11 +708,6 @@ def write_out_deduplicated(dir_adj_results, low_umi_out, out, stats, min_reads,
             corrected_reads +=  dir_adj_results[bundle].corrected #dir_adj_results[bundle][5] #corrected
             low_gt_corrected_reads += dir_adj_results[bundle].low_gt_corrected #dir_adj_results[bundle][6] #low_gt_corrected
 
-            # # collect pre-dudupe stats
-            # stats_pre_df_dict['UMI'].extend(bundle) #umi + read
-            # stats_pre_df_dict['counts'].extend([bundle[UMI]['count'] for UMI in bundle]) #umi counts
-            #
-            # pre_average_distance = get_average_umi_distance(bundle.keys()) #v_seq + umi
             stats_pre_df_dict_all['UMI'].extend(dir_adj_results[bundle].stats_pre_df_dict['UMI']) #stats_pre_df_dict umi + read #dir_adj_results[bundle][8]
             stats_pre_df_dict_all['counts'].extend(dir_adj_results[bundle].stats_pre_df_dict['counts']) #stats_pre_df_dict umi counts
 
@@ -582,14 +737,10 @@ def write_out_deduplicated(dir_adj_results, low_umi_out, out, stats, min_reads,
 
 
 
-######### Stats ################
-
 
 def aggregate_stats_df(stats_df):
-    ''' return a data frame with aggregated counts per UMI'''
-
-
-    # agg_df_dict = {}
+    ''' return a data frame with aggregated counts per UMI
+    '''
 
     total_counts = stats_df.pivot_table(
         columns="UMI", values="counts", aggfunc=np.sum).T
@@ -676,7 +827,7 @@ class deduplicate:
     def deduplicate_reads(self, threshold, min_reads, threads, mismatch, gt_threshold, j_trim,
                                       stats=False, ignore_umi=False, use_j=False, skip_unclear=False,
                                       keep_mh=False, no_msa=False, umi_cor=False, no_anchor=False,
-                                      short=False, fq=False, cons_no_qual=False, no_consensus=False,
+                                      short=False, fq=False, cons_no_qual=False,
                                       with_N=False):
         '''Main deduplication function
         First bundles are created from input reads_s
@@ -742,9 +893,6 @@ class deduplicate:
         #Write both anchors into same file
         #Can't split into DJ and V
 
-        # print(reads_dict.keys())
-        # with pysam.AlignmentFile(self.tmp_dir + '/' + self.v_prefix_an1 + '_' + self.an1 + '_dedup.bam', "wb", template=sam_algn_v_an1) as out_file:
-
         if fq:
             out_name = self.out_dir + '/' + self.jv_prefix + '_dedup.fastq'
             low_name = self.out_dir + '/' + self.jv_prefix + '_low_umi.fastq'
@@ -774,8 +922,7 @@ class deduplicate:
             num_input, num_output, low_gt_reads, corrected_reads, \
             low_gt_corrected_reads, low_umi_count, stats_cons_diffs=\
             write_out_deduplicated(deduplication_results, low_umi_out, jv_out, stats=stats, min_reads=min_reads,
-                                   no_anchor=no_anchor, fq=fq, no_consensus=no_consensus,
-                                   pdf_out=pdf)
+                                   no_anchor=no_anchor, fq=fq, pdf_out=pdf)
 
             #stats
             if stats:
@@ -901,184 +1048,6 @@ def rev_comp_fq(path, fq):
             for qname, seq in general.fasta_iter(path):
                 rv_seq = general.reverse_complement(seq)
                 out_fname.write('>' + qname + '\n' + rv_seq + '\n')
-
-
-
-def parse_args():
-    parser = argparse.ArgumentParser(description='BabrahamLinkON Deduplicate')
-
-    parser.add_argument('--version', action='version', version='%(prog)s ' + __version__)
-
-    sub = parser.add_subparsers(dest='action', description='Choose pipeline')
-
-    sp1 = sub.add_parser('umi')
-    sp2 = sub.add_parser('short')
-    sp3 = sub.add_parser('short_anchor')
-    sp4 = sub.add_parser('no_anchor')
-    sp5 = sub.add_parser('umi_seq_logo')
-    sp6 = sub.add_parser('reverse_complement')
-
-    for sp in [sp1,sp2,sp3,sp4,sp5]: #common to all 3
-
-        sp.add_argument('--input_dir', dest='input', type=str, required=True, help='Input directory (created for/by preclean) or can specify a file')
-        sp.add_argument('--out', dest='out_dir', type=str, help='Output directory, default: creates Deduplicated in main directory')
-
-    for sp in [sp1,sp2,sp3,sp4]:
-        sp.add_argument('--threads', dest='nthreads', default=1, type=int, help='Number of threads to use (if aligning), default: 1')
-
-        sp.add_argument('--mismatch', dest='mismatch', type=int, default=5, help='Number of mismatches allowed in consensus sequence comparison [5]')
-        sp.add_argument('--min_reads', dest='minreads', type=int, default=2, help='Minimum number of reads in UMI group, if less than or equal to [2] then discard')
-        sp.add_argument('--gt_ratio', dest='gtratio', type=float, default=1, help='Ratio of good to total reads to mark UMI group as erroneous 0-1 [1]')
-
-        sp.add_argument('--stats', action='store_true', help='Output stats from UMI deduplication [False]')
-
-        sp.add_argument('--umi_correction', action='store_true', help='Perform correction of errors that might be present in UMI')
-        sp.add_argument('--threshold', dest='threshold', type=int, default=1, help='Number of mismatches allowed in UMI when doing UMI correction [1]')
-
-        sp.add_argument('--skip_unclear', action='store_true', help='Skip unclear J reads [False]')
-        sp.add_argument('--keep_mh', action='store_true', help='Keep multiple hit unclear J reads [False]')
-
-        sp.add_argument('--use_j', action='store_true', help='Deduplicate using J identity')
-        sp.add_argument('--ignore_umi', action='store_true', help='Deduplicate without using UMI')
-
-        sp.add_argument('--no_consensus', action='store_true', help='Do no output consensus sequence, but instead the first in the UMI stack (For QC only)')
-        sp.add_argument('--j_trim', dest='j_trim', default=25, type=int, help='Trim J primer when comparing to consensus, default: 25')
-    # sp.add_argument('--umi_seq_logo', dest='seqlogo', action='store_true', help='Make seqlogo from UMIs')
-
-        sp.add_argument('--no_msa', dest='no_msa', action='store_true', help='Don\'t use msa to derive consensus sequence [False]')
-        sp.add_argument('--fq', dest='fq', action='store_true', help='Output fastq instead of fasta')
-        sp.add_argument('--cons_no_qual', dest='cons_no_qual', action='store_true', help='Make consensus without using quality scores')
-        sp.add_argument('--with_N', dest='with_N', action='store_true', help='Output consensus sequences with ambigious N bases')
-
-    for sp in [sp1, sp3, sp5, sp6]:
-
-
-        sp.add_argument('--an1', dest='an1', default='GACTCGT', type=str, help='Default: GACTCGT')
-        sp.add_argument('--an2', dest='an2', default='CTGCTCCT', type=str, help='Default: CTGCTCCT')
-
-    # for sp in [sp1, sp2, sp3]:
-    #     sp.add_argument('--v_len', dest='v_len', type=int, default=0, help='Length from 42bp in to add to the UMI [0]')
-    #     sp.add_argument('--use_v', action='store_true', help='Deduplicate using V end')
-    #
-    # sp4.add_argument('--j_len', dest='j_len', type=int, default=0, help='Length of J end sequence, 50bp into read (-), to add to the UMI [0]')
-
-    # for sp in [sp2, sp3, sp4]:
-    #     sp.add_argument('--in_len', dest='in_len', type=int, default=50, help='Length into the J end sequence to go, xbp into read (+umi) [50]')
-
-
-
-    sp6.add_argument('--input', dest='input', type=str, required=True, help='Input file/directory with files')
-    sp6.add_argument('--fq', dest='fq', action='store_true', help='Convert fastq')
-
-
-    sp1.set_defaults(short=False, no_anchor=False, seqlogo=False, rev_comp=False)
-    sp2.set_defaults(short=True, no_anchor=True, fq=False, seqlogo=False, rev_comp=False)
-    # sp3.set_defaults(short=True, no_anchor=False, no_msa=True, fq=False, j_len=0, cons_no_qual=False, seqlogo=False)
-    sp3.set_defaults(short=True, no_anchor=False, seqlogo=False, rev_comp=False)
-    sp4.set_defaults(short=False, no_anchor=True, seqlogo=False, rev_comp=False)
-    sp5.set_defaults(seqlogo=True, rev_comp=False, cons_no_qual=False, no_msa=False, no_anchor=False)
-    sp6.set_defaults(seqlogo=False, rev_comp=True, cons_no_qual=False, no_msa=False, no_anchor=False, in_dir=None)
-    # parser.add_argument('--no_anchor', action='store_true', help='No anchor sequence present')
-    # parser.add_argument('--short', action='store_true', help='Short sequences present')
-
-    # parser.add_argument('--use_j', action='store_true', help='Deduplicate without using J end identity')
-    # parser.add_argument('--assembled', action='store_true', help='Assembled reads are being provided as input (from PEAR) [False]')
-
-
-    opts = parser.parse_args()
-
-    return opts
-
-
-
-def main():
-
-    #argparse
-    opts = parse_args()
-
-    #combinations which can't be used together
-    if opts.cons_no_qual and opts.fq:
-        raise Exception('Can\'t output fastq without producing consensus quality')
-    if opts.no_msa and opts.fq:
-        raise Exception('Can\'t output fastq without producing consensus quality which is only used with msa at the moment')
-
-    if opts.no_anchor:
-        an1 = ''
-        an2 = ''
-    # elif opts.short:
-    #     an1 = ''
-    #     an2 = ''
-    else:
-        an1 = opts.an1
-        an2 = opts.an2
-
-    #directory or file submitted
-    if os.path.isfile(opts.input):
-        in_dir = os.path.basename(opts.input)
-        in_file = True
-    #if only directory provided
-    elif os.path.isdir(opts.input):
-        in_dir = opts.input
-        in_file = False
-
-
-    if not opts.rev_comp:
-        #initiate deduplication object
-        dedup = deduplicate(file_directory=opts.input, an1=an1, an2=an2)
-        dedup.create_dirs_assembled(out_dir=opts.out_dir)
-
-
-    if opts.seqlogo:
-        if opts.no_anchor:
-            if in_file:
-                jv_fastq = opts.input
-            else:
-                jv_fastq = glob.glob(in_dir + '/*all_j')[0]
-            UMI_seqlogo.umi_seq_logo(jv_fastq, dedup.out_dir + '/' + dedup.jv_prefix + '.eps')
-        else:
-            if in_file:
-                raise ValueError('Cannot submit multiple file paths, use directory instead')
-            else:
-                jv_fastq_an1 = glob.glob(in_dir + '/*all_j*' + an1)[0]
-                jv_fastq_an2 = glob.glob(in_dir + '/*all_j*' + an2)[0]
-            UMI_seqlogo.umi_seq_logo(jv_fastq_an1, dedup.out_dir + '/' + dedup.jv_prefix + '_' + an1 + '.eps')
-            UMI_seqlogo.umi_seq_logo(jv_fastq_an2, dedup.out_dir + '/' + dedup.jv_prefix + '_' + an2 + '.eps')
-
-    #reverse complement for partis (needs to be VDJ, default output is JDV)
-    elif opts.rev_comp:
-        #if file path is provided
-        if opts.input.endswith('fastq'):
-            print('Reverse complementing:', opts.input)
-            rev_comp_fq(os.path.abspath(opts.input), fq=True)
-        elif opts.input.endswith('fasta'):
-            print('Reverse complementing:', opts.input)
-            rev_comp_fq(os.path.abspath(opts.input), fq=False)
-        #if only directory provided
-        else:
-            if opts.fq:
-                jv_fnames = glob.glob(opts.input + '/*.fastq')
-            else:
-                jv_fnames = glob.glob(opts.input + '/*.fasta')
-            for jv_fname in jv_fnames:
-                print('Reverse complementing:', jv_fname)
-                rev_comp_fq(os.path.abspath(jv_fname), fq=opts.fq)
-
-    else:
-
-        logging.basicConfig(level=logging.DEBUG, filename=dedup.out_dir +'/' + dedup.jv_prefix + '.log', filemode='a+',
-                            format='%(asctime)-15s %(levelname)-8s %(message)s')
-
-        logging.info(opts)
-        print('Starting deduplication')
-        dedup.deduplicate_reads(threshold=opts.threshold, min_reads=opts.minreads, threads=opts.nthreads,
-                                            mismatch=opts.mismatch, gt_threshold=opts.gtratio,
-                                            j_trim=opts.j_trim, stats=opts.stats,
-                                            ignore_umi=opts.ignore_umi, use_j=opts.use_j,
-                                            skip_unclear=opts.skip_unclear, keep_mh=opts.keep_mh, no_msa=opts.no_msa,
-                                            umi_cor=opts.umi_correction,
-                                            no_anchor=opts.no_anchor, short=opts.short, fq=opts.fq,
-                                            cons_no_qual=opts.cons_no_qual, no_consensus=opts.no_consensus,
-                                            with_N=opts.with_N)
 
 
 

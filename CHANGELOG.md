@@ -1,3 +1,13 @@
+# BabrahamLinkON 0.2.1
+
+* Added environment.yaml for dependency version reproducibility. (New version of ChangeO MakeDb.py has new commands and struggles parsing IgBlast 1.10.0 output)
+
+## Annotation and clone assembly
+* General cleanup
+
+## General
+* New fasta parser that can handle multi-line records
+
 # BabrahamLinkON 0.2
 
 Most changes pertain to the short pipeline. Moved main scripts into bin folder.

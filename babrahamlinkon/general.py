@@ -93,15 +93,15 @@ def fastq_parse(fp):
 #     linecount = 0
 #     name, seq = [None] * 2
 #     for line in fp:
-#
+
 #         linecount += 1
 #         if linecount % 2 == 1:
-#
+
 #             try:
 #                 name = line.decode('UTF-8').rstrip()
 #             except AttributeError:
 #                 name = line.rstrip()
-#
+
 #             assert name.startswith('>'),\
 #                    "ERROR: The 1st line in fasta element does not start with '>'.\n\
 #                    Please check Fasta file near line number %s" % (linecount)
@@ -110,13 +110,14 @@ def fastq_parse(fp):
 #                 seq = line.decode('UTF-8').rstrip()
 #             except AttributeError:
 #                 seq = line.rstrip()
-#
+
 #             yield name, seq
 #             name, seq = [None] * 2
 
 
 def fasta_parse(fp):
     '''Parse fasta files
+    Allows parsing of multiline fasta files
 
     Args:
         fp (str): Open fasta file
@@ -127,12 +128,11 @@ def fasta_parse(fp):
     name, seq = [''] * 2
 
     for line in fp:
-
+        
         try:
             rec = line.decode('utf-8').rstrip()
         except AttributeError:
             rec = line.rstrip()
-
         if rec.startswith('>'):
             if record_count - record_out > 0:
                  yield name, seq
@@ -143,7 +143,11 @@ def fasta_parse(fp):
         elif line.startswith('@'):
             raise Exception('Input starts with @ suggesting this is a fastq no fasta')
         else:
-            seq += rec
+            seq += rec;
+    yield name, seq
+
+# test_fq = [">0_AAAAAATAGCAC_1","AGTGGTGCCTTGGCCCCAGTAGTCAAAGTAGTCACACTATCATAGACCCCTTTAGTGGGTGTACAAAAACCCATCTACCCATGTAGCCCAACAATGTAAATGCCTATTTTCCATGATTTTCTTGTGAAGTGTCTGGTATTGTCATGGAGTCATTATATTGTTGATTTAAGAGAAACATCTTTGAAAACGAAGTCATTTCCCAGGACCAAGTCTGTAGAAGAGAGAGCCAGGGATAGTGTTATCTATAAGTTGTTTAACAAGATTTGGTCCAGAACCA",
+# ">1_AAAAAATAGCAC_3","AGTGGTGCCTTGGCCCCAGTAGTCAAAGTAGTCACACTATCATAGACCCCTTTAGTGGGTGTACAAAAACCCATCTACCCATGTAGCCTAACAATGTAAATGCCTATTTTCCATGATTTTCTTGTGAAGTGTCTGGTATTGTCATGGAGTCATTATATTGTTGATTTAAGAGAAACATCTTTGAAAACGAAGTCATTTCCCAGGACCAAGTCTGTAGAAGAGAGAGCCAGGGATAGTGTTATCTATAAGTTGTTTAACAAGATTTGGTCCAGAACCA"]
 
 
 

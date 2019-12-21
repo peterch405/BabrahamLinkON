@@ -103,6 +103,12 @@ If running in cluster enviroment:
 
 ## Setup
 
+I would recommend installing BabrahamLinkON within its own virtual enviroment:
+
+```bash
+conda env create -f environment.yml
+conda activate babrahamlinkon
+```
 
 To install Babrahamlinkon straight from the git repository:
 
