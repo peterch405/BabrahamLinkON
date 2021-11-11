@@ -1,45 +1,58 @@
 name: babrahamlinkon
 channels:
-  - conda-forge
   - bioconda
+  - conda-forge
   - defaults
+  - r
 dependencies:
-  - _libgcc_mutex=0.1=main
+  - _libgcc_mutex=0.1=conda_forge
+  - _openmp_mutex=4.5=1_gnu
   - airr=1.2.1=py_0
   - biopython=1.75=py37h516909a_0
   - blast=2.9.0=pl526h3066fca_4
+  - bowtie2=2.4.4=py37h13ad519_0
   - bzip2=1.0.8=h516909a_2
-  - ca-certificates=2019.11.28=hecc5488_0
-  - certifi=2019.11.28=py37_0
+  - c-ares=1.18.1=h7f98852_0
+  - ca-certificates=2021.10.26=h06a4308_2
+  - certifi=2021.10.8=py37h89c1867_1
   - changeo=0.4.5=py_0
-  - curl=7.65.3=hf8cf82a_0
+  - curl=7.80.0=h2574ce0_0
   - cython=0.29.14=py37he1b5a44_0
   - entrez-direct=11.0=pl526_1
   - expat=2.2.5=he1b5a44_1004
+  - htslib=1.14=h9093b5e_0
   - icu=64.2=he1b5a44_1
   - igblast=1.9.0=hab87656_0
-  - krb5=1.16.4=h2fd8d38_0
+  - kalign3=3.2.2=h779adbc_2
+  - krb5=1.19.2=hcc1bbae_3
   - ld_impl_linux-64=2.33.1=h53a641e_7
   - libblas=3.8.0=14_openblas
   - libcblas=3.8.0=14_openblas
-  - libcurl=7.65.3=hda55be3_0
-  - libedit=3.1.20170329=hf8c457e_1001
+  - libcurl=7.80.0=h2574ce0_0
+  - libdeflate=1.7=h7f98852_5
+  - libedit=3.1.20210714=h7f8727e_0
+  - libev=4.33=h516909a_1
   - libffi=3.2.1=he1b5a44_1006
-  - libgcc-ng=9.2.0=hdf63c60_0
+  - libgcc-ng=11.2.0=h1d223b6_11
   - libgfortran-ng=7.3.0=hdf63c60_2
+  - libgomp=11.2.0=h1d223b6_11
   - libiconv=1.15=h516909a_1005
   - libidn11=1.34=h1cef754_0
   - liblapack=3.8.0=14_openblas
+  - libnghttp2=1.43.0=h812cca2_1
   - libopenblas=0.3.7=h5ec1e0e_6
-  - libssh2=1.8.2=h22169c7_2
-  - libstdcxx-ng=9.2.0=hdf63c60_0
+  - libssh2=1.10.0=ha56f1ee_2
+  - libstdcxx-ng=11.2.0=he4da1e4_11
   - libxml2=2.9.10=hee79883_0
+  - libzlib=1.2.11=h36c2ea0_1013
+  - lz4-c=1.9.3=h9c3ff4c_1
   - muscle=3.8.1551=hc9558a2_5
-  - ncurses=6.1=hf484d3e_1002
+  - ncurses=6.2=h58526e2_4
   - numpy=1.17.3=py37h95a1406_0
-  - openssl=1.1.1d=h516909a_0
+  - openssl=1.1.1l=h7f98852_0
   - pandas=0.25.3=py37hb3f55d8_0
   - pcre=8.43=he1b5a44_0
+  - pear=0.9.6=h36cd882_7
   - perl=5.26.2=h516909a_1006
   - perl-app-cpanminus=1.7044=pl526_1
   - perl-archive-tar=2.32=pl526_0
@@ -108,21 +121,26 @@ dependencies:
   - presto=0.5.13=py_1
   - python=3.7.3=h357f687_2
   - python-dateutil=2.8.1=py_0
+  - python_abi=3.7=2_cp37m
   - pytz=2019.3=py_0
   - pyyaml=5.2=py37h516909a_0
   - readline=8.0=hf8c457e_0
+  - samtools=1.14=hb421002_0
   - scipy=1.4.0=py37h921218d_0
   - setuptools=42.0.2=py37_0
   - six=1.13.0=py37_0
   - sqlite=3.30.1=hcee41ef_0
-  - tk=8.6.10=hed695b0_0
+  - tbb=2020.3=hfd86e86_0
+  - tk=8.6.11=h27826a3_1
   - vsearch=2.14.1=h2d02072_0
   - wheel=0.33.6=py37_0
-  - xz=5.2.4=h14c3975_1001
+  - xz=5.2.5=h516909a_1
   - yaml=0.2.2=h516909a_1
   - yamlordereddictloader=0.4.0=py_0
-  - zlib=1.2.11=h516909a_1006
+  - zlib=1.2.11=h36c2ea0_1013
+  - zstd=1.4.9=ha95c52a_0
   - pip:
+    - babrahamlinkon==0.2.0
     - backcall==0.1.0
     - cachecontrol==0.12.5
     - chardet==3.0.4
@@ -155,4 +173,3 @@ dependencies:
     - urllib3==1.25.7
     - wcwidth==0.1.7
     - weblogo==3.6.0
-
