@@ -1,3 +1,6 @@
+# export BOWTIE2_INDEXES='/mnt/DA341E5F341E3EC7/genomes/GRCm38.p6_old'
+# export BOWTIE2_REF='GRCm38.p6'
+
 preclean.py umi \
 -v ./test_R1.fq.gz \
 -j ./test_R3.fq.gz \

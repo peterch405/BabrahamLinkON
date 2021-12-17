@@ -1,0 +1,34 @@
+# export BOWTIE2_INDEXES='/mnt/DA341E5F341E3EC7/genomes/GRCm38.p6_old'
+# export BOWTIE2_REF='GRCm38.p6'
+
+preclean.py short_anchor \
+-v ./test_R1_100bp.fq.gz \
+-j ./test_R3_100bp.fq.gz \
+--species mmu --threads 8 --verbose
+
+deduplicate.py short_anchor \
+--input_dir ./test_R1_100bp_preclean \
+--stats --threads 8
+
+mv ./test_R1_100bp_preclean/test_R1_100bp_all_j_CTGCTCCT ./test_R1_100bp_preclean/test_R1_100bp_all_tmp_CTGCTCCT 
+mv ./test_R1_100bp_preclean/test_R1_100bp_all_j_GACTCGT ./test_R1_100bp_preclean/test_R1_100bp_all_tmp_CTGCTCCT 
+
+mv ./test_R1_100bp_preclean/test_R1_100bp_v_end_all_v_CTGCTCCT ./test_R1_100bp_preclean/test_R1_100bp_v_end_all_j_CTGCTCCT
+mv ./test_R1_100bp_preclean/test_R1_100bp_v_end_all_v_GACTCGT ./test_R1_100bp_preclean/test_R1_100bp_v_end_all_j_GACTCGT
+
+
+deduplicate.py short_anchor \
+--input_dir ./test_R1_100bp_preclean \
+--stats --threads 8
+
+mv ./test_R1_100bp_preclean/test_R1_100bp_all_tmp_CTGCTCCT ./test_R1_100bp_preclean/test_R1_100bp_all_j_CTGCTCCT 
+mv ./test_R1_100bp_all_j_GACTCGT/test_R1_100bp_all_tmp_GACTCGT ./test_R1_100bp_preclean/test_R1_100bp_all_j_CTGCTCCT 
+
+mv ./test_R1_100bp_preclean/test_R1_100bp_v_end_all_j_CTGCTCCT ./test_R1_100bp_preclean/test_R1_100bp_v_end_all_v_CTGCTCCT
+mv ./test_R1_100bp_preclean/test_R1_100bp_v_end_all_j_GACTCGT ./test_R1_100bp_preclean/test_R1_100bp_v_end_all_v_GACTCGT
+
+assemble_clones.py short -fa ./test_R1_100bp_Deduplicated/test_R1_100bp_dedup.fasta \
+--v_end ./test_R1_100bp_v_end_Deduplicated/test_R1_100bp_v_end_dedup.fasta \
+--json_path ./test_R1_100bp_preclean/test_R1_100bp.json \
+--threads 8 --full_name
+

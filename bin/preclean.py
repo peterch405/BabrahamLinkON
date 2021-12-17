@@ -431,13 +431,11 @@ class fastqHolder:
                             if qname.split(' ')[0][1:] not in skip_seqs:
                                 if anchor:
                                     if self.anchor_dict.get(qname.split(' ')[0], '') == 'GACTCGT':
-                                        out_GACTCGT.write(qname.split(' ')[0] + '_' + gene + '_' + + v_iden_out.upper() + '_GACTCGT_' +
-                                                          umi + ' ' + ''.join(qname.split(' ')[1:]) +
-                                                          '\n' + seq + '\n' + thrd + '\n' + qual + '\n')
+                                        out_GACTCGT.write(qname.split(' ')[0] + '_' + gene + '_' + v_iden_out.upper() + '_GACTCGT_' +
+                                                          umi + ' ' + ''.join(qname.split(' ')[1:]) + '\n' + seq + '\n' + thrd + '\n' + qual + '\n')
                                     elif self.anchor_dict.get(qname.split(' ')[0],'') == 'CTGCTCCT':
-                                        out_CTGCTCCT.write(qname.split(' ')[0] + '_' + gene + '_' + + v_iden_out.upper() + '_CTGCTCCT_' +
-                                                           umi + ' ' + ''.join(qname.split(' ')[1:]) +
-                                                           '\n' + seq + '\n' + thrd + '\n' + qual + '\n')
+                                        out_CTGCTCCT.write(qname.split(' ')[0] + '_' + gene + '_' + v_iden_out.upper() + '_CTGCTCCT_' +
+                                                           umi + ' ' + ''.join(qname.split(' ')[1:]) + '\n' + seq + '\n' + thrd + '\n' + qual + '\n')
                                 else:
                                     v_fq_filt.write(qname.split(' ')[0] + '_' + gene + '_' + v_iden_out.upper() + '_' + umi +
                                                     ' ' + ''.join(qname.split(' ')[1:]) +
@@ -968,7 +966,7 @@ def gemline_removed_qc(V_region, out_dir, spe='mmu', prefix=None, thread_num=8, 
 
 
 
-def v_end_identity(igh_ref, V_region, thread_num, spe='mmu'):
+def v_end_identity(igh_ref, V_region, thread_num, spe):
     #Get position of all V genes
 
     v_genes = defaultdict()

@@ -17,7 +17,7 @@ except ImportError:
 
 # check kalign is accessible
 try:
-    subprocess.check_output(['kalign', '-q'])
+    subprocess.check_output(['kalign', '-h'])
 except OSError:
     print('kalign not found, some options won\'t work\n')
 
@@ -56,7 +56,7 @@ setup(name='BabrahamLinkON',
       version=__version__,
       description='BabrahamLinkON pipeline for preprocessing and analysing VDJ-seq data',
       author='Peter Chovanec',
-      author_email='peter.chovanec@babraham.ac.uk',
+      author_email='peterch405@gmail.com',
       packages=['babrahamlinkon'],
       include_package_data=True,
       install_requires=[
