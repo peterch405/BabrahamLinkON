@@ -1,5 +1,5 @@
-2021-12-17 14:52:50,017 INFO     Subprocess: "MakeDb.py igblast -i /tmp/tmpmnxwz8pz/igblast.fmt7 -s ./test_R1_100bp_Deduplicated/test_R1_100bp_dedup.fasta -r /mnt/data/Projects/BabrahamLinkON/babrahamlinkon/resources/IgBlast_database/Mus_musculus_IGH[JDV].fasta --regions --scores --cdr3 --partial"
-2021-12-17 14:52:55,061 INFO            START> MakeDB
+2022-02-19 15:05:35,899 INFO     Subprocess: "MakeDb.py igblast -i /tmp/tmpqkf2l1oc/igblast.fmt7 -s ./test_R1_100bp_Deduplicated/test_R1_100bp_dedup.fasta -r /mnt/data/Projects/BabrahamLinkON/babrahamlinkon/resources/IgBlast_database/Mus_musculus_IGH[JDV].fasta --regions --scores --cdr3 --partial"
+2022-02-19 15:05:40,870 INFO            START> MakeDB
      ALIGNER> IgBLAST
 ALIGNER_FILE> igblast.fmt7
     SEQ_FILE> test_R1_100bp_dedup.fasta
@@ -10,30 +10,30 @@ ALIGNER_FILE> igblast.fmt7
   ASIS_CALLS> False
 
 
-PROGRESS> 14:52:50 |Loading files       | 0.0 min
-PROGRESS> 14:52:50 |Done                | 0.0 min
+PROGRESS> 15:05:36 |Loading files       | 0.0 min
+PROGRESS> 15:05:36 |Done                | 0.0 min
 
-PROGRESS> 14:52:50 |                    |   0% (     0) 0.0 min
-PROGRESS> 14:52:50 |#                   |   5% (   676) 0.0 min
-PROGRESS> 14:52:50 |##                  |  10% ( 1,352) 0.0 min
-PROGRESS> 14:52:50 |###                 |  15% ( 2,028) 0.0 min
-PROGRESS> 14:52:51 |####                |  20% ( 2,704) 0.0 min
-PROGRESS> 14:52:51 |#####               |  25% ( 3,380) 0.0 min
-PROGRESS> 14:52:51 |######              |  30% ( 4,056) 0.0 min
-PROGRESS> 14:52:51 |#######             |  35% ( 4,732) 0.0 min
-PROGRESS> 14:52:52 |########            |  40% ( 5,408) 0.0 min
-PROGRESS> 14:52:52 |#########           |  45% ( 6,084) 0.0 min
-PROGRESS> 14:52:52 |##########          |  50% ( 6,760) 0.0 min
-PROGRESS> 14:52:52 |###########         |  55% ( 7,436) 0.0 min
-PROGRESS> 14:52:53 |############        |  60% ( 8,112) 0.0 min
-PROGRESS> 14:52:53 |#############       |  65% ( 8,788) 0.1 min
-PROGRESS> 14:52:53 |##############      |  70% ( 9,464) 0.1 min
-PROGRESS> 14:52:53 |###############     |  75% (10,140) 0.1 min
-PROGRESS> 14:52:54 |################    |  80% (10,816) 0.1 min
-PROGRESS> 14:52:54 |#################   |  85% (11,492) 0.1 min
-PROGRESS> 14:52:54 |##################  |  90% (12,168) 0.1 min
-PROGRESS> 14:52:54 |################### |  95% (12,844) 0.1 min
-PROGRESS> 14:52:55 |####################| 100% (13,511) 0.1 min
+PROGRESS> 15:05:36 |                    |   0% (     0) 0.0 min
+PROGRESS> 15:05:36 |#                   |   5% (   676) 0.0 min
+PROGRESS> 15:05:36 |##                  |  10% ( 1,352) 0.0 min
+PROGRESS> 15:05:36 |###                 |  15% ( 2,028) 0.0 min
+PROGRESS> 15:05:37 |####                |  20% ( 2,704) 0.0 min
+PROGRESS> 15:05:37 |#####               |  25% ( 3,380) 0.0 min
+PROGRESS> 15:05:37 |######              |  30% ( 4,056) 0.0 min
+PROGRESS> 15:05:37 |#######             |  35% ( 4,732) 0.0 min
+PROGRESS> 15:05:38 |########            |  40% ( 5,408) 0.0 min
+PROGRESS> 15:05:38 |#########           |  45% ( 6,084) 0.0 min
+PROGRESS> 15:05:38 |##########          |  50% ( 6,760) 0.0 min
+PROGRESS> 15:05:38 |###########         |  55% ( 7,436) 0.0 min
+PROGRESS> 15:05:38 |############        |  60% ( 8,112) 0.0 min
+PROGRESS> 15:05:39 |#############       |  65% ( 8,788) 0.1 min
+PROGRESS> 15:05:39 |##############      |  70% ( 9,464) 0.1 min
+PROGRESS> 15:05:39 |###############     |  75% (10,140) 0.1 min
+PROGRESS> 15:05:39 |################    |  80% (10,816) 0.1 min
+PROGRESS> 15:05:40 |#################   |  85% (11,492) 0.1 min
+PROGRESS> 15:05:40 |##################  |  90% (12,168) 0.1 min
+PROGRESS> 15:05:40 |################### |  95% (12,844) 0.1 min
+PROGRESS> 15:05:40 |####################| 100% (13,511) 0.1 min
 
 OUTPUT> igblast_db-pass.tab
   PASS> 13438
@@ -41,9 +41,9 @@ OUTPUT> igblast_db-pass.tab
    END> MakeDb
 
 
-2021-12-17 14:52:55,062 INFO     Changeo subprocess finished
-2021-12-17 14:53:29,980 INFO     Subprocess: "MakeDb.py igblast -i /tmp/tmp1xlupfg3/igblast.fmt7 -s /tmp/tmp1xlupfg3/igblast.fasta -r /mnt/data/Projects/BabrahamLinkON/babrahamlinkon/resources/IgBlast_database/Mus_musculus_IGH[JDV].fasta --regions --scores --cdr3 --partial"
-2021-12-17 14:53:32,705 INFO            START> MakeDB
+2022-02-19 15:05:40,871 INFO     Changeo subprocess finished
+2022-02-19 15:06:15,460 INFO     Subprocess: "MakeDb.py igblast -i /tmp/tmpiivogzo4/igblast.fmt7 -s /tmp/tmpiivogzo4/igblast.fasta -r /mnt/data/Projects/BabrahamLinkON/babrahamlinkon/resources/IgBlast_database/Mus_musculus_IGH[JDV].fasta --regions --scores --cdr3 --partial"
+2022-02-19 15:06:18,136 INFO            START> MakeDB
      ALIGNER> IgBLAST
 ALIGNER_FILE> igblast.fmt7
     SEQ_FILE> igblast.fasta
@@ -54,30 +54,30 @@ ALIGNER_FILE> igblast.fmt7
   ASIS_CALLS> False
 
 
-PROGRESS> 14:53:30 |Loading files       | 0.0 min
-PROGRESS> 14:53:30 |Done                | 0.0 min
+PROGRESS> 15:06:15 |Loading files       | 0.0 min
+PROGRESS> 15:06:15 |Done                | 0.0 min
 
-PROGRESS> 14:53:30 |                    |   0% (    0) 0.0 min
-PROGRESS> 14:53:30 |#                   |   5% (  486) 0.0 min
-PROGRESS> 14:53:30 |##                  |  10% (  972) 0.0 min
-PROGRESS> 14:53:30 |###                 |  15% (1,458) 0.0 min
-PROGRESS> 14:53:30 |####                |  20% (1,944) 0.0 min
-PROGRESS> 14:53:30 |#####               |  25% (2,430) 0.0 min
-PROGRESS> 14:53:30 |######              |  30% (2,916) 0.0 min
-PROGRESS> 14:53:31 |#######             |  35% (3,402) 0.0 min
-PROGRESS> 14:53:31 |########            |  40% (3,888) 0.0 min
-PROGRESS> 14:53:31 |#########           |  45% (4,374) 0.0 min
-PROGRESS> 14:53:31 |##########          |  50% (4,860) 0.0 min
-PROGRESS> 14:53:31 |###########         |  55% (5,346) 0.0 min
-PROGRESS> 14:53:31 |############        |  60% (5,832) 0.0 min
-PROGRESS> 14:53:31 |#############       |  65% (6,318) 0.0 min
-PROGRESS> 14:53:31 |##############      |  70% (6,804) 0.0 min
-PROGRESS> 14:53:32 |###############     |  75% (7,290) 0.0 min
-PROGRESS> 14:53:32 |################    |  80% (7,776) 0.0 min
-PROGRESS> 14:53:32 |#################   |  85% (8,262) 0.0 min
-PROGRESS> 14:53:32 |##################  |  90% (8,748) 0.0 min
-PROGRESS> 14:53:32 |################### |  95% (9,234) 0.0 min
-PROGRESS> 14:53:32 |####################| 100% (9,712) 0.0 min
+PROGRESS> 15:06:15 |                    |   0% (    0) 0.0 min
+PROGRESS> 15:06:15 |#                   |   5% (  486) 0.0 min
+PROGRESS> 15:06:15 |##                  |  10% (  972) 0.0 min
+PROGRESS> 15:06:15 |###                 |  15% (1,458) 0.0 min
+PROGRESS> 15:06:16 |####                |  20% (1,944) 0.0 min
+PROGRESS> 15:06:16 |#####               |  25% (2,430) 0.0 min
+PROGRESS> 15:06:16 |######              |  30% (2,916) 0.0 min
+PROGRESS> 15:06:16 |#######             |  35% (3,402) 0.0 min
+PROGRESS> 15:06:16 |########            |  40% (3,888) 0.0 min
+PROGRESS> 15:06:16 |#########           |  45% (4,374) 0.0 min
+PROGRESS> 15:06:16 |##########          |  50% (4,860) 0.0 min
+PROGRESS> 15:06:16 |###########         |  55% (5,346) 0.0 min
+PROGRESS> 15:06:17 |############        |  60% (5,832) 0.0 min
+PROGRESS> 15:06:17 |#############       |  65% (6,318) 0.0 min
+PROGRESS> 15:06:17 |##############      |  70% (6,804) 0.0 min
+PROGRESS> 15:06:17 |###############     |  75% (7,290) 0.0 min
+PROGRESS> 15:06:17 |################    |  80% (7,776) 0.0 min
+PROGRESS> 15:06:17 |#################   |  85% (8,262) 0.0 min
+PROGRESS> 15:06:17 |##################  |  90% (8,748) 0.0 min
+PROGRESS> 15:06:18 |################### |  95% (9,234) 0.0 min
+PROGRESS> 15:06:18 |####################| 100% (9,712) 0.0 min
 
 OUTPUT> igblast_db-pass.tab
   PASS> 9280
@@ -85,7 +85,7 @@ OUTPUT> igblast_db-pass.tab
    END> MakeDb
 
 
-2021-12-17 14:53:32,705 INFO     Changeo subprocess finished
-2021-12-17 14:53:32,805 INFO     Low V and J score:7687
-2021-12-17 14:53:32,808 INFO     Number of reads without CDR3:4
-2021-12-17 14:53:32,811 INFO     Out reads:5747
+2022-02-19 15:06:18,136 INFO     Changeo subprocess finished
+2022-02-19 15:06:18,242 INFO     Low V and J score:5206
+2022-02-19 15:06:18,245 INFO     Number of reads without CDR3:9
+2022-02-19 15:06:18,248 INFO     Out reads:8223
