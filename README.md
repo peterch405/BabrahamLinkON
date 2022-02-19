@@ -73,7 +73,7 @@ BabrahamLinkON is dependent on:
  * joblib>=0.9.3,
  * changeo>=0.3.7,
  * tqdm>=4.13.0,
- * weblogo>=3.6.0.
+ * weblogo>=3.7.9.
 
 
 Installation time with all dependencies: ~5 minutes
