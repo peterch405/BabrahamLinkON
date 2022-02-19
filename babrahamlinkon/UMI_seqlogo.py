@@ -18,7 +18,7 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 '''
 
 
-from weblogolib import *
+from weblogo import *
 from babrahamlinkon import general
 from collections import Counter
 from io import StringIO

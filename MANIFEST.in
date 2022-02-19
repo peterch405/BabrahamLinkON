@@ -2,6 +2,6 @@ include README.md
 include babrahamlinkon/resources/IgBlast_database/Mus*
 include babrahamlinkon/resources/IgBlast_database/Homo*
 include babrahamlinkon/resources/IgBlast_database/optional_file/*
-include babrahamlinkon/resources/igh_genes_GRCm38.p4
-include babrahamlinkon/resources/igh_genes_GRCh37
+# include babrahamlinkon/resources/igh_genes_GRCm38.p4
+# include babrahamlinkon/resources/igh_genes_GRCh37
 include babrahamlinkon/resources/IgBlast_database/with_dj/*

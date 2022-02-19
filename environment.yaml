@@ -20,6 +20,7 @@ dependencies:
   - cython=0.29.14=py37he1b5a44_0
   - entrez-direct=11.0=pl526_1
   - expat=2.2.5=he1b5a44_1004
+  - ghostscript=9.54.0=h9c3ff4c_1
   - htslib=1.14=h9093b5e_0
   - icu=64.2=he1b5a44_1
   - igblast=1.9.0=hab87656_0
@@ -49,7 +50,7 @@ dependencies:
   - muscle=3.8.1551=hc9558a2_5
   - ncurses=6.2=h58526e2_4
   - numpy=1.17.3=py37h95a1406_0
-  - openssl=1.1.1l=h7f98852_0
+  - openssl=1.1.1m=h7f8727e_0
   - pandas=0.25.3=py37hb3f55d8_0
   - pcre=8.43=he1b5a44_0
   - pear=0.9.6=h36cd882_7
@@ -140,7 +141,6 @@ dependencies:
   - zlib=1.2.11=h36c2ea0_1013
   - zstd=1.4.9=ha95c52a_0
   - pip:
-    - babrahamlinkon==0.2.0
     - backcall==0.1.0
     - cachecontrol==0.12.5
     - chardet==3.0.4
@@ -172,4 +172,4 @@ dependencies:
     - traitlets==4.3.3
     - urllib3==1.25.7
     - wcwidth==0.1.7
-    - weblogo==3.6.0
+    - weblogo==3.7.9

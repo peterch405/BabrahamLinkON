@@ -1,0 +1,30 @@
+#export BOWTIE2_INDEXES='/mnt/DA341E5F341E3EC7/genomes/GRCm38.p6_old'
+#export BOWTIE2_REF='GRCm38.p6'
+
+preclean.py short \
+-v ./uMT1short_val_1.fq.gz \
+-j ./uMT1short_val_2.fq.gz \
+--species mmu --threads 8 --verbose
+
+# min reads set to 0 as not enough reads in the example
+deduplicate.py short \
+--input_dir ./uMT1short_val_1_preclean \
+--stats --threads 8 --min_reads 0
+
+mv ./uMT1short_val_1_preclean/uMT1short_val_1_all_j ./uMT1short_val_1_preclean/uMT1short_val_1_all_tmp
+mv ./uMT1short_val_1_preclean/uMT1short_val_1_v_end_all_v ./uMT1short_val_1_preclean/uMT1short_val_1_v_end_all_j
+
+
+deduplicate.py short \
+--input_dir ./uMT1short_val_1_preclean \
+--stats --threads 8 --min_reads 0
+
+mv ./uMT1short_val_1_preclean/uMT1short_val_1_all_tmp ./uMT1short_val_1_preclean/uMT1short_val_1_all_j
+mv ./uMT1short_val_1_preclean/uMT1short_val_1_v_end_all_j ./uMT1short_val_1_preclean/uMT1short_val_1_v_end_all_v
+
+
+assemble_clones.py short -fa ./uMT1short_val_1_Deduplicated/uMT1short_val_1_dedup.fasta \
+--v_end ./uMT1short_val_1_v_end_Deduplicated/uMT1short_val_1_v_end_dedup.fasta \
+--json_path ./uMT1short_val_1_preclean/uMT1short_val_1.json \
+--threads 8 --full_name
+

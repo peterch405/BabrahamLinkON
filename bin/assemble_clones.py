@@ -377,15 +377,23 @@ def filter_score(pd_df):
     V_CALL_CN
     V_SCORE_CN
     '''
+
     #chose whichever has higher score
-    conditions = [pd_df['V_SCORE'] >= pd_df['V_SCORE_VEND'],
-                pd_df['V_SCORE'] <= pd_df['V_SCORE_VEND']]
+    nan_location = np.isnan(pd_df['V_SCORE_VEND'])
+    j_end_higher = pd_df['V_SCORE'] >= pd_df['V_SCORE_VEND']
+    # if V_SCORE_VEND NaN, make sure to use V_SCORE 
+    # (resulting from reads being assembled and therefore not run separately for v end)
+    j_end_higher[nan_location] = True
+    v_end_higher = pd_df['V_SCORE'] <= pd_df['V_SCORE_VEND']
+
+    conditions = [j_end_higher, v_end_higher]
 
     choices_genes = [pd_df['V_CALL'], pd_df['V_CALL_VEND']]
     choices_score = [pd_df['V_SCORE'], pd_df['V_SCORE_VEND']]
 
     pd_df['V_CALL_CN'] = np.select(conditions, choices_genes, default=np.nan)
     pd_df['V_SCORE_CN'] = np.select(conditions, choices_score, default=np.nan)
+
 
     return pd_df
 
@@ -424,10 +432,10 @@ def read_changeo_out(tab_file, out, prefix, fasta, v_fastq=None, plot=False, ret
         if v_fastq == None:
             raise Exception('Short option requires the V end fastq/fasta file')
 
-        #run igblast on the v end
+        # run igblast on the v end
         v_end_calls = v_identity_igblast(v_fastq, fasta, custom_ref, thread_num, spe, aux, dj)
         # logging.info('igblast_out', len(igblast_out), 'v_end_calls', len(v_end_calls))
-        #merge data fragments
+        # merge data fragments
         igblast_out_m = pd.merge(igblast_out, v_end_calls, how='left', on=['SEQUENCE_ID'])
 
         #add CN columns

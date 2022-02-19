@@ -709,7 +709,7 @@ def preclean_assembled(jv_region, fq_dict_germ, q_score, umi_len, spe='mmu', ver
 
 
             else:
-                if J is 'other':
+                if J == 'other':
                     other_J += 1
                     fq_dict_germ.gene_split['other_J'].add(title.split(' ')[0][1:])
                 elif 'unclear' in J:
@@ -918,15 +918,15 @@ def write_short(V_region, jv_region, fq_dict_pcln, v_iden_out, umi_len, j_len, i
     print('Number of low quality UMIs: ', low_qual_UMI)
     print('Number of missing anchors: ', no_anchor)
     print('Number of short V reads: ', v_short)
-    print('Number of J reads written out', out_reads)
+    print('Number of J reads written out: ', out_reads)
     print('Number of germline and other reads written out - ', other_stats)
-    print('Number of assembled read not included in V end ', assembled)
+    print('Number of assembled read not included in V end: ', assembled)
     logging.info('Number of low quality UMIs:' + str(low_qual_UMI))
     logging.info('Number of missing anchors:' + str(no_anchor))
     logging.info('Number of short V reads:' + str(v_short))
     logging.info('Number of J reads written out: ' + str(out_reads))
-    logging.info('Number of germline and other reads written out -' + other_stats)
-    logging.info('Number of assembled read not included in V end' + str(assembled))
+    logging.info('Number of germline and other reads written out - ' + other_stats)
+    logging.info('Number of assembled read not included in V end: ' + str(assembled))
 
 
 def gemline_removed_qc(V_region, out_dir, spe='mmu', prefix=None, thread_num=8, verbose=False):

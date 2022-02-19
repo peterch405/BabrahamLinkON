@@ -1,0 +1,451 @@
+2022-02-19 13:44:07,510 INFO     Subprocess: "MakeDb.py igblast -i /tmp/tmpbnd8wpes/igblast.fmt7 -s ./uMT1short_val_1_Deduplicated/uMT1short_val_1_dedup.fasta -r /home/chovanec/miniconda3/envs/babrahamlinkon/lib/python3.7/site-packages/babrahamlinkon/resources/IgBlast_database/Mus_musculus_IGH[JDV].fasta --regions --scores --cdr3 --partial"
+2022-02-19 13:44:07,944 INFO            START> MakeDB
+     ALIGNER> IgBLAST
+ALIGNER_FILE> igblast.fmt7
+    SEQ_FILE> uMT1short_val_1_dedup.fasta
+     PARTIAL> True
+      SCORES> True
+     REGIONS> True
+     ASIS_ID> False
+  ASIS_CALLS> False
+
+
+PROGRESS> 13:44:07 |Loading files       | 0.0 min
+PROGRESS> 13:44:07 |Done                | 0.0 min
+
+PROGRESS> 13:44:07 |                    |   0% (  0) 0.0 min
+PROGRESS> 13:44:07 |#                   |   5% ( 47) 0.0 min
+PROGRESS> 13:44:07 |##                  |  10% ( 94) 0.0 min
+PROGRESS> 13:44:07 |###                 |  15% (141) 0.0 min
+PROGRESS> 13:44:07 |####                |  20% (188) 0.0 min
+PROGRESS> 13:44:07 |#####               |  25% (235) 0.0 min
+PROGRESS> 13:44:07 |######              |  30% (282) 0.0 min
+PROGRESS> 13:44:07 |#######             |  35% (329) 0.0 min
+PROGRESS> 13:44:07 |########            |  40% (376) 0.0 min
+PROGRESS> 13:44:07 |#########           |  45% (423) 0.0 min
+PROGRESS> 13:44:07 |##########          |  50% (470) 0.0 min
+PROGRESS> 13:44:07 |###########         |  55% (517) 0.0 min
+PROGRESS> 13:44:07 |############        |  60% (564) 0.0 min
+PROGRESS> 13:44:07 |#############       |  65% (611) 0.0 min
+PROGRESS> 13:44:07 |##############      |  70% (658) 0.0 min
+PROGRESS> 13:44:07 |###############     |  75% (705) 0.0 min
+PROGRESS> 13:44:07 |################    |  80% (752) 0.0 min
+PROGRESS> 13:44:07 |#################   |  85% (799) 0.0 min
+PROGRESS> 13:44:07 |##################  |  90% (846) 0.0 min
+PROGRESS> 13:44:07 |################### |  95% (893) 0.0 min
+PROGRESS> 13:44:07 |####################| 100% (940) 0.0 min
+
+OUTPUT> igblast_db-pass.tab
+  PASS> 929
+  FAIL> 11
+   END> MakeDb
+
+
+2022-02-19 13:44:07,944 INFO     Changeo subprocess finished
+2022-02-19 13:44:09,705 INFO     Subprocess: "MakeDb.py igblast -i /tmp/tmpveo46ti4/igblast.fmt7 -s /tmp/tmpveo46ti4/igblast.fasta -r /home/chovanec/miniconda3/envs/babrahamlinkon/lib/python3.7/site-packages/babrahamlinkon/resources/IgBlast_database/Mus_musculus_IGH[JDV].fasta --regions --scores --cdr3 --partial"
+2022-02-19 13:44:09,976 INFO            START> MakeDB
+     ALIGNER> IgBLAST
+ALIGNER_FILE> igblast.fmt7
+    SEQ_FILE> igblast.fasta
+     PARTIAL> True
+      SCORES> True
+     REGIONS> True
+     ASIS_ID> False
+  ASIS_CALLS> False
+
+
+PROGRESS> 13:44:09 |Loading files       | 0.0 min
+PROGRESS> 13:44:09 |Done                | 0.0 min
+
+PROGRESS> 13:44:09 |                    |   0% (  0) 0.0 min
+PROGRESS> 13:44:09 |#                   |   5% ( 31) 0.0 min
+PROGRESS> 13:44:09 |##                  |  10% ( 62) 0.0 min
+PROGRESS> 13:44:09 |###                 |  15% ( 93) 0.0 min
+PROGRESS> 13:44:09 |####                |  20% (124) 0.0 min
+PROGRESS> 13:44:09 |#####               |  25% (155) 0.0 min
+PROGRESS> 13:44:09 |######              |  30% (186) 0.0 min
+PROGRESS> 13:44:09 |#######             |  35% (217) 0.0 min
+PROGRESS> 13:44:09 |########            |  40% (248) 0.0 min
+PROGRESS> 13:44:09 |#########           |  45% (279) 0.0 min
+PROGRESS> 13:44:09 |##########          |  50% (310) 0.0 min
+PROGRESS> 13:44:09 |###########         |  56% (341) 0.0 min
+PROGRESS> 13:44:09 |############        |  61% (372) 0.0 min
+PROGRESS> 13:44:09 |#############       |  66% (403) 0.0 min
+PROGRESS> 13:44:09 |##############      |  71% (434) 0.0 min
+PROGRESS> 13:44:09 |###############     |  76% (465) 0.0 min
+PROGRESS> 13:44:09 |################    |  81% (496) 0.0 min
+PROGRESS> 13:44:09 |#################   |  86% (527) 0.0 min
+PROGRESS> 13:44:09 |##################  |  91% (558) 0.0 min
+PROGRESS> 13:44:09 |################### |  96% (589) 0.0 min
+PROGRESS> 13:44:09 |####################| 100% (614) 0.0 min
+
+OUTPUT> igblast_db-pass.tab
+  PASS> 587
+  FAIL> 27
+   END> MakeDb
+
+
+2022-02-19 13:44:09,976 INFO     Changeo subprocess finished
+2022-02-19 13:44:09,995 INFO     Low V and J score:722
+2022-02-19 13:44:09,996 INFO     Number of reads without CDR3:0
+2022-02-19 13:44:09,997 INFO     Out reads:207
+2022-02-19 13:51:31,985 INFO     Subprocess: "MakeDb.py igblast -i /tmp/tmpjj35ucxs/igblast.fmt7 -s ./uMT1short_val_1_Deduplicated/uMT1short_val_1_dedup.fasta -r /home/chovanec/miniconda3/envs/babrahamlinkon/lib/python3.7/site-packages/babrahamlinkon/resources/IgBlast_database/Mus_musculus_IGH[JDV].fasta --regions --scores --cdr3 --partial"
+2022-02-19 13:51:32,409 INFO            START> MakeDB
+     ALIGNER> IgBLAST
+ALIGNER_FILE> igblast.fmt7
+    SEQ_FILE> uMT1short_val_1_dedup.fasta
+     PARTIAL> True
+      SCORES> True
+     REGIONS> True
+     ASIS_ID> False
+  ASIS_CALLS> False
+
+
+PROGRESS> 13:51:32 |Loading files       | 0.0 min
+PROGRESS> 13:51:32 |Done                | 0.0 min
+
+PROGRESS> 13:51:32 |                    |   0% (  0) 0.0 min
+PROGRESS> 13:51:32 |#                   |   5% ( 47) 0.0 min
+PROGRESS> 13:51:32 |##                  |  10% ( 94) 0.0 min
+PROGRESS> 13:51:32 |###                 |  15% (141) 0.0 min
+PROGRESS> 13:51:32 |####                |  20% (188) 0.0 min
+PROGRESS> 13:51:32 |#####               |  25% (235) 0.0 min
+PROGRESS> 13:51:32 |######              |  30% (282) 0.0 min
+PROGRESS> 13:51:32 |#######             |  35% (329) 0.0 min
+PROGRESS> 13:51:32 |########            |  40% (376) 0.0 min
+PROGRESS> 13:51:32 |#########           |  45% (423) 0.0 min
+PROGRESS> 13:51:32 |##########          |  50% (470) 0.0 min
+PROGRESS> 13:51:32 |###########         |  55% (517) 0.0 min
+PROGRESS> 13:51:32 |############        |  60% (564) 0.0 min
+PROGRESS> 13:51:32 |#############       |  65% (611) 0.0 min
+PROGRESS> 13:51:32 |##############      |  70% (658) 0.0 min
+PROGRESS> 13:51:32 |###############     |  75% (705) 0.0 min
+PROGRESS> 13:51:32 |################    |  80% (752) 0.0 min
+PROGRESS> 13:51:32 |#################   |  85% (799) 0.0 min
+PROGRESS> 13:51:32 |##################  |  90% (846) 0.0 min
+PROGRESS> 13:51:32 |################### |  95% (893) 0.0 min
+PROGRESS> 13:51:32 |####################| 100% (940) 0.0 min
+
+OUTPUT> igblast_db-pass.tab
+  PASS> 929
+  FAIL> 11
+   END> MakeDb
+
+
+2022-02-19 13:51:32,410 INFO     Changeo subprocess finished
+2022-02-19 13:51:49,422 INFO     Subprocess: "MakeDb.py igblast -i /tmp/tmpfn_7ttp2/igblast.fmt7 -s ./uMT1short_val_1_Deduplicated/uMT1short_val_1_dedup.fasta -r /home/chovanec/miniconda3/envs/babrahamlinkon/lib/python3.7/site-packages/babrahamlinkon/resources/IgBlast_database/Mus_musculus_IGH[JDV].fasta --regions --scores --cdr3 --partial"
+2022-02-19 13:51:49,854 INFO            START> MakeDB
+     ALIGNER> IgBLAST
+ALIGNER_FILE> igblast.fmt7
+    SEQ_FILE> uMT1short_val_1_dedup.fasta
+     PARTIAL> True
+      SCORES> True
+     REGIONS> True
+     ASIS_ID> False
+  ASIS_CALLS> False
+
+
+PROGRESS> 13:51:49 |Loading files       | 0.0 min
+PROGRESS> 13:51:49 |Done                | 0.0 min
+
+PROGRESS> 13:51:49 |                    |   0% (  0) 0.0 min
+PROGRESS> 13:51:49 |#                   |   5% ( 47) 0.0 min
+PROGRESS> 13:51:49 |##                  |  10% ( 94) 0.0 min
+PROGRESS> 13:51:49 |###                 |  15% (141) 0.0 min
+PROGRESS> 13:51:49 |####                |  20% (188) 0.0 min
+PROGRESS> 13:51:49 |#####               |  25% (235) 0.0 min
+PROGRESS> 13:51:49 |######              |  30% (282) 0.0 min
+PROGRESS> 13:51:49 |#######             |  35% (329) 0.0 min
+PROGRESS> 13:51:49 |########            |  40% (376) 0.0 min
+PROGRESS> 13:51:49 |#########           |  45% (423) 0.0 min
+PROGRESS> 13:51:49 |##########          |  50% (470) 0.0 min
+PROGRESS> 13:51:49 |###########         |  55% (517) 0.0 min
+PROGRESS> 13:51:49 |############        |  60% (564) 0.0 min
+PROGRESS> 13:51:49 |#############       |  65% (611) 0.0 min
+PROGRESS> 13:51:49 |##############      |  70% (658) 0.0 min
+PROGRESS> 13:51:49 |###############     |  75% (705) 0.0 min
+PROGRESS> 13:51:49 |################    |  80% (752) 0.0 min
+PROGRESS> 13:51:49 |#################   |  85% (799) 0.0 min
+PROGRESS> 13:51:49 |##################  |  90% (846) 0.0 min
+PROGRESS> 13:51:49 |################### |  95% (893) 0.0 min
+PROGRESS> 13:51:49 |####################| 100% (940) 0.0 min
+
+OUTPUT> igblast_db-pass.tab
+  PASS> 929
+  FAIL> 11
+   END> MakeDb
+
+
+2022-02-19 13:51:49,854 INFO     Changeo subprocess finished
+2022-02-19 13:57:50,277 INFO     Subprocess: "MakeDb.py igblast -i /tmp/tmpyia5pd93/igblast.fmt7 -s ./uMT1short_val_1_Deduplicated/uMT1short_val_1_dedup.fasta -r /mnt/data/Projects/BabrahamLinkON/babrahamlinkon/resources/IgBlast_database/Mus_musculus_IGH[JDV].fasta --regions --scores --cdr3 --partial"
+2022-02-19 13:57:50,714 INFO            START> MakeDB
+     ALIGNER> IgBLAST
+ALIGNER_FILE> igblast.fmt7
+    SEQ_FILE> uMT1short_val_1_dedup.fasta
+     PARTIAL> True
+      SCORES> True
+     REGIONS> True
+     ASIS_ID> False
+  ASIS_CALLS> False
+
+
+PROGRESS> 13:57:50 |Loading files       | 0.0 min
+PROGRESS> 13:57:50 |Done                | 0.0 min
+
+PROGRESS> 13:57:50 |                    |   0% (  0) 0.0 min
+PROGRESS> 13:57:50 |#                   |   5% ( 47) 0.0 min
+PROGRESS> 13:57:50 |##                  |  10% ( 94) 0.0 min
+PROGRESS> 13:57:50 |###                 |  15% (141) 0.0 min
+PROGRESS> 13:57:50 |####                |  20% (188) 0.0 min
+PROGRESS> 13:57:50 |#####               |  25% (235) 0.0 min
+PROGRESS> 13:57:50 |######              |  30% (282) 0.0 min
+PROGRESS> 13:57:50 |#######             |  35% (329) 0.0 min
+PROGRESS> 13:57:50 |########            |  40% (376) 0.0 min
+PROGRESS> 13:57:50 |#########           |  45% (423) 0.0 min
+PROGRESS> 13:57:50 |##########          |  50% (470) 0.0 min
+PROGRESS> 13:57:50 |###########         |  55% (517) 0.0 min
+PROGRESS> 13:57:50 |############        |  60% (564) 0.0 min
+PROGRESS> 13:57:50 |#############       |  65% (611) 0.0 min
+PROGRESS> 13:57:50 |##############      |  70% (658) 0.0 min
+PROGRESS> 13:57:50 |###############     |  75% (705) 0.0 min
+PROGRESS> 13:57:50 |################    |  80% (752) 0.0 min
+PROGRESS> 13:57:50 |#################   |  85% (799) 0.0 min
+PROGRESS> 13:57:50 |##################  |  90% (846) 0.0 min
+PROGRESS> 13:57:50 |################### |  95% (893) 0.0 min
+PROGRESS> 13:57:50 |####################| 100% (940) 0.0 min
+
+OUTPUT> igblast_db-pass.tab
+  PASS> 929
+  FAIL> 11
+   END> MakeDb
+
+
+2022-02-19 13:57:50,714 INFO     Changeo subprocess finished
+2022-02-19 13:57:52,607 INFO     Subprocess: "MakeDb.py igblast -i /tmp/tmpul1vnzy0/igblast.fmt7 -s /tmp/tmpul1vnzy0/igblast.fasta -r /mnt/data/Projects/BabrahamLinkON/babrahamlinkon/resources/IgBlast_database/Mus_musculus_IGH[JDV].fasta --regions --scores --cdr3 --partial"
+2022-02-19 13:57:52,883 INFO            START> MakeDB
+     ALIGNER> IgBLAST
+ALIGNER_FILE> igblast.fmt7
+    SEQ_FILE> igblast.fasta
+     PARTIAL> True
+      SCORES> True
+     REGIONS> True
+     ASIS_ID> False
+  ASIS_CALLS> False
+
+
+PROGRESS> 13:57:52 |Loading files       | 0.0 min
+PROGRESS> 13:57:52 |Done                | 0.0 min
+
+PROGRESS> 13:57:52 |                    |   0% (  0) 0.0 min
+PROGRESS> 13:57:52 |#                   |   5% ( 31) 0.0 min
+PROGRESS> 13:57:52 |##                  |  10% ( 62) 0.0 min
+PROGRESS> 13:57:52 |###                 |  15% ( 93) 0.0 min
+PROGRESS> 13:57:52 |####                |  20% (124) 0.0 min
+PROGRESS> 13:57:52 |#####               |  25% (155) 0.0 min
+PROGRESS> 13:57:52 |######              |  30% (186) 0.0 min
+PROGRESS> 13:57:52 |#######             |  35% (217) 0.0 min
+PROGRESS> 13:57:52 |########            |  40% (248) 0.0 min
+PROGRESS> 13:57:52 |#########           |  45% (279) 0.0 min
+PROGRESS> 13:57:52 |##########          |  50% (310) 0.0 min
+PROGRESS> 13:57:52 |###########         |  56% (341) 0.0 min
+PROGRESS> 13:57:52 |############        |  61% (372) 0.0 min
+PROGRESS> 13:57:52 |#############       |  66% (403) 0.0 min
+PROGRESS> 13:57:52 |##############      |  71% (434) 0.0 min
+PROGRESS> 13:57:52 |###############     |  76% (465) 0.0 min
+PROGRESS> 13:57:52 |################    |  81% (496) 0.0 min
+PROGRESS> 13:57:52 |#################   |  86% (527) 0.0 min
+PROGRESS> 13:57:52 |##################  |  91% (558) 0.0 min
+PROGRESS> 13:57:52 |################### |  96% (589) 0.0 min
+PROGRESS> 13:57:52 |####################| 100% (614) 0.0 min
+
+OUTPUT> igblast_db-pass.tab
+  PASS> 587
+  FAIL> 27
+   END> MakeDb
+
+
+2022-02-19 13:57:52,884 INFO     Changeo subprocess finished
+2022-02-19 13:57:52,900 INFO     Number of reads without CDR3:288
+2022-02-19 13:57:52,900 INFO     Out reads:641
+2022-02-19 14:00:59,901 INFO     Subprocess: "MakeDb.py igblast -i /tmp/tmpuivq5w67/igblast.fmt7 -s ./uMT1short_val_1_Deduplicated/uMT1short_val_1_dedup.fasta -r /mnt/data/Projects/BabrahamLinkON/babrahamlinkon/resources/IgBlast_database/Mus_musculus_IGH[JDV].fasta --regions --scores --cdr3 --partial"
+2022-02-19 14:01:00,331 INFO            START> MakeDB
+     ALIGNER> IgBLAST
+ALIGNER_FILE> igblast.fmt7
+    SEQ_FILE> uMT1short_val_1_dedup.fasta
+     PARTIAL> True
+      SCORES> True
+     REGIONS> True
+     ASIS_ID> False
+  ASIS_CALLS> False
+
+
+PROGRESS> 14:00:59 |Loading files       | 0.0 min
+PROGRESS> 14:00:59 |Done                | 0.0 min
+
+PROGRESS> 14:00:59 |                    |   0% (  0) 0.0 min
+PROGRESS> 14:01:00 |#                   |   5% ( 47) 0.0 min
+PROGRESS> 14:01:00 |##                  |  10% ( 94) 0.0 min
+PROGRESS> 14:01:00 |###                 |  15% (141) 0.0 min
+PROGRESS> 14:01:00 |####                |  20% (188) 0.0 min
+PROGRESS> 14:01:00 |#####               |  25% (235) 0.0 min
+PROGRESS> 14:01:00 |######              |  30% (282) 0.0 min
+PROGRESS> 14:01:00 |#######             |  35% (329) 0.0 min
+PROGRESS> 14:01:00 |########            |  40% (376) 0.0 min
+PROGRESS> 14:01:00 |#########           |  45% (423) 0.0 min
+PROGRESS> 14:01:00 |##########          |  50% (470) 0.0 min
+PROGRESS> 14:01:00 |###########         |  55% (517) 0.0 min
+PROGRESS> 14:01:00 |############        |  60% (564) 0.0 min
+PROGRESS> 14:01:00 |#############       |  65% (611) 0.0 min
+PROGRESS> 14:01:00 |##############      |  70% (658) 0.0 min
+PROGRESS> 14:01:00 |###############     |  75% (705) 0.0 min
+PROGRESS> 14:01:00 |################    |  80% (752) 0.0 min
+PROGRESS> 14:01:00 |#################   |  85% (799) 0.0 min
+PROGRESS> 14:01:00 |##################  |  90% (846) 0.0 min
+PROGRESS> 14:01:00 |################### |  95% (893) 0.0 min
+PROGRESS> 14:01:00 |####################| 100% (940) 0.0 min
+
+OUTPUT> igblast_db-pass.tab
+  PASS> 929
+  FAIL> 11
+   END> MakeDb
+
+
+2022-02-19 14:01:00,331 INFO     Changeo subprocess finished
+2022-02-19 14:01:02,105 INFO     Subprocess: "MakeDb.py igblast -i /tmp/tmpzfm8hlzi/igblast.fmt7 -s /tmp/tmpzfm8hlzi/igblast.fasta -r /mnt/data/Projects/BabrahamLinkON/babrahamlinkon/resources/IgBlast_database/Mus_musculus_IGH[JDV].fasta --regions --scores --cdr3 --partial"
+2022-02-19 14:01:02,376 INFO            START> MakeDB
+     ALIGNER> IgBLAST
+ALIGNER_FILE> igblast.fmt7
+    SEQ_FILE> igblast.fasta
+     PARTIAL> True
+      SCORES> True
+     REGIONS> True
+     ASIS_ID> False
+  ASIS_CALLS> False
+
+
+PROGRESS> 14:01:02 |Loading files       | 0.0 min
+PROGRESS> 14:01:02 |Done                | 0.0 min
+
+PROGRESS> 14:01:02 |                    |   0% (  0) 0.0 min
+PROGRESS> 14:01:02 |#                   |   5% ( 31) 0.0 min
+PROGRESS> 14:01:02 |##                  |  10% ( 62) 0.0 min
+PROGRESS> 14:01:02 |###                 |  15% ( 93) 0.0 min
+PROGRESS> 14:01:02 |####                |  20% (124) 0.0 min
+PROGRESS> 14:01:02 |#####               |  25% (155) 0.0 min
+PROGRESS> 14:01:02 |######              |  30% (186) 0.0 min
+PROGRESS> 14:01:02 |#######             |  35% (217) 0.0 min
+PROGRESS> 14:01:02 |########            |  40% (248) 0.0 min
+PROGRESS> 14:01:02 |#########           |  45% (279) 0.0 min
+PROGRESS> 14:01:02 |##########          |  50% (310) 0.0 min
+PROGRESS> 14:01:02 |###########         |  56% (341) 0.0 min
+PROGRESS> 14:01:02 |############        |  61% (372) 0.0 min
+PROGRESS> 14:01:02 |#############       |  66% (403) 0.0 min
+PROGRESS> 14:01:02 |##############      |  71% (434) 0.0 min
+PROGRESS> 14:01:02 |###############     |  76% (465) 0.0 min
+PROGRESS> 14:01:02 |################    |  81% (496) 0.0 min
+PROGRESS> 14:01:02 |#################   |  86% (527) 0.0 min
+PROGRESS> 14:01:02 |##################  |  91% (558) 0.0 min
+PROGRESS> 14:01:02 |################### |  96% (589) 0.0 min
+PROGRESS> 14:01:02 |####################| 100% (614) 0.0 min
+
+OUTPUT> igblast_db-pass.tab
+  PASS> 587
+  FAIL> 27
+   END> MakeDb
+
+
+2022-02-19 14:01:02,376 INFO     Changeo subprocess finished
+2022-02-19 14:01:02,396 INFO     Low V and J score:722
+2022-02-19 14:01:02,407 INFO     Number of reads without CDR3:0
+2022-02-19 14:01:02,408 INFO     Out reads:207
+2022-02-19 14:33:10,885 INFO     Subprocess: "MakeDb.py igblast -i /tmp/tmpkuw9504d/igblast.fmt7 -s ./uMT1short_val_1_Deduplicated/uMT1short_val_1_dedup.fasta -r /mnt/data/Projects/BabrahamLinkON/babrahamlinkon/resources/IgBlast_database/Mus_musculus_IGH[JDV].fasta --regions --scores --cdr3 --partial"
+2022-02-19 14:33:11,352 INFO            START> MakeDB
+     ALIGNER> IgBLAST
+ALIGNER_FILE> igblast.fmt7
+    SEQ_FILE> uMT1short_val_1_dedup.fasta
+     PARTIAL> True
+      SCORES> True
+     REGIONS> True
+     ASIS_ID> False
+  ASIS_CALLS> False
+
+
+PROGRESS> 14:33:10 |Loading files       | 0.0 min
+PROGRESS> 14:33:10 |Done                | 0.0 min
+
+PROGRESS> 14:33:10 |                    |   0% (  0) 0.0 min
+PROGRESS> 14:33:10 |#                   |   5% ( 47) 0.0 min
+PROGRESS> 14:33:11 |##                  |  10% ( 94) 0.0 min
+PROGRESS> 14:33:11 |###                 |  15% (141) 0.0 min
+PROGRESS> 14:33:11 |####                |  20% (188) 0.0 min
+PROGRESS> 14:33:11 |#####               |  25% (235) 0.0 min
+PROGRESS> 14:33:11 |######              |  30% (282) 0.0 min
+PROGRESS> 14:33:11 |#######             |  35% (329) 0.0 min
+PROGRESS> 14:33:11 |########            |  40% (376) 0.0 min
+PROGRESS> 14:33:11 |#########           |  45% (423) 0.0 min
+PROGRESS> 14:33:11 |##########          |  50% (470) 0.0 min
+PROGRESS> 14:33:11 |###########         |  55% (517) 0.0 min
+PROGRESS> 14:33:11 |############        |  60% (564) 0.0 min
+PROGRESS> 14:33:11 |#############       |  65% (611) 0.0 min
+PROGRESS> 14:33:11 |##############      |  70% (658) 0.0 min
+PROGRESS> 14:33:11 |###############     |  75% (705) 0.0 min
+PROGRESS> 14:33:11 |################    |  80% (752) 0.0 min
+PROGRESS> 14:33:11 |#################   |  85% (799) 0.0 min
+PROGRESS> 14:33:11 |##################  |  90% (846) 0.0 min
+PROGRESS> 14:33:11 |################### |  95% (893) 0.0 min
+PROGRESS> 14:33:11 |####################| 100% (940) 0.0 min
+
+OUTPUT> igblast_db-pass.tab
+  PASS> 929
+  FAIL> 11
+   END> MakeDb
+
+
+2022-02-19 14:33:11,353 INFO     Changeo subprocess finished
+2022-02-19 14:33:13,210 INFO     Subprocess: "MakeDb.py igblast -i /tmp/tmppavxfvld/igblast.fmt7 -s /tmp/tmppavxfvld/igblast.fasta -r /mnt/data/Projects/BabrahamLinkON/babrahamlinkon/resources/IgBlast_database/Mus_musculus_IGH[JDV].fasta --regions --scores --cdr3 --partial"
+2022-02-19 14:33:13,482 INFO            START> MakeDB
+     ALIGNER> IgBLAST
+ALIGNER_FILE> igblast.fmt7
+    SEQ_FILE> igblast.fasta
+     PARTIAL> True
+      SCORES> True
+     REGIONS> True
+     ASIS_ID> False
+  ASIS_CALLS> False
+
+
+PROGRESS> 14:33:13 |Loading files       | 0.0 min
+PROGRESS> 14:33:13 |Done                | 0.0 min
+
+PROGRESS> 14:33:13 |                    |   0% (  0) 0.0 min
+PROGRESS> 14:33:13 |#                   |   5% ( 31) 0.0 min
+PROGRESS> 14:33:13 |##                  |  10% ( 62) 0.0 min
+PROGRESS> 14:33:13 |###                 |  15% ( 93) 0.0 min
+PROGRESS> 14:33:13 |####                |  20% (124) 0.0 min
+PROGRESS> 14:33:13 |#####               |  25% (155) 0.0 min
+PROGRESS> 14:33:13 |######              |  30% (186) 0.0 min
+PROGRESS> 14:33:13 |#######             |  35% (217) 0.0 min
+PROGRESS> 14:33:13 |########            |  40% (248) 0.0 min
+PROGRESS> 14:33:13 |#########           |  45% (279) 0.0 min
+PROGRESS> 14:33:13 |##########          |  50% (310) 0.0 min
+PROGRESS> 14:33:13 |###########         |  56% (341) 0.0 min
+PROGRESS> 14:33:13 |############        |  61% (372) 0.0 min
+PROGRESS> 14:33:13 |#############       |  66% (403) 0.0 min
+PROGRESS> 14:33:13 |##############      |  71% (434) 0.0 min
+PROGRESS> 14:33:13 |###############     |  76% (465) 0.0 min
+PROGRESS> 14:33:13 |################    |  81% (496) 0.0 min
+PROGRESS> 14:33:13 |#################   |  86% (527) 0.0 min
+PROGRESS> 14:33:13 |##################  |  91% (558) 0.0 min
+PROGRESS> 14:33:13 |################### |  96% (589) 0.0 min
+PROGRESS> 14:33:13 |####################| 100% (614) 0.0 min
+
+OUTPUT> igblast_db-pass.tab
+  PASS> 587
+  FAIL> 27
+   END> MakeDb
+
+
+2022-02-19 14:33:13,482 INFO     Changeo subprocess finished
+2022-02-19 14:33:13,502 INFO     Low V and J score:561
+2022-02-19 14:33:13,514 INFO     Number of reads without CDR3:3
+2022-02-19 14:33:13,514 INFO     Out reads:365
