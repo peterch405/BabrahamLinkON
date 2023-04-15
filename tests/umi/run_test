@@ -1,15 +1,19 @@
 # export BOWTIE2_INDEXES='/mnt/DA341E5F341E3EC7/genomes/GRCm38.p6_old'
 # export BOWTIE2_REF='GRCm38.p6'
+export IGDATA=~/ncbi-igblast-1.21.0/
 
-preclean.py umi \
--v ./test_R1.fq.gz \
--j ./test_R3.fq.gz \
---species mmu --threads 8 --verbose
+#preclean.py umi \
+#-v ./test_R1.fq.gz \
+#-j ./test_R3.fq.gz \
+#--species mmu --threads 8 --verbose
 
-deduplicate.py umi \
---input_dir ./test_R1_preclean \
---stats --threads 8
+#deduplicate.py umi \
+#--input_dir ./test_R1_preclean \
+#--stats --threads 8
+
+#assemble_clones.py umi -fa ./test_R1_Deduplicated/test_R1_dedup.fasta \
+#--threads 8 --full_name
 
 assemble_clones.py umi -fa ./test_R1_Deduplicated/test_R1_dedup.fasta \
---threads 8 --full_name
-
+--threads 8 --full_name --d_frame ../../babrahamlinkon/resources/IgBlast_database/optional_file/mouse_D.frame \
+--airr

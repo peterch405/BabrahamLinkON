@@ -73,13 +73,17 @@ def parse_args():
         sp.add_argument('--species', dest='species', default='mmu', type=str, 
                         help='Which species (mmu hsa mmuk) [mmu]')
         sp.add_argument('--aux', dest='aux', type=str, default=None, 
-                        help='aux file for igblast')
+                        help='File containing the coding frame start positions for sequences in germline J database for IgBlast')
+        sp.add_argument('--d_frame', dest='d_frame', type=str, default=None, 
+                        help='D gene frame definition file for IgBlast')
         sp.add_argument('--custom_ref', dest='custom_ref', action='store_true', 
                         help='Use AEC custom reference for igblast')
         sp.add_argument('--v_cutoff', dest='v_cutoff', default=50, type=int, 
-                        help='IgBlast V_SCORE cutoff [>50]')
+                        help='IgBlast v_score cutoff [>50]')
         sp.add_argument('--j_cutoff', dest='j_cutoff', default=35, type=int, 
-                        help='IgBlast J_SCORE cutoff [>35]')
+                        help='IgBlast j_score cutoff [>35]')
+        sp.add_argument('--airr', dest='airr', action='store_true', 
+                        help='Use Igblast AIRR output format, available in version 1.21.0')
 
         sp.add_argument('--skip_assembly', dest='skip_assembly', action='store_true', 
                         help='Do not perform clone assembly into clonotypes')
@@ -185,16 +189,28 @@ def main():
         logging.basicConfig(level=logging.DEBUG, filename=out_dir +'/' + prefix + '_assembled_clones.log', filemode='a+',
                             format='%(asctime)-15s %(levelname)-8s %(message)s')
 
-
         #make tmp directory with igblast run files
-        tmp_dir = tempfile.mkdtemp()
-        tmp_fmt = os.path.join(tmp_dir, "igblast.fmt7")
+        tmp_dir = tempfile.mkdtemp()    
+        if opts.airr:
+            out_fmt = '19'
+            tmp_fmt = os.path.join(tmp_dir, "igblast.tsv")
+            logging.info('Using IgBlast AIRR output')
+            print('Using IgBlast AIRR output')
+        else:
+            out_fmt = '7 std qseq sseq btop'
+            tmp_fmt = os.path.join(tmp_dir, "igblast.fmt7")
 
-        igblast_wrapper.run_igblast(opts.fasta, tmp_fmt, 10000, opts.species, opts.nthreads, opts.custom_ref, dj=opts.call_dj, aux_file=opts.aux)
+        if opts.d_frame is not None:
+            additional_flags = ['-d_frame_data'] + [str(opts.d_frame)]
+        else:
+            additional_flags = None
+
+        igblast_wrapper.run_igblast(opts.fasta, tmp_fmt, 10000, opts.species, opts.nthreads, opts.custom_ref, 
+                                    dj=opts.call_dj, aux_file=opts.aux, additional_flags=additional_flags, outfmt=out_fmt)
         igblast_wrapper.parse_igblast(tmp_fmt, opts.fasta, opts.species, opts.custom_ref, opts.call_dj)
 
         #need to find the output of changeo
-        tmp_tab = glob.glob(tmp_dir + '/*.tab')
+        tmp_tab = glob.glob(tmp_dir + '/*.tsv')
      
         igblast_cln, igblast_dj = read_changeo_out(tmp_tab, out_dir, prefix, opts.fasta, v_fastq=opts.v_fastq, plot=opts.plot,
                                        retain_nam=opts.full_name, minimal=opts.minimal, short=opts.short, thread_num=opts.nthreads,
@@ -298,20 +314,20 @@ def adj_list_adjacency(umis, threshold=1):
 
 # def change_v_call(row):
 #     count = 0
-#     if row['V_SCORE'] <= 50:
+#     if row['v_score'] <= 50:
 #         count += 1
-#         v_gene = row['SEQUENCE_ID'].split('_')[-3].upper() #would normally be the barcode!
+#         v_gene = row['sequence_id'].split('_')[-3].upper() #would normally be the barcode!
 #         #replace v gene call with bowtie alignment call
 #
 #         if len(v_gene) < 1:
 #             return np.NaN
 #     else:
-#         v_gene = row['V_CALL']
+#         v_gene = row['v_call']
 #     return v_gene
 
 
 
-def v_identity_igblast(V_end, J_end_fasta, custom_ref, thread_num, spe, aux, dj):
+def v_identity_igblast(V_end, J_end_fasta, custom_ref, thread_num, spe, aux, dj, additional_flags):
     '''
     :param V_fastq: original fastq
     :param fasta: deduplicate.py fasta output (J end)
@@ -325,7 +341,14 @@ def v_identity_igblast(V_end, J_end_fasta, custom_ref, thread_num, spe, aux, dj)
 
     #make tmp directory with igblast run files
     tmp_dir = tempfile.mkdtemp()
-    tmp_fmt = os.path.join(tmp_dir, "igblast.fmt7")
+
+    if opts.airr:
+        out_fmt = '19'
+        tmp_fmt = os.path.join(tmp_dir, "igblast.tsv")
+    else:
+        out_fmt = '7 std qseq sseq btop'
+        tmp_fmt = os.path.join(tmp_dir, "igblast.fmt7")
+
 
     fq_ext = ('fastq', 'fq', 'fastq.gz', 'fq.gz')
     fa_ext = ('fasta', 'fa')
@@ -353,16 +376,18 @@ def v_identity_igblast(V_end, J_end_fasta, custom_ref, thread_num, spe, aux, dj)
         shutil.copy(V_end, tmp_dir + '/igblast.fasta')
 
 
-    igblast_wrapper.run_igblast(tmp_dir + '/igblast.fasta', tmp_fmt, 10000, spe, thread_num, custom_ref, dj, aux_file=aux)#, additional_flags=['-num_alignments_V', '1'])
-    igblast_wrapper.parse_igblast(tmp_fmt, tmp_dir + '/igblast.fasta', spe, custom_ref, dj)
+    igblast_wrapper.run_igblast(tmp_dir + '/igblast.fasta', tmp_fmt, 10000, spe, thread_num, custom_ref, dj, aux_file=aux, 
+                                additional_flags=additional_flags, outfmt=out_fmt)#, additional_flags=['-num_alignments_V', '1'])
+    if not opts.airr:
+        igblast_wrapper.parse_igblast(tmp_fmt, tmp_dir + '/igblast.fasta', spe, custom_ref, dj)
     #make v_identity dict key=qname value=idenity
 
     #need to find the output of changeo
-    tmp_tab = glob.glob(tmp_dir + '/*.tab')
+    tmp_tab = glob.glob(tmp_dir + '/*.tsv')
 
-    df = pd.read_csv(tmp_tab[0], header=0, sep='\t')
-    sub_df = df[['SEQUENCE_ID', 'V_CALL', 'V_SCORE']].copy()
-    sub_df.rename(columns={'V_CALL': 'V_CALL_VEND', 'V_SCORE': 'V_SCORE_VEND'}, inplace=True)
+    df = pd.read_csv(tmp_tab[0], header=0, sep='\t', low_memory=False)
+    sub_df = df[['sequence_id', 'v_call', 'v_score']].copy()
+    sub_df.rename(columns={'v_call': 'v_call_VEND', 'v_score': 'v_score_VEND'}, inplace=True)
     #Delete temporary files
     shutil.rmtree(tmp_dir)
 
@@ -373,26 +398,26 @@ def v_identity_igblast(V_end, J_end_fasta, custom_ref, thread_num, spe, aux, dj)
 
 def filter_score(pd_df):
     '''
-    Short reads V_CALL V_CALL_VEND make new column with highest score call
-    V_CALL_CN
-    V_SCORE_CN
+    Short reads v_call v_call_VEND make new column with highest score call
+    v_call_CN
+    v_score_CN
     '''
 
     #chose whichever has higher score
-    nan_location = np.isnan(pd_df['V_SCORE_VEND'])
-    j_end_higher = pd_df['V_SCORE'] >= pd_df['V_SCORE_VEND']
-    # if V_SCORE_VEND NaN, make sure to use V_SCORE 
+    nan_location = np.isnan(pd_df['v_score_VEND'])
+    j_end_higher = pd_df['v_score'] >= pd_df['v_score_VEND']
+    # if v_score_VEND NaN, make sure to use v_score 
     # (resulting from reads being assembled and therefore not run separately for v end)
     j_end_higher[nan_location] = True
-    v_end_higher = pd_df['V_SCORE'] <= pd_df['V_SCORE_VEND']
+    v_end_higher = pd_df['v_score'] <= pd_df['v_score_VEND']
 
     conditions = [j_end_higher, v_end_higher]
 
-    choices_genes = [pd_df['V_CALL'], pd_df['V_CALL_VEND']]
-    choices_score = [pd_df['V_SCORE'], pd_df['V_SCORE_VEND']]
+    choices_genes = [pd_df['v_call'], pd_df['v_call_VEND']]
+    choices_score = [pd_df['v_score'], pd_df['v_score_VEND']]
 
-    pd_df['V_CALL_CN'] = np.select(conditions, choices_genes, default=np.nan)
-    pd_df['V_SCORE_CN'] = np.select(conditions, choices_score, default=np.nan)
+    pd_df['v_call_CN'] = np.select(conditions, choices_genes, default=np.nan)
+    pd_df['v_score_CN'] = np.select(conditions, choices_score, default=np.nan)
 
 
     return pd_df
@@ -401,7 +426,7 @@ def filter_score(pd_df):
 
 def read_changeo_out(tab_file, out, prefix, fasta, v_fastq=None, plot=False, retain_nam=False,
                      minimal=False, short=False, thread_num=1, spe='mmu', aux=None, custom_ref=False,
-                     j_cutoff=35, v_cutoff=50, dj=False):
+                     j_cutoff=35, v_cutoff=50, dj=False, additional_flags=None):
     '''
     Parse output from changeo MakeDb.py
 
@@ -433,21 +458,21 @@ def read_changeo_out(tab_file, out, prefix, fasta, v_fastq=None, plot=False, ret
             raise Exception('Short option requires the V end fastq/fasta file')
 
         # run igblast on the v end
-        v_end_calls = v_identity_igblast(v_fastq, fasta, custom_ref, thread_num, spe, aux, dj)
+        v_end_calls = v_identity_igblast(v_fastq, fasta, custom_ref, thread_num, spe, aux, dj, additional_flags)
         # logging.info('igblast_out', len(igblast_out), 'v_end_calls', len(v_end_calls))
         # merge data fragments
-        igblast_out_m = pd.merge(igblast_out, v_end_calls, how='left', on=['SEQUENCE_ID'])
+        igblast_out_m = pd.merge(igblast_out, v_end_calls, how='left', on=['sequence_id'])
 
         #add CN columns
         igblast_out_cn = filter_score(igblast_out_m)
         #seperate out VDJ DJ
-        igblast_dj = igblast_out_cn[igblast_out_cn['V_CALL_CN'].str.contains('IGHVD', na=False)]
-        igblast_out_f = igblast_out_cn[~igblast_out_cn['V_CALL_CN'].str.contains('IGHVD', na=False)]
+        igblast_dj = igblast_out_cn[igblast_out_cn['v_call_CN'].str.contains('IGHVD', na=False)]
+        igblast_out_f = igblast_out_cn[~igblast_out_cn['v_call_CN'].str.contains('IGHVD', na=False)]
 
         #drop low scoring V genes that don't have idenitity
-        igblast_out_na = igblast_out_f.dropna(subset = ['V_CALL_CN'], how='all')
+        igblast_out_na = igblast_out_f.dropna(subset = ['v_call_CN'], how='all')
         #drop low quality J calls
-        igblast_out_hs = igblast_out_na[(igblast_out_na['J_SCORE'] > j_cutoff) & (igblast_out_na['V_SCORE_CN'] > v_cutoff)]
+        igblast_out_hs = igblast_out_na[(igblast_out_na['j_score'] > j_cutoff) & (igblast_out_na['v_score_CN'] > v_cutoff)]
 
         low_score = len(igblast_out_f.index) - len(igblast_out_hs.index)
         #how many filtered out?
@@ -457,11 +482,11 @@ def read_changeo_out(tab_file, out, prefix, fasta, v_fastq=None, plot=False, ret
 
 
     else:
-        igblast_dj = igblast_out[igblast_out['V_CALL'].str.contains('IGHVD', na=False)]
-        igblast_out = igblast_out[~igblast_out['V_CALL'].str.contains('IGHVD', na=False)]
+        igblast_dj = igblast_out[igblast_out['v_call'].str.contains('IGHVD', na=False)]
+        igblast_out = igblast_out[~igblast_out['v_call'].str.contains('IGHVD', na=False)]
 
         #Filter out low quality scores
-        igblast_out_hs = igblast_out[(igblast_out['V_SCORE'] > v_cutoff) & (igblast_out['J_SCORE'] > j_cutoff)]
+        igblast_out_hs = igblast_out[(igblast_out['v_score'] > v_cutoff) & (igblast_out['j_score'] > j_cutoff)]
         low_score = len(igblast_out.index) - len(igblast_out_hs.index)
         #how many filtered out?
         logging.info('Low V and J score:' + str(low_score))
@@ -472,7 +497,7 @@ def read_changeo_out(tab_file, out, prefix, fasta, v_fastq=None, plot=False, ret
     if plot:
         with PdfPages(out + '/' + prefix + '_score_plots.pdf') as pdf_out:
         #Plot V and J scores
-            labels, values = zip(*Counter(igblast_out['V_SCORE']).items())
+            labels, values = zip(*Counter(igblast_out['v_score']).items())
             non_dedup_values = tuple(l*v for l, v in zip(labels, values))
 
             plt.figure()
@@ -481,7 +506,7 @@ def read_changeo_out(tab_file, out, prefix, fasta, v_fastq=None, plot=False, ret
             my_plot = plt.axvline(v_cutoff, linestyle='dashed', linewidth=2).get_figure()
             pdf_out.savefig(my_plot)
 
-            labels, values = zip(*Counter(igblast_out['J_SCORE']).items())
+            labels, values = zip(*Counter(igblast_out['j_score']).items())
             non_dedup_values = tuple(l*v for l, v in zip(labels, values))
 
             plt.figure()
@@ -491,7 +516,7 @@ def read_changeo_out(tab_file, out, prefix, fasta, v_fastq=None, plot=False, ret
             pdf_out.savefig(my_plot)
 
             if short:
-                labels, values = zip(*Counter(v_end_calls['V_SCORE_VEND']).items())
+                labels, values = zip(*Counter(v_end_calls['v_score_VEND']).items())
                 non_dedup_values = tuple(l*v for l, v in zip(labels, values))
 
                 plt.figure()
@@ -503,13 +528,13 @@ def read_changeo_out(tab_file, out, prefix, fasta, v_fastq=None, plot=False, ret
     if dj:
         #DJ filtering
         #Drop DJ without a J calls, suggests misidentification of D
-        igblast_dj_na = igblast_dj.dropna(subset = ['J_CALL'])
+        igblast_dj_na = igblast_dj.dropna(subset = ['j_call'])
 
         if short:
             # #keep only those with high scores
-            igblast_dj_out = igblast_dj_na[(igblast_dj_na['V_SCORE_CN'] > v_cutoff)]
+            igblast_dj_out = igblast_dj_na[(igblast_dj_na['v_score_CN'] > v_cutoff)]
         else:
-            igblast_dj_out = igblast_dj_na[(igblast_dj_na['V_SCORE'] > v_cutoff)]
+            igblast_dj_out = igblast_dj_na[(igblast_dj_na['v_score'] > v_cutoff)]
 
         dj_filt = len(igblast_dj.index)-len(igblast_dj_out.index)
         logging.info('Number of DJ reads filtered:' + str(dj_filt))
@@ -518,7 +543,7 @@ def read_changeo_out(tab_file, out, prefix, fasta, v_fastq=None, plot=False, ret
         igblast_dj_out = []
 
     #If not cdr3 present drop record
-    igblast_out_hs_cln = igblast_out_hs.dropna(subset = ['CDR3_IMGT']) #CDR3_IGBLAST_NT
+    igblast_out_hs_cln = igblast_out_hs.dropna(subset = ['cdr3']) #CDR3_IGBLAST_NT
     #how many have no CDR3?
     no_cdr3 = len(igblast_out_hs.index)-len(igblast_out_hs_cln.index)
     logging.info('Number of reads without CDR3:' + str(no_cdr3))
@@ -526,41 +551,41 @@ def read_changeo_out(tab_file, out, prefix, fasta, v_fastq=None, plot=False, ret
     
     #only output a minimal table
     if minimal:
-        igblast_out_hs_cln = igblast_out_hs_cln[['SEQUENCE_ID', 'SEQUENCE_INPUT', 'V_CALL', 'D_CALL', 'J_CALL', 'CDR3_IMGT']] #, 'file_ID'
+        igblast_out_hs_cln = igblast_out_hs_cln[['sequence_id', 'sequence', 'v_call', 'd_call', 'j_call', 'cdr3']] #, 'file_ID'
     
     return(igblast_out_hs_cln, igblast_dj_out)
 
-# functional_cln['SEQUENCE_ID']['HWI-M02293:218:000000000-AKGG1:1:1101:8139:9569_J3_CTGCTCCT_AGCGGA_5']
-# functional_cln.SEQUENCE_ID[functional_cln.SEQUENCE_ID == 'HWI-M02293:218:000000000-AKGG1:1:1101:8139:9569_J3_CTGCTCCT_AGCGGA_5'].index.tolist()[0]
+# functional_cln['sequence_id']['HWI-M02293:218:000000000-AKGG1:1:1101:8139:9569_J3_CTGCTCCT_AGCGGA_5']
+# functional_cln.sequence_id[functional_cln.sequence_id == 'HWI-M02293:218:000000000-AKGG1:1:1101:8139:9569_J3_CTGCTCCT_AGCGGA_5'].index.tolist()[0]
 
 def make_bundle(pd_data_frame, only_v=False):
     '''Make dictionary of V-CRD3-J (bundle)
     '''
     clonotype_dict = defaultdict(lambda: defaultdict(dict))
 
-    assert 'V_CALL' in pd_data_frame.columns and 'J_CALL' in pd_data_frame.columns \
-    and 'CDR3_IMGT' in pd_data_frame.columns and 'SEQUENCE_ID' in pd_data_frame.columns \
-    and 'SEQUENCE_INPUT' in pd_data_frame.columns, 'Required columns not in data frame'
+    assert 'v_call' in pd_data_frame.columns and 'j_call' in pd_data_frame.columns \
+    and 'cdr3' in pd_data_frame.columns and 'sequence_id' in pd_data_frame.columns \
+    and 'sequence' in pd_data_frame.columns, 'Required columns not in data frame'
    
     for line in pd_data_frame.index:
         if only_v:
-            v_j = pd_data_frame['V_CALL'][line]
+            v_j = pd_data_frame['v_call'][line]
         else:
-            v_j = pd_data_frame['V_CALL'][line] + '_' + pd_data_frame['J_CALL'][line]
+            v_j = pd_data_frame['v_call'][line] + '_' + pd_data_frame['j_call'][line]
 
         #use IgBlast CDR3
-        cdr3 = pd_data_frame['CDR3_IMGT'][line]
+        cdr3 = pd_data_frame['cdr3'][line]
 
         #seperate group based on sequence length as well as V and J
         v_j_len = v_j + '_' + str(len(cdr3))
 
         try:
-            clonotype_dict[v_j_len][cdr3]['qname'].append(pd_data_frame['SEQUENCE_ID'][line])
-            clonotype_dict[v_j_len][cdr3]['read'].update([pd_data_frame['SEQUENCE_INPUT'][line]])
+            clonotype_dict[v_j_len][cdr3]['qname'].append(pd_data_frame['sequence_id'][line])
+            clonotype_dict[v_j_len][cdr3]['read'].update([pd_data_frame['sequence'][line]])
             clonotype_dict[v_j_len][cdr3]['count'] += 1
         except KeyError:
-            clonotype_dict[v_j_len][cdr3]['qname'] = [pd_data_frame['SEQUENCE_ID'][line]]
-            clonotype_dict[v_j_len][cdr3]['read'] = Counter([pd_data_frame['SEQUENCE_INPUT'][line]])
+            clonotype_dict[v_j_len][cdr3]['qname'] = [pd_data_frame['sequence_id'][line]]
+            clonotype_dict[v_j_len][cdr3]['read'] = Counter([pd_data_frame['sequence'][line]])
             clonotype_dict[v_j_len][cdr3]['count'] = 1
 
     return clonotype_dict
@@ -589,7 +614,7 @@ def assemble_colonotype(pd_data_frame, bundles, threshold):
             for cdr3 in cluster:
                 #write into original pandas table
                 for qname in bundle[cdr3]['qname']:
-                    row_loc = pd_data_frame.SEQUENCE_ID[pd_data_frame.SEQUENCE_ID == qname].index.tolist()[0]
+                    row_loc = pd_data_frame.sequence_id[pd_data_frame.sequence_id == qname].index.tolist()[0]
                     pd_data_frame.at[row_loc, 'clonotype'] = str(bundle_count) + '_' + str(cluster_count)                   
             cluster_count += 1
         bundle_count += 1
@@ -604,7 +629,7 @@ def write_out(pd_data_frame, out):
     '''
     Write out pandas table
     '''
-    pd_data_frame.to_csv(out, sep='\t')
+    pd_data_frame.to_csv(out, sep='\t', index=False)
 
 
 
@@ -612,16 +637,16 @@ def add_assembled_column(df, json_path):
     '''
     add @ to read name to a new tmp column
     '''
-    df['SEQUENCE_ID_tmp'] = '@' + df['SEQUENCE_ID'].astype(str)
+    df['sequence_id_tmp'] = '@' + df['sequence_id'].astype(str)
 
     with open(json_path, 'r') as in_json:
         assembled_dict = json.load(in_json)
 
     #split str and take only first part (read name) and check if it in assembled on unassembled list
-    df.loc[df['SEQUENCE_ID_tmp'].str.split('_').str.get(0).isin(assembled_dict['unassembled']), 'Status'] = 'Unassembled'
-    df.loc[df['SEQUENCE_ID_tmp'].str.split('_').str.get(0).isin(assembled_dict['assembled']), 'Status'] = 'Assembled'
+    df.loc[df['sequence_id_tmp'].str.split('_').str.get(0).isin(assembled_dict['unassembled']), 'Status'] = 'Unassembled'
+    df.loc[df['sequence_id_tmp'].str.split('_').str.get(0).isin(assembled_dict['assembled']), 'Status'] = 'Assembled'
     #delete tmp column
-    del df['SEQUENCE_ID_tmp']
+    del df['sequence_id_tmp']
 
     return(df)
 

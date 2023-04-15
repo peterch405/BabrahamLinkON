@@ -42,8 +42,8 @@ try:
     version = subprocess.check_output(['igblastn', '-version'])
     version = version.decode('utf-8').split('\n')[1]
     major, minor, micro = re.split(',| ', version)[3].split('.')
-    if int(major) < 1 and int(minor) < 7:
-        raise Exception('IgBlast version 1.7.0 or higher required')
+    if int(major) < 1 and int(minor) < 21:
+        raise Exception('IgBlast version 1.21.0 or higher required')
 except OSError:
     print('IgBlast not found. Some scripts won\'t work')
 
@@ -66,7 +66,7 @@ setup(name='BabrahamLinkON',
           'python-Levenshtein>=0.12.0',
           'pysam>=0.9.1.3',
           'joblib>=0.9.3',
-          'changeo>=0.3.7',
+          'changeo>=1.3.0',
           'tqdm>=4.13.0',
           'weblogo>=3.7.9'],
       scripts=['bin/deduplicate.py',

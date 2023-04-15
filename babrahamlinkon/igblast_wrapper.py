@@ -24,7 +24,8 @@ from itertools import islice
 from joblib import Parallel, delayed
 import pkg_resources
 import logging
-
+import pandas as pd
+from io import StringIO
 
 def splice_fasta(fasta_path, chunk_size):
     '''Splice fasta into chunks
@@ -43,7 +44,7 @@ def splice_fasta(fasta_path, chunk_size):
         yield fasta_chunk
 
 #TODO:IgBlast fixed num_threads in version > 1.5, could test this later
-def igblast_worker(fasta, spe, custom_ref, aux_file, additional_flags, dj=False):
+def igblast_worker(fasta, spe, custom_ref, aux_file, additional_flags, dj=False, outfmt='7 std qseq sseq btop'):
 
     #if fasta string - stdin else file in
     if fasta.startswith('>'):
@@ -67,7 +68,7 @@ def igblast_worker(fasta, spe, custom_ref, aux_file, additional_flags, dj=False)
                 '-ig_seqtype', 'Ig' ,
                 '-organism', 'mouse',
                 '-num_threads', '1',
-                '-outfmt', '7 std qseq sseq btop',
+                '-outfmt', outfmt,
                 '-query', fasta_input, '-out', '-',
                 ]
         else:
@@ -80,11 +81,10 @@ def igblast_worker(fasta, spe, custom_ref, aux_file, additional_flags, dj=False)
                 '-ig_seqtype', 'Ig' ,
                 '-organism', 'mouse',
                 '-num_threads', '1',
-                '-outfmt', '7 std qseq sseq btop',
+                '-outfmt', outfmt,
                 '-query', fasta_input, '-out', '-',
                 ]
-        # if additional_flags is not None:
-        #     cmd = cmd + additional_flags
+
     elif spe == 'mmuk':
         cmd = ['igblastn',
             '-germline_db_V', DATA_PATH + 'Mus_musculus_IGKV',
@@ -95,7 +95,7 @@ def igblast_worker(fasta, spe, custom_ref, aux_file, additional_flags, dj=False)
             '-ig_seqtype', 'Ig' ,
             '-organism', 'mouse',
             '-num_threads', '1',
-            '-outfmt', '7 std qseq sseq btop',
+            '-outfmt', outfmt,
             '-query', fasta_input, '-out', '-',
             ]
     elif spe == 'hsa':
@@ -108,7 +108,7 @@ def igblast_worker(fasta, spe, custom_ref, aux_file, additional_flags, dj=False)
             '-ig_seqtype', 'Ig' ,
             '-organism', 'human',
             '-num_threads', '1',
-            '-outfmt', '7 std qseq sseq btop',
+            '-outfmt', outfmt,
             '-query', fasta_input, '-out', '-',
             ]
 
@@ -117,10 +117,15 @@ def igblast_worker(fasta, spe, custom_ref, aux_file, additional_flags, dj=False)
 
     result = subprocess.check_output(cmd, input=fasta if fasta_input == '-' else None, universal_newlines=True)
 
-    return result
+    if outfmt == '19': # AIRR format
+        result_sio = StringIO(result)
+        result_df = pd.read_csv(result_sio, sep = '\t')
+        return result_df
+    else:
+        return result
 
 
-def run_igblast(fasta, out_fmt, splice_size, spe, nprocs, custom_ref, dj=False, aux_file=None, additional_flags=None):
+def run_igblast(fasta, out_fmt, splice_size, spe, nprocs, custom_ref, dj=False, aux_file=None, additional_flags=None, outfmt='7 std qseq sseq btop'):
     '''Run IgBlast in parallel
     :param fasta: fasta file path
     :param out_fmt: out path for fmt7 file
@@ -129,6 +134,9 @@ def run_igblast(fasta, out_fmt, splice_size, spe, nprocs, custom_ref, dj=False, 
     :param nprocs: number of processes to run in parallel
     :param additional_flags: a list of additional flags to pass to igblast
     :param dj: call DJ recombination
+    :param aux_file: path to IgBlast aux file
+    :param additional_flags: any additional flags for IgBlast
+    :param outfmt: IgBlast output format
     '''
 
     DATA_PATH = pkg_resources.resource_filename('babrahamlinkon', 'resources/IgBlast_database/')
@@ -149,11 +157,16 @@ def run_igblast(fasta, out_fmt, splice_size, spe, nprocs, custom_ref, dj=False, 
         aux_file = DATA_PATH + 'optional_file/human_gl.aux'
 
     #returns a list of all the results
-    results = Parallel(n_jobs=nprocs)(delayed(igblast_worker)(chunk, spe, custom_ref, aux_file, additional_flags, dj) for chunk in splice_fasta(fasta, 10000))
+    results = Parallel(n_jobs=nprocs)(delayed(igblast_worker)(chunk, spe, custom_ref, aux_file, additional_flags, dj, outfmt) for chunk in splice_fasta(fasta, 10000))
 
-    with open(out_fmt, 'w') as out_file:
-        for item in range(len(results)):
-            out_file.write(results[item])
+    if outfmt == '19': # AIRR format
+        results_df = pd.concat(results, ignore_index=True)
+        results_df.to_csv(out_fmt, sep='\t', index=False)
+
+    else:
+        with open(out_fmt, 'w') as out_file:
+            for item in range(len(results)):
+                out_file.write(results[item])
 
 
 
@@ -171,19 +184,19 @@ def parse_igblast(fmt, fasta, spe, custom_ref, dj):
         if custom_ref:
             cmd = ['MakeDb.py', 'igblast', '-i', fmt, '-s', fasta,
             	'-r', DATA_PATH + 'Mus_musculus_IGH[JDV]_AEC.fasta',
-            	'--regions', '--scores', '--cdr3', '--partial']
+            	'--regions default', '--extended', '--partial']
         else:
             cmd = ['MakeDb.py', 'igblast', '-i', fmt, '-s', fasta,
             	'-r', DATA_PATH + 'Mus_musculus_IGH[JDV].fasta',
-            	'--regions', '--scores', '--cdr3', '--partial']
+            	'--regions default', '--extended', '--partial']
     elif spe == 'mmuk':
         cmd = ['MakeDb.py', 'igblast', '-i', fmt, '-s', fasta,
             '-r', DATA_PATH + 'Mus_musculus_IGK[JV].fasta',
-            '--regions', '--scores', '--cdr3', '--partial']
+            '--regions default', '--extended', '--partial']
     elif spe == 'hsa':
         cmd = ['MakeDb.py', 'igblast', '-i', fmt, '-s', fasta,
         	'-r', DATA_PATH + 'Homo_sapiens_IGH[JDV].fasta',
-        	'--regions', '--scores', '--cdr3', '--partial']
+        	'--regions default', '--extended', '--partial']
 
 
 
